@@ -1,13 +1,16 @@
 {
-  "orgName": "Demo company",
-  "edition": "Developer",
-  "features": ["EnableSetPasswordInApi"],
+  "orgName": "IAM Dev",
+  "edition": "Enterprise",
+  "features": ["PersonAccounts", "LightningServiceConsole", "ServiceCloud"],
   "settings": {
     "lightningExperienceSettings": {
       "enableS1DesktopEnabled": true
     },
     "mobileSettings": {
       "enableS1EncryptedStoragePref2": false
+    },
+    "nameSettings": {
+      "enableMiddleName": true
     }
   }
 }
