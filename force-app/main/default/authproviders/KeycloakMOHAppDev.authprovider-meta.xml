@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<AuthProvider xmlns="http://soap.sforce.com/2006/04/metadata">
+    <authorizeUrl>https://common-logon-dev.hlth.gov.bc.ca/auth/realms/moh_applications/protocol/openid-connect/auth</authorizeUrl>
+    <consumerKey>NONE</consumerKey>
+    <consumerSecret>NONE</consumerSecret>
+    <executionUser></executionUser>
+    <friendlyName>Keycloak MOH-App Dev</friendlyName>
+    <iconUrl>https://test.salesforce.com/icons/salesforce-black.png</iconUrl>
+    <includeOrgIdInIdentifier>false</includeOrgIdInIdentifier>
+    <providerType>OpenIdConnect</providerType>
+    <registrationHandler>KeycloakRegistrationHandler</registrationHandler>
+    <sendAccessTokenInHeader>true</sendAccessTokenInHeader>
+    <sendClientCredentialsInHeader>true</sendClientCredentialsInHeader>
+    <sendSecretInApis>true</sendSecretInApis>
+    <tokenUrl>https://common-logon-dev.hlth.gov.bc.ca/auth/realms/moh_applications/protocol/openid-connect/token</tokenUrl>
+    <userInfoUrl>https://common-logon-dev.hlth.gov.bc.ca/auth/realms/moh_applications/protocol/openid-connect/userinfo</userInfoUrl>
+</AuthProvider>
