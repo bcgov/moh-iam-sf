@@ -35,22 +35,7 @@ global class KeycloakRegistrationHandler implements Auth.RegistrationHandler{
         User[] fetchExistingUser = [Select Id, FederationIdentifier FROM User where username =: l_username];
         if (fetchExistingUser.size() == 0)
         {
-            String licenseType = '';
-            UserRegistrationCustomMetadataUtility fetchLicenseType = New UserRegistrationCustomMetadataUtility(data.attributeMap.get('roles'));
-            List<User_Registration_User_Mapping__mdt> foundRoleMaping = new List<User_Registration_User_Mapping__mdt>();
-            foundRoleMaping.add(fetchLicenseType.ReadMapping(data.attributeMap.get('roles')));
-            
-            if (foundRoleMaping.size() > 0)
-            {
-                for (User_Registration_User_Mapping__mdt foundRoleMaping_rec : foundRoleMaping)
-                {
-                    licenseType = foundRoleMaping_rec.Salesforce_User_License__c;
-                    if(UserRegistrationService.checkAvailableLicense(licenseType))
-                    {
-                        isUserCreate = true;
-                    }
-                }
-            }
+            isUserCreate = true;
         }
         System.debug(data);
         return isUserCreate ;
