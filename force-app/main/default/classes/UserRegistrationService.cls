@@ -200,7 +200,7 @@ public class UserRegistrationService{
     
     private static void managePermissionSet(Id userId, Auth.UserData data)
     {
-         /*
+          /*
         * Description: Manage user permissionset(s)
         * Parameters:
         *     Id userId: Id of the user logging into the system via provider
@@ -210,16 +210,56 @@ public class UserRegistrationService{
         * 
         */            
         Set<Id> userIds = new Set<Id>();
+        Set<Id> roleIds = new Set<Id>();
         Set<Id> PermIds = new Set<Id>();
+        Set<String> availableRoles = new Set<String>();
+        
+        String UserRoleAssign = data.attributeMap.get('roles');
         
         UserRegistrationCustomMetadataUtility processPermissions = new UserRegistrationCustomMetadataUtility();
-        UserRegistrationCustomMetadataUtility processRoles = new UserRegistrationCustomMetadataUtility(data.attributeMap.get('roles'));
-        
-        Set<String> associatedPermset = new Set<String>();
-        for (User_Registration_Permission_Set__mdt fetchedPermissionSet : processRoles.ReadPermissionSet(data.attributeMap.get('roles')))
+        UserRegistrationCustomMetadataUtility processRoles = new UserRegistrationCustomMetadataUtility(UserRoleAssign);
+        System.debug('data.attributeMap.get(roles):' + UserRoleAssign);
+       
+        User_Registration_User_Mapping__mdt userRole = new User_Registration_User_Mapping__mdt();
+        // get role metadata
+        for (User_Registration_User_Mapping__mdt userMapping : processRoles.userMapping)
         {
-            System.debug('fetchedPermissionSet:' + fetchedPermissionSet);
-            associatedPermset.add(fetchedPermissionSet.Salesforce_Permission_Set__c);
+            system.debug('userMapping:' + userMapping);
+            availableRoles.add(userMapping.DeveloperName);
+            
+            if (userMapping.External_Provider_Role__c == UserRoleAssign)
+            {
+                roleIds.add(userMapping.Id);
+               userRole = userMapping;
+            }
+        }
+        
+        system.debug('userRole:' +userRole);
+        List<PermissionSetAssignment> removeOtherPerms = new List<PermissionSetAssignment>();
+        for(PermissionSetAssignment existingPSAByUser_rec : [SELECT AssigneeId,Id,PermissionSetId,PermissionSet.Name 
+                                                                FROM PermissionSetAssignment 
+                                                                WHERE AssigneeId =: userId
+                                                                AND PermissionSet.Name IN:availableRoles  
+                                                                ORDER BY AssigneeId ASC])
+        {
+            system.debug('existingPSAByUser_rec:' + existingPSAByUser_rec.PermissionSet.Name);
+            system.debug('userRole.DeveloperName:' + userRole.DeveloperName);
+            if(userRole.DeveloperName != existingPSAByUser_rec.PermissionSet.Name)
+            {
+                removeOtherPerms.add(existingPSAByUser_rec);
+            }
+        }        
+        system.debug('removeOtherPerms:'+removeOtherPerms);
+        // get permission metadata
+        Set<String> associatedPermset = new Set<String>();
+        for (User_Registration_Permission_Set__mdt userPerms : processRoles.userPermissionSet)
+        {
+            if (userRole.DeveloperName == userPerms.Salesforce_Permission_Set__c)
+            {
+                System.debug('userPerms :' + userPerms );
+                associatedPermset.add(userPerms.Salesforce_Permission_Set__c);
+            }
+        
         }
         
         System.debug('UserData:' + data);
@@ -227,23 +267,45 @@ public class UserRegistrationService{
         System.debug('UserData.attributeMap: ' + Data.attributeMap);
         
         List<PermissionSetAssignment> permissionSetAssignList = new List<PermissionSetAssignment>();
+        List<PermissionSetAssignment> permissionSetRemoveList = new List<PermissionSetAssignment>();
+        Set<Id> genPSA_set = new Set<Id>();
         List<PermissionSet> permissionSetList = new List<PermissionSet>();
         for (PermissionSet perm : [SELECT ID FROM PermissionSet  WHERE  Name IN: associatedPermset])
         { 
-            PermissionSetAssignment psa = new PermissionSetAssignment (PermissionSetId = perm.Id, AssigneeId = userId);
             List<PermissionSetAssignment> existingPermSetAssign = [Select Id from PermissionSetAssignment where PermissionSetId =: perm.Id and AssigneeId =: userId];
-            if(existingPermSetAssign.size() == 0)
+            for(PermissionSetAssignment genPSA_rec : existingPermSetAssign)
             {
-                permissionSetAssignList.add(psa);
+                genPSA_set.add(genPSA_rec.Id);
+                PermissionSetAssignment psaRemove_rec = new PermissionSetAssignment (Id = genPSA_rec.Id, PermissionSetId = perm.Id, AssigneeId = userId);
+                permissionSetRemoveList.add(psaRemove_rec);
+                System.debug('permissionSetRemoveList:' + permissionSetRemoveList);                
             }
+            System.debug('existingPermSetAssign.size():' + existingPermSetAssign.size());
+            if(existingPermSetAssign.size() > 0)
+            {
+
+            } else
+            {
+                PermissionSetAssignment psa = new PermissionSetAssignment (PermissionSetId = perm.Id, AssigneeId = userId);
+                permissionSetAssignList.add(psa);
+                System.debug('permissionSetAssignList:' + permissionSetAssignList);
+            }
+            
         }
         try{
-            
+            //List<PermissionSetAssignment> removeOtherPerms = [Select Id 
+            //                                                    from PermissionSetAssignment 
+            //                                                    where  Id in: permissionSetRemoveList and AssigneeId =: userId]; //Id in: permissionSetRemoveList and
+            if(removeOtherPerms.size() > 0)
+            {
+                delete removeOtherPerms;
+            }            
             upsert permissionSetAssignList;
+            
+            
         }catch(exception e){
             system.debug('exception caught:' + e);
-        }    
-            
+        }   
     
     }
     
@@ -266,6 +328,23 @@ public class UserRegistrationService{
         System.debug('roles:'+ roles);
         
         return roles;
+    }
+    
+    private static string fetchLicenseType(Auth.UserData data)
+    {
+        String licenseType = '';
+        UserRegistrationCustomMetadataUtility fetchLicenseType = New UserRegistrationCustomMetadataUtility(data.attributeMap.get('roles'));
+        List<User_Registration_User_Mapping__mdt> foundRoleMaping = new List<User_Registration_User_Mapping__mdt>();
+        foundRoleMaping.add(fetchLicenseType.ReadMapping(data.attributeMap.get('roles')));
+        
+        if (foundRoleMaping.size() > 0)
+        {
+            for (User_Registration_User_Mapping__mdt foundRoleMaping_rec : foundRoleMaping)
+            {
+                licenseType = foundRoleMaping_rec.Salesforce_User_License__c;
+            }
+        }
+        Return licenseType;
     }
     
     public static string generateUserName(Auth.UserData data)
