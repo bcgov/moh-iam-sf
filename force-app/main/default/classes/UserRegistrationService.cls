@@ -191,6 +191,7 @@ public class UserRegistrationService{
             for (UserRole userRole_rec: [SELECT DeveloperName,Id,Name FROM UserRole Where Name =: matchingRole_rec.Salesforce_User_Role__c])
             {
                 existingUser.UserRoleId = userRole_rec.Id;
+                existingUser.isActive = true;
             }
         }
         
