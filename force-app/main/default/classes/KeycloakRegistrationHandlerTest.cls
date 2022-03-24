@@ -68,7 +68,6 @@ public class KeyCloakRegistrationHandlerTest {
       Id devRecordTypeId = Schema.SObjectType.Account.getRecordTypeInfosByName()
         .get('Business')
         .getRecordTypeId();
-      //System.debug(devRecordTypeId);
       Account bulkAccount = new Account(
         Name = 'Keycloak',
         FirstNAme = 'TestFirst',

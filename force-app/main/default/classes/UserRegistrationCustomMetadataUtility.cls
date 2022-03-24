@@ -86,7 +86,6 @@ public class UserRegistrationCustomMetadataUtility{
         //Create single instance of Metadata
         User_Registration_User_Mapping__mdt foundUserMapping_md = new User_Registration_User_Mapping__mdt();
         //Find keycloakRole in userMapping
-        System.debug('userMappingByRole_map:' + userMappingByRole_map);
         if (userMappingByRole_map.containsKey(keycloakRole))
         {
             foundUserMapping_md = userMappingByRole_map.get(keycloakRole);
@@ -124,8 +123,6 @@ public class UserRegistrationCustomMetadataUtility{
                 }
             }
         }
-        System.debug('foundPermissionSet_list:' + foundPermissionSet_list);
-        
         return foundPermissionSet_list;
     }
 }

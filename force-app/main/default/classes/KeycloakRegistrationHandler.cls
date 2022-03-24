@@ -37,7 +37,6 @@ global class KeycloakRegistrationHandler implements Auth.RegistrationHandler{
         {
             isUserCreate = true;
         }
-        System.debug(data);
         return isUserCreate ;
     }
     

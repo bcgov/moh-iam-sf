@@ -71,11 +71,8 @@ public class UserRegistrationService{
         * 
         */
         //Verify user data - to be removed prior to completion
-        System.debug('UserRegistrationService.createUser');
         String userdata = JSON.serialize(data.attributeMap);
-        System.debug('data:' + data);
-        System.debug('userdata:' + userdata);
-        
+
         //Create user
         String l_username = UserRegistrationService.generateUserName(data);
         
@@ -97,8 +94,6 @@ public class UserRegistrationService{
                 newUser.FederationIdentifier = data.username;
                 newUser.alias = UserRegistrationService.generateUserAlias(data);
                 
-                System.debug('UserInfo.getLanguage();' + UserInfo.getLanguage());
-                System.debug('UserInfo.getLocale();' + UserInfo.getLocale());
                 newUser.languagelocalekey = UserInfo.getLanguage();
                 newUser.localesidkey = UserInfo.getLocale();
                 newUser.emailEncodingKey = 'UTF-8';
@@ -110,19 +105,15 @@ public class UserRegistrationService{
          // Update user role & permissionset based on latest payload
         UserRegistrationCustomMetadataUtility processRoles = new UserRegistrationCustomMetadataUtility();
         
-        System.debug('newUser:' + newUser);
         // add/update any new permission sets
         managePermissionSet(newUser.Id, data);
         
         // add/update user role
         List<User_Registration_User_Mapping__mdt>  matchingRole_list = new List<User_Registration_User_Mapping__mdt>();
         
-        System.debug('matchingRole_list:' + matchingRole_list);
-        
         matchingRole_list.add(manageUserRole(newUser.Id, data));
         for (User_Registration_User_Mapping__mdt matchingRole_rec : matchingRole_list)
         {
-            System.debug('matchingRole_rec:' + matchingRole_rec);
             for (UserRole userRole_rec: [SELECT DeveloperName,Id,Name FROM UserRole Where Name =: matchingRole_rec.Salesforce_User_Role__c])
             {
                 newUser.UserRoleId = userRole_rec.Id;
@@ -150,12 +141,9 @@ public class UserRegistrationService{
                              From User where Id =: userId];
         
          //Verify user data - to be removed prior to completion
-        System.debug('UserRegistrationService.updateUser');
+
         String l_userdata = JSON.serialize(data.attributeMap);
-        String l_username = UserRegistrationService.generateUserName(data);
-        
-        System.debug('l_userdata:' + l_userdata);
-        System.debug('l_username:' + l_username);       
+        String l_username = UserRegistrationService.generateUserName(data);    
 
         if (existingUser.username != l_username)
         {
@@ -225,13 +213,11 @@ public class UserRegistrationService{
         
         UserRegistrationCustomMetadataUtility processPermissions = new UserRegistrationCustomMetadataUtility();
         UserRegistrationCustomMetadataUtility processRoles = new UserRegistrationCustomMetadataUtility(UserRoleAssign);
-        System.debug('data.attributeMap.get(roles):' + UserRoleAssign);
        
         User_Registration_User_Mapping__mdt userRole = new User_Registration_User_Mapping__mdt();
         // get role metadata
         for (User_Registration_User_Mapping__mdt userMapping : processRoles.userMapping)
         {
-            system.debug('userMapping:' + userMapping);
             availableRoles.add(userMapping.DeveloperName);
             
             if (userMapping.External_Provider_Role__c == UserRoleAssign)
@@ -241,7 +227,6 @@ public class UserRegistrationService{
             }
         }
         
-        system.debug('userRole:' +userRole);
         List<PermissionSetAssignment> removeOtherPerms = new List<PermissionSetAssignment>();
         for(PermissionSetAssignment existingPSAByUser_rec : [SELECT AssigneeId,Id,PermissionSetId,PermissionSet.Name 
                                                                 FROM PermissionSetAssignment 
@@ -249,29 +234,23 @@ public class UserRegistrationService{
                                                                 AND PermissionSet.Name IN:availableRoles  
                                                                 ORDER BY AssigneeId ASC])
         {
-            system.debug('existingPSAByUser_rec:' + existingPSAByUser_rec.PermissionSet.Name);
-            system.debug('userRole.DeveloperName:' + userRole.DeveloperName);
             if(userRole.DeveloperName != existingPSAByUser_rec.PermissionSet.Name)
             {
                 removeOtherPerms.add(existingPSAByUser_rec);
             }
         }        
-        system.debug('removeOtherPerms:'+removeOtherPerms);
+
         // get permission metadata
         Set<String> associatedPermset = new Set<String>();
         for (User_Registration_Permission_Set__mdt userPerms : processRoles.userPermissionSet)
         {
             if (userRole.DeveloperName == userPerms.Salesforce_Permission_Set__c)
             {
-                System.debug('userPerms :' + userPerms );
+
                 associatedPermset.add(userPerms.Salesforce_Permission_Set__c);
             }
         
         }
-        
-        System.debug('UserData:' + data);
-        //System.debug('UserData.attributeMap: ' + UserData.attributeMap);
-        System.debug('UserData.attributeMap: ' + Data.attributeMap);
         
         List<PermissionSetAssignment> permissionSetAssignList = new List<PermissionSetAssignment>();
         List<PermissionSetAssignment> permissionSetRemoveList = new List<PermissionSetAssignment>();
@@ -284,10 +263,8 @@ public class UserRegistrationService{
             {
                 genPSA_set.add(genPSA_rec.Id);
                 PermissionSetAssignment psaRemove_rec = new PermissionSetAssignment (Id = genPSA_rec.Id, PermissionSetId = perm.Id, AssigneeId = userId);
-                permissionSetRemoveList.add(psaRemove_rec);
-                System.debug('permissionSetRemoveList:' + permissionSetRemoveList);                
+                permissionSetRemoveList.add(psaRemove_rec);            
             }
-            System.debug('existingPermSetAssign.size():' + existingPermSetAssign.size());
             if(existingPermSetAssign.size() > 0)
             {
 
@@ -295,7 +272,6 @@ public class UserRegistrationService{
             {
                 PermissionSetAssignment psa = new PermissionSetAssignment (PermissionSetId = perm.Id, AssigneeId = userId);
                 permissionSetAssignList.add(psa);
-                System.debug('permissionSetAssignList:' + permissionSetAssignList);
             }
             
         }
@@ -331,8 +307,6 @@ public class UserRegistrationService{
         UserRegistrationCustomMetadataUtility processRoles = new UserRegistrationCustomMetadataUtility(data.attributeMap.get('roles'));
 
         User_Registration_User_Mapping__mdt roles = processRoles.ReadMapping(data.attributeMap.get('roles'));
-        
-        System.debug('roles:'+ roles);
         
         return roles;
     }
@@ -420,74 +394,5 @@ public class UserRegistrationService{
         
         //Remove user
         
-    }
-    
-    public Static void manageKeycloakUsers() {
-        String clientId = 'MAID-CASE-MANAGEMENT-1';
-        String clientSecret = '1212c064-53c0-41a1-826a-d932403aab11';
-        String refreshToken = '';
-        String authUrl = 'https://common-logon-dev.hlth.gov.bc.ca/auth/realms/moh_applications/protocol/openid-connect/token';
-        //cfUrl = myobIntg.Company_File_URL__c;
-        DateTime lastSync = System.now();
-        Map<String, String> authJson = new Map<String, String>();
-        // Get the Access Token using the Refresh Token.
-        Http http = new Http();
-        HttpRequest request = new HttpRequest();
-        request.setEndpoint(authUrl);
-        request.setMethod('POST');    
-        request.setHeader('Content-Type', 'application/x-www-form-urlencoded');
-        String payload = 'client_id='+EncodingUtil.urlEncode(clientId,'UTF-8')+'&client_secret='+EncodingUtil.urlEncode(clientSecret,'UTF-8')+'&grant_type=client_credentials';
-        String auth_token='';
-        String user_fed = 'rpoystil@idir';
-        System.debug(payload);
-        System.debug(request);
-        
-        request.setBody(payload);
-        HttpResponse response = http.send(request);
-        Map<String, Object> result = New Map<String, Object>();
-        // Parse the JSON response
-        if (response.getStatusCode() != 200) {
-          System.debug('The status code returned was not expected: ' + response.getStatusCode() + ' ' + response.getStatus());
-        } else {
-          System.debug(response.getBody());
-          result = (Map<String, Object>)JSON.deserializeUntyped(response.getBody());
-          System.debug(result);
-          System.debug(result.get('access_token'));
-          auth_token=(String)result.get('access_token');
-        }
-        // Get the user info using authorization Token.
-        String reqUrl = 'https://user-management-dev.api.hlth.gov.bc.ca/users/afaeb84e-8a34-4719-92c7-8001152da88c'; 
-        http = new Http();
-        request = new HttpRequest();
-        request.setEndpoint(reqUrl);
-        request.setMethod('GET');    
-        request.setHeader('Content-Type', 'application/x-www-form-urlencoded');
-        request.setHeader('Authorization','Bearer '+EncodingUtil.urlEncode(auth_token,'UTF-8'));
-        //payload = 'Authorization: Bearer '+EncodingUtil.urlEncode(auth_token,'UTF-8');
-        System.debug(request);
-        
-        //request.setBody(payload);
-        HttpResponse response2 = http.send(request);
-        //List<User> list_user = new List<User>();
-        List<Id> usersDeactivate = new List<Id>();
-        List<Id> portalIds = new List<Id>();
-        List<Auth.UserData> data = new List<Auth.UserData>();
-        if(response.getStatusCode() == 200) {
-            for (user updateUser : [select Id, isActive from User where FederationIdentifier =: user_fed])
-            {
-                usersDeactivate.add(updateUser.Id);
-                //updateUser.isActive = false;
-                //list_user.add(updateUser);
-            }
-            if (usersDeactivate.size() > 0) {
-                
-                UserRegistrationService.updateUsers(usersDeactivate,portalIds,data);
-            }
-    
-            //update list_user;
-            
-        }    
-    }
-    
-    
+    }    
 }
