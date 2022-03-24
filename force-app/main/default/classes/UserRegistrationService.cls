@@ -20,7 +20,7 @@
 */
 
 
-public class UserRegistrationService{
+public with sharing class UserRegistrationService{
 
     public static void createUsers(List<Id> portalId, List<Auth.UserData> data){
 /*
@@ -337,9 +337,14 @@ public class UserRegistrationService{
         * Returns:
         *     String: Username
         * 
-        */          
+        */
+        String suffixName = '';
+        Organization currentEnvironment = [SELECT InstanceName, IsSandbox FROM Organization WHERE Id = :UserInfo.getOrganizationId() Limit 1];          
         integer unique_num = Math.mod(Math.abs(Crypto.getRandomInteger()), 10);
-        return data.identifier + '@MoH.com';
+        if (currentEnvironment != null && currentEnvironment.IsSandbox) {
+            suffixName = '.' + currentEnvironment.InstanceName;
+        }
+        return data.identifier + '@MoH.com' + suffixName;
     }
     
     public static string generateUserAlias(Auth.UserData data)
@@ -353,7 +358,7 @@ public class UserRegistrationService{
         * 
         */    
         integer unique_num = Math.mod(Math.abs(Crypto.getRandomInteger()), 10);
-        return String.valueof(data.username.left(4) + '' + String.Valueof(unique_num)).left(8);
+        return String.valueof(data.username.left(4) + '_' + String.Valueof(unique_num)).left(8);
     }
     
     public static Boolean checkAvailableLicense(String licenseType) 
@@ -395,4 +400,5 @@ public class UserRegistrationService{
         //Remove user
         
     }    
+
 }
