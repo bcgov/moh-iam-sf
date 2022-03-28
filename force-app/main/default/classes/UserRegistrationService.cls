@@ -126,7 +126,9 @@ public with sharing class UserRegistrationService{
             update newUser;
         }
         catch (Exception e) {
+            system.debug(e.getMessage());
             throw e;
+            //throw new Auth.LoginDiscoveryException(e.getMessage());
         }
         return newUser;
     }
@@ -199,7 +201,9 @@ public with sharing class UserRegistrationService{
             update(existingUser);
         } 
         catch (Exception e) {
+            System.debug(e.getMessage());
             throw e;
+            //throw new Auth.LoginDiscoveryException(e.getMessage());
         }
         
     }
