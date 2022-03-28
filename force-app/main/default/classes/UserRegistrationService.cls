@@ -101,26 +101,33 @@ public with sharing class UserRegistrationService{
                 newUser.profileId = p.Id;
             }
         }
-        insert newUser;
-         // Update user role & permissionset based on latest payload
-        UserRegistrationCustomMetadataUtility processRoles = new UserRegistrationCustomMetadataUtility();
-        
-        // add/update any new permission sets
-        managePermissionSet(newUser.Id, data);
-        
-        // add/update user role
-        List<User_Registration_User_Mapping__mdt>  matchingRole_list = new List<User_Registration_User_Mapping__mdt>();
-        
-        matchingRole_list.add(manageUserRole(newUser.Id, data));
-        for (User_Registration_User_Mapping__mdt matchingRole_rec : matchingRole_list)
-        {
-            for (UserRole userRole_rec: [SELECT DeveloperName,Id,Name FROM UserRole Where Name =: matchingRole_rec.Salesforce_User_Role__c])
+        try {
+
+
+            insert newUser;
+            // Update user role & permissionset based on latest payload
+            UserRegistrationCustomMetadataUtility processRoles = new UserRegistrationCustomMetadataUtility();
+            
+            // add/update any new permission sets
+            managePermissionSet(newUser.Id, data);
+            
+            // add/update user role
+            List<User_Registration_User_Mapping__mdt>  matchingRole_list = new List<User_Registration_User_Mapping__mdt>();
+            
+            matchingRole_list.add(manageUserRole(newUser.Id, data));
+            for (User_Registration_User_Mapping__mdt matchingRole_rec : matchingRole_list)
             {
-                newUser.UserRoleId = userRole_rec.Id;
-            }
-        }       
-        
-        update newUser;
+                for (UserRole userRole_rec: [SELECT DeveloperName,Id,Name FROM UserRole Where Name =: matchingRole_rec.Salesforce_User_Role__c])
+                {
+                    newUser.UserRoleId = userRole_rec.Id;
+                }
+            }       
+            
+            update newUser;
+        }
+        catch (Exception e) {
+            throw e;
+        }
         return newUser;
     }
     
@@ -188,8 +195,12 @@ public with sharing class UserRegistrationService{
                 existingUser.isActive = true;
             }
         }
-        
-        update(existingUser);
+        try {
+            update(existingUser);
+        } 
+        catch (Exception e) {
+            throw e;
+        }
         
     }
     
@@ -391,14 +402,5 @@ public with sharing class UserRegistrationService{
         return isLicenseAvailable;
         
     }
-        
-    public static void deleteUser(Id userId, Id portalId, Auth.UserData data) {
-        
-        //Verify user
-        
-        
-        //Remove user
-        
-    }    
 
 }

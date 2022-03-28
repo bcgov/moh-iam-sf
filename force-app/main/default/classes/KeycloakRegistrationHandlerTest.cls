@@ -1,5 +1,5 @@
 @isTest
-public class KeyCloakRegistrationHandlerTest {
+public class KeycloakRegistrationHandlerTest {
   private static final String OAUTH_TOKEN = 'testToken';
   private static final String STATE = 'mocktestState';
   private static final String REFRESH_TOKEN = 'refreshToken';
