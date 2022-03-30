@@ -354,11 +354,14 @@ public with sharing class UserRegistrationService{
         * 
         */
         String suffixName = '';
-        Organization currentEnvironment = [SELECT InstanceName, IsSandbox FROM Organization WHERE Id = :UserInfo.getOrganizationId() Limit 1];          
-        integer unique_num = Math.mod(Math.abs(Crypto.getRandomInteger()), 10);
-        if (currentEnvironment != null && currentEnvironment.IsSandbox) {
-            suffixName = '.' + currentEnvironment.InstanceName;
+        String customDomain = URL.getSalesforceBaseUrl().toExternalForm()
+                        .substringAfter('https://')
+                        .substringBefore('.');
+        suffixName = CustomDomain.substringAfter('--');
+        if (String.isEmpty(suffixName)) {
+            suffixName = customDomain;
         }
+        
         return data.identifier + '@MoH.com' + suffixName;
     }
     

@@ -29,10 +29,8 @@ global class KeycloakRegistrationHandler implements Auth.RegistrationHandler{
      */
         
         boolean isUserCreate = false;
-        String l_username = UserRegistrationService.generateUserName(data);
         
-        
-        User[] fetchExistingUser = [Select Id, FederationIdentifier FROM User where username =: l_username];
+        User[] fetchExistingUser = [Select Id, FederationIdentifier FROM User where FederationIdentifier =: data.username];
         if (fetchExistingUser.size() == 0)
         {
             isUserCreate = true;
