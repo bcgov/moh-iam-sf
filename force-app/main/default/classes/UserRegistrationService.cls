@@ -354,7 +354,8 @@ public with sharing class UserRegistrationService{
         * 
         */
         String suffixName = '';
-        String customDomain = URL.getSalesforceBaseUrl().toExternalForm()
+        String customDomain = URL.getSalesforceBaseUrl()
+                        .toExternalForm()
                         .substringAfter('https://')
                         .substringBefore('.');
         suffixName = CustomDomain.substringAfter('--');
@@ -362,7 +363,7 @@ public with sharing class UserRegistrationService{
             suffixName = customDomain;
         }
         
-        return data.identifier + '@MoH.com' + suffixName;
+        return data.identifier + '@MoH.com.' + suffixName;
     }
     
     public static string generateUserAlias(Auth.UserData data)
