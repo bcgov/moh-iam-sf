@@ -307,7 +307,7 @@ public with sharing class UserRegistrationService{
             
         }
         // PermissionSetGroup's
-        for (PermissionSet perm : [SELECT ID FROM PermissionSetGroup  WHERE  Name IN: associatedPermset])
+        for (PermissionSetGroup perm : [SELECT ID FROM PermissionSetGroup  WHERE  DeveloperName IN: associatedPermset])
         { 
             for(PermissionSetAssignment genPSArec : existingPermSetAssign)
             {
