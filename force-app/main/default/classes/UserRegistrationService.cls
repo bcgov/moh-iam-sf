@@ -21,6 +21,9 @@
 
 
 public with sharing class UserRegistrationService{
+    public static String USER_ASSIGNMENT_TYPE_PERMISSIONSET = 'Permission Set';
+    public static String USER_ASSIGNMENT_TYPE_PERMISSIONSETGROUP = 'Permission Set Group';
+
 
     public static void createUsers(List<Id> portalId, List<Auth.UserData> data){
 /*
@@ -238,7 +241,7 @@ public with sharing class UserRegistrationService{
             if (userMapping.External_Provider_Role__c == UserRoleAssign)
             {
                 roleIds.add(userMapping.Id);
-               userRole = userMapping;
+                userRole = userMapping;
             }
         }
         
@@ -257,43 +260,74 @@ public with sharing class UserRegistrationService{
 
         // get permission metadata
         Set<String> associatedPermset = new Set<String>();
+        Set<String> associatedPermsetGroup= new Set<String>();
         for (User_Registration_Permission_Set__mdt userPerms : processRoles.userPermissionSet)
         {
-            if (userRole.DeveloperName == userPerms.Salesforce_Permission_Set__c)
+            if (userPerms.Assignment_Type__c == USER_ASSIGNMENT_TYPE_PERMISSIONSET)
             {
-
-                associatedPermset.add(userPerms.Salesforce_Permission_Set__c);
+                if (userRole.DeveloperName == userPerms.QualifiedApiName)
+                {
+                    associatedPermset.add(userPerms.Salesforce_Permission_Set__c);
+                }
+            } else if (userPerms.Assignment_Type__c == USER_ASSIGNMENT_TYPE_PERMISSIONSETGROUP)
+            {
+                if (userRole.DeveloperName == userPerms.QualifiedApiName)
+                {
+    
+                    associatedPermsetGroup.add(userPerms.Salesforce_Permission_Set_Group__c);
+                } 
             }
-        
+
         }
+        //fetch current Assignments
+        List<PermissionSetAssignment> existingPermSetAssign = [Select Id, PermissionSetGroupId, PermissionSetId, IsActive from PermissionSetAssignment where AssigneeId =: userId];
         
         List<PermissionSetAssignment> permissionSetAssignList = new List<PermissionSetAssignment>();
         List<PermissionSetAssignment> permissionSetRemoveList = new List<PermissionSetAssignment>();
-        Set<Id> genPSA_set = new Set<Id>();
+        Set<Id> genPSAset = new Set<Id>();
         List<PermissionSet> permissionSetList = new List<PermissionSet>();
+        // PermissionSet's
         for (PermissionSet perm : [SELECT ID FROM PermissionSet  WHERE  Name IN: associatedPermset])
         { 
-            List<PermissionSetAssignment> existingPermSetAssign = [Select Id from PermissionSetAssignment where PermissionSetId =: perm.Id and AssigneeId =: userId];
-            for(PermissionSetAssignment genPSA_rec : existingPermSetAssign)
+            for(PermissionSetAssignment genPSArec : existingPermSetAssign)
             {
-                genPSA_set.add(genPSA_rec.Id);
-                PermissionSetAssignment psaRemove_rec = new PermissionSetAssignment (Id = genPSA_rec.Id, PermissionSetId = perm.Id, AssigneeId = userId);
-                permissionSetRemoveList.add(psaRemove_rec);            
+                if (genPSArec.PermissionSetGroupId == null)
+                {
+                    genPSAset.add(genPSArec.Id);
+                    PermissionSetAssignment psaRemoverec = new PermissionSetAssignment (Id = genPSArec.Id);
+                    permissionSetRemoveList.add(psaRemoverec);  
+                }
+          
             }
-            if(existingPermSetAssign.size() > 0)
-            {
-
-            } else
+            if(existingPermSetAssign.size() == 0)
             {
                 PermissionSetAssignment psa = new PermissionSetAssignment (PermissionSetId = perm.Id, AssigneeId = userId);
                 permissionSetAssignList.add(psa);
             }
             
         }
+        // PermissionSetGroup's
+        for (PermissionSet perm : [SELECT ID FROM PermissionSetGroup  WHERE  Name IN: associatedPermset])
+        { 
+            for(PermissionSetAssignment genPSArec : existingPermSetAssign)
+            {
+                if (genPSArec.PermissionSetGroupId != null)
+                {
+                    genPSAset.add(genPSArec.Id);
+                    PermissionSetAssignment psaRemoverec = new PermissionSetAssignment (Id = genPSArec.Id);
+                    permissionSetRemoveList.add(psaRemoverec);     
+                }
+       
+            }
+            if(existingPermSetAssign.size() == 0)
+            {
+                PermissionSetAssignment psa = new PermissionSetAssignment (PermissionSetGroupId = perm.Id, AssigneeId = userId);
+                permissionSetAssignList.add(psa);
+            }
+            
+        }
+
         try{
-            //List<PermissionSetAssignment> removeOtherPerms = [Select Id 
-            //                                                    from PermissionSetAssignment 
-            //                                                    where  Id in: permissionSetRemoveList and AssigneeId =: userId]; //Id in: permissionSetRemoveList and
             if(removeOtherPerms.size() > 0)
             {
                 delete removeOtherPerms;

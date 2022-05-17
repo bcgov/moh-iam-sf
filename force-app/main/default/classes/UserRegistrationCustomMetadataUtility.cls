@@ -63,7 +63,7 @@ public class UserRegistrationCustomMetadataUtility{
         //Fetch metadata for PermissionSet mapping
         userPermissionSet = [SELECT DeveloperName,External_Provider_User_Mapping__c,Id,Label,Language,MasterLabel,
                                     NamespacePrefix,QualifiedApiName,Salesforce_Permission_Set_Group__c,
-                                    Salesforce_Permission_Set__c 
+                                    Salesforce_Permission_Set__c, Assignment_Type__c 
                               FROM User_Registration_Permission_Set__mdt];
                               
         // Load Map object for searching values   
