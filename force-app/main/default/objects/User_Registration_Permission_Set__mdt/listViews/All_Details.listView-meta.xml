@@ -2,6 +2,7 @@
 <ListView xmlns="http://soap.sforce.com/2006/04/metadata">
     <fullName>All_Details</fullName>
     <columns>MasterLabel</columns>
+    <columns>Assignment_Type__c</columns>
     <columns>DeveloperName</columns>
     <columns>NamespacePrefix</columns>
     <columns>External_Provider_User_Mapping__c</columns>
