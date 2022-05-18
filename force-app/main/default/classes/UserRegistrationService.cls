@@ -82,13 +82,14 @@ public with sharing class UserRegistrationService{
         UserRegistrationCustomMetadataUtility fetchRoles = new UserRegistrationCustomMetadataUtility(data.attributeMap.get('roles'));
         list<User_Registration_User_Mapping__mdt> userRole_list = new list<User_Registration_User_Mapping__mdt>();
         userRole_list.add(fetchRoles.ReadMapping(data.attributeMap.get('roles')));
-        
+        system.debug('data:'+ json.serializePretty(data));
         User newUser = new User();
         if (userRole_list.size() > 0)
         {
             for (User_Registration_User_Mapping__mdt userRole_rec : userRole_list)
             {
-                Profile p = [SELECT Id FROM profile WHERE name=:userRole_rec.Salesforce_User_Profile__c];
+            system.debug('userRole_rec:' + userRole_rec );
+                Profile p = [SELECT Id FROM profile WHERE name='MoH Standard User']; //:userRole_rec.Salesforce_User_Profile__c];
         
                 newUser.username = l_username;
                 newUser.email = data.email;
@@ -147,6 +148,7 @@ public with sharing class UserRegistrationService{
         *     None
         * 
         */       
+        system.debug('data:'+ json.serializePretty(data));
         //Fetch Salesforce Id
         User existingUser = [Select Id, username, email,lastname,firstname,alias,
                                 emailEncodingKey,timeZoneSidKey,languagelocaleKey,localesidkey
@@ -249,7 +251,7 @@ public with sharing class UserRegistrationService{
         for(PermissionSetAssignment existingPSAByUser_rec : [SELECT AssigneeId,Id,PermissionSetId,PermissionSet.Name 
                                                                 FROM PermissionSetAssignment 
                                                                 WHERE AssigneeId =: userId
-                                                                AND PermissionSet.Name IN:availableRoles  
+                                                                AND PermissionSet.ProfileId = null  
                                                                 ORDER BY AssigneeId ASC])
         {
             if(userRole.DeveloperName != existingPSAByUser_rec.PermissionSet.Name)
@@ -299,15 +301,12 @@ public with sharing class UserRegistrationService{
                 }
           
             }
-            if(existingPermSetAssign.size() == 0)
-            {
-                PermissionSetAssignment psa = new PermissionSetAssignment (PermissionSetId = perm.Id, AssigneeId = userId);
-                permissionSetAssignList.add(psa);
-            }
-            
+            PermissionSetAssignment psa = new PermissionSetAssignment (PermissionSetId = perm.Id, AssigneeId = userId);
+            permissionSetAssignList.add(psa);
         }
+        System.debug('associatedPermsetGroup:' + associatedPermsetGroup);
         // PermissionSetGroup's
-        for (PermissionSetGroup perm : [SELECT ID FROM PermissionSetGroup  WHERE  DeveloperName IN: associatedPermset])
+        for (PermissionSetGroup perm : [SELECT ID FROM PermissionSetGroup  WHERE  DeveloperName IN: associatedPermsetGroup])
         { 
             for(PermissionSetAssignment genPSArec : existingPermSetAssign)
             {
@@ -317,17 +316,12 @@ public with sharing class UserRegistrationService{
                     PermissionSetAssignment psaRemoverec = new PermissionSetAssignment (Id = genPSArec.Id);
                     permissionSetRemoveList.add(psaRemoverec);     
                 }
-       
             }
-            if(existingPermSetAssign.size() == 0)
-            {
-                PermissionSetAssignment psa = new PermissionSetAssignment (PermissionSetGroupId = perm.Id, AssigneeId = userId);
-                permissionSetAssignList.add(psa);
-            }
-            
+            PermissionSetAssignment psa = new PermissionSetAssignment (PermissionSetGroupId = perm.Id, AssigneeId = userId);
+            permissionSetAssignList.add(psa);
         }
 
-        try{
+        try {
             if(removeOtherPerms.size() > 0)
             {
                 delete removeOtherPerms;
