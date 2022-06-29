@@ -137,7 +137,7 @@ public with sharing class UserRegistrationService{
         return newUser;
     }
     
-    public static void updateUser(Id userId, Id portalId, Auth.UserData data) {
+    public static User updateUser(Id userId, Id portalId, Auth.UserData data) {
          /*
         * Description: Update user
         * Parameters:
@@ -210,6 +210,8 @@ public with sharing class UserRegistrationService{
             throw e;
             //throw new Auth.LoginDiscoveryException(e.getMessage());
         }
+
+        return existingUser;
         
     }
     
