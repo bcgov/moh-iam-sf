@@ -31,11 +31,12 @@ global class KeycloakRegistrationHandler implements Auth.RegistrationHandler{
         system.debug('roles:'+ json.serializePretty(data.attributeMap.get('roles')));
         boolean isUserCreate = false;
         
-        User[] fetchExistingUser = [Select Id, FederationIdentifier FROM User where FederationIdentifier =: data.username];
+        User[] fetchExistingUser = [Select Id, FederationIdentifier FROM User where FederationIdentifier =: data.username Limit 1];
         if (fetchExistingUser.size() == 0)
         {
             isUserCreate = true;
         }
+
         return isUserCreate ;
     }
     
@@ -49,17 +50,19 @@ global class KeycloakRegistrationHandler implements Auth.RegistrationHandler{
      *     User: User object representing new user, returns null if user already exists
      * 
      */
-        
-        if(!canCreateUser(data)) {
+        User matchUser = new User();
+        if(canCreateUser(data)) {
             //Returning null or throwing an exception fails the SSO flow
-            return null;
+            matchUser = UserRegistrationService.createUser(portalId, data);
+        } else {
+            for (User fetchExistingUser : [Select Id, FederationIdentifier FROM User where FederationIdentifier =: data.username Limit 1])
+            {
+                matchUser = UserRegistrationService.updateUser(fetchExistingUser.Id, portalId, data);
+            }
+            
         }
     
-        User createUser = UserRegistrationService.createUser(portalId, data);
-        //
-        //insert createUser;
-        //updateUser(createUser.Id, portalId,data);
-        return createUser;
+        return matchUser;
         
     }
     
