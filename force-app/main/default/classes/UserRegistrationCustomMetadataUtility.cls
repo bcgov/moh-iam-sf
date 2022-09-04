@@ -5,14 +5,14 @@
 * Description: public class UserRegistrationCustomMetadataUtility
 *    Generic registration handler service class for an external identity provider (e.g. Keycloak)
 *    Attributes:
-*         userMapping - [List<User_Registration_User_Mapping__mdt>] object to store/utilize values found in Custom Metadata
-*         userPermissionSet - [List<User_Registration_Permission_Set__mdt>] object to store/utilize values found in Custom Metadata
-*         userMappingByRole_map - [Map<String,User_Registration_User_Mapping__mdt>] Map used to lookup role that matches inbound payload
-*         userPermissionSet_map - [Map<String,User_Registration_Permission_Set__mdt>] Map used to lookup Permissionset(s) that match inbound payload
+*         userMapping - [List<IDP_User_Registration_User_Mapping__mdt>] object to store/utilize values found in Custom Metadata
+*         userPermissionSet - [List<IDP_User_Registration_Permission_Set__mdt>] object to store/utilize values found in Custom Metadata
+*         userMappingByRole_map - [Map<String,IDP_User_Registration_User_Mapping__mdt>] Map used to lookup role that matches inbound payload
+*         userPermissionSet_map - [Map<String,IDP_User_Registration_Permission_Set__mdt>] Map used to lookup Permissionset(s) that match inbound payload
 *         userExternalProvider - [String userExternalProvider] Assign inbound ExternalProvider to object instance
 *    Methods:
-*         public User_Registration_User_Mapping__mdt ReadMapping(String Role): return role metadata based on passed role value (string)
-*         public List<User_Registration_Permission_Set__mdt> ReadPermissionSet(String Role): return permissionset metatdata based on passed role value (string)
+*         public IDP_User_Registration_User_Mapping__mdt ReadMapping(String Role): return role metadata based on passed role value (string)
+*         public List<IDP_User_Registration_Permission_Set__mdt> ReadPermissionSet(String Role): return permissionset metatdata based on passed role value (string)
 *         public UserRegistrationCustomMetadataUtility(String ExternalProvider): Initializes class filtering by ExternalProvider to get subset for provider only.
 *
 * History:
@@ -25,13 +25,13 @@ public class UserRegistrationCustomMetadataUtility{
 
     }
     
-    public List<User_Registration_User_Mapping__mdt> userMapping;
+    public List<IDP_User_Registration_User_Mapping__mdt> userMapping;
         
-    public List<User_Registration_Permission_Set__mdt> userPermissionSet;
+    public List<IDP_User_Registration_Permission_Set__mdt> userPermissionSet;
     
-    public Map<String,User_Registration_User_Mapping__mdt> userMappingByRole_map;
+    public Map<String,IDP_User_Registration_User_Mapping__mdt> userMappingByRole_map;
         
-    public Map<String,User_Registration_Permission_Set__mdt> userPermissionSet_map;
+    public Map<String,IDP_User_Registration_Permission_Set__mdt> userPermissionSet_map;
     
     public String userExternalProvider;
     
@@ -51,11 +51,11 @@ public class UserRegistrationCustomMetadataUtility{
                                     Identity_Provider__c,Label,Language,MasterLabel,MFA_Flag__c,NamespacePrefix,
                                     QualifiedApiName,Salesforce_User_License__c,Salesforce_User_Profile__c,
                                     Salesforce_User_Role__c,Sequence__c 
-                              FROM User_Registration_User_Mapping__mdt];
+                              FROM IDP_User_Registration_User_Mapping__mdt];
         
         // Load Map object for searching values
-        userMappingByRole_map = new Map<String,User_Registration_User_Mapping__mdt>();                     
-        for(User_Registration_User_Mapping__mdt userMapping_rec : userMapping)
+        userMappingByRole_map = new Map<String,IDP_User_Registration_User_Mapping__mdt>();                     
+        for(IDP_User_Registration_User_Mapping__mdt userMapping_rec : userMapping)
         {
             userMappingByRole_map.put(userMapping_rec.External_Provider_Role__c, userMapping_rec);
         }
@@ -64,27 +64,27 @@ public class UserRegistrationCustomMetadataUtility{
         userPermissionSet = [SELECT DeveloperName,External_Provider_User_Mapping__c,Id,Label,Language,MasterLabel,
                                     NamespacePrefix,QualifiedApiName,Salesforce_Permission_Set_Group__c,
                                     Salesforce_Permission_Set__c, Assignment_Type__c 
-                              FROM User_Registration_Permission_Set__mdt];
+                              FROM IDP_User_Registration_Permission_Set__mdt];
                               
         // Load Map object for searching values   
-        userPermissionSet_map = new Map<String,User_Registration_Permission_Set__mdt>();                   
-        for(User_Registration_Permission_Set__mdt userPermissionSet_rec : userPermissionSet )
+        userPermissionSet_map = new Map<String,IDP_User_Registration_Permission_Set__mdt>();                   
+        for(IDP_User_Registration_Permission_Set__mdt userPermissionSet_rec : userPermissionSet )
         {
             userPermissionSet_map.put(userPermissionSet_rec.External_Provider_User_Mapping__c, userPermissionSet_rec);
         }
     }
     
-    public User_Registration_User_Mapping__mdt ReadMapping(String keycloakRole){
+    public IDP_User_Registration_User_Mapping__mdt ReadMapping(String keycloakRole){
         /*
-        * Description: ReadMapping method is used to retrieve matching records from custom metadata User_Registration_User_Mapping__mdt 
+        * Description: ReadMapping method is used to retrieve matching records from custom metadata IDP_User_Registration_User_Mapping__mdt 
         * Parameters:
         *     String Role value of the provider used to make call to Salesforce hander
         * Returns:
-        *     User_Registration_User_Mapping__mdt (foundUserMapping_md) object
+        *     IDP_User_Registration_User_Mapping__mdt (foundUserMapping_md) object
         * 
         */        
         //Create single instance of Metadata
-        User_Registration_User_Mapping__mdt foundUserMapping_md = new User_Registration_User_Mapping__mdt();
+        IDP_User_Registration_User_Mapping__mdt foundUserMapping_md = new IDP_User_Registration_User_Mapping__mdt();
         //Find keycloakRole in userMapping
         if (userMappingByRole_map.containsKey(keycloakRole))
         {
@@ -96,26 +96,28 @@ public class UserRegistrationCustomMetadataUtility{
     }
     
     
-    public  List<User_Registration_Permission_Set__mdt> ReadPermissionSet(String keycloakRole){
+    public  List<IDP_User_Registration_Permission_Set__mdt> ReadPermissionSet(String keycloakRole){
         /*
-        * Description: ReadPermissionSet method is used to retrieve matching records from custom metadata User_Registration_User_Mapping__mdt 
+        * Description: ReadPermissionSet method is used to retrieve matching records from custom metadata IDP_User_Registration_User_Mapping__mdt 
         * Parameters:
         *     String keycloakRole value of the provider used to make call to Salesforce hander
         * Returns:
-        *     List<User_Registration_Permission_Set__mdt> (foundPermissionSet_list) object
+        *     List<IDP_User_Registration_Permission_Set__mdt> (foundPermissionSet_list) object
         * 
         */              
         //Create single instance of Metadata
-        User_Registration_User_Mapping__mdt foundUserMapping_md = new User_Registration_User_Mapping__mdt();
+        IDP_User_Registration_User_Mapping__mdt foundUserMapping_md = new IDP_User_Registration_User_Mapping__mdt();
         //Create list of Metadata
-        List<User_Registration_Permission_Set__mdt> foundPermissionSet_list = new List<User_Registration_Permission_Set__mdt>();
+        List<IDP_User_Registration_Permission_Set__mdt> foundPermissionSet_list = new List<IDP_User_Registration_Permission_Set__mdt>();
+        system.debug('keycloakRole:' + keycloakRole);
+        system.debug('userMappingByRole_map:' + userMappingByRole_map);
         //Find role in userMapping
         if (userMappingByRole_map.containsKey(keycloakRole))
         {
             foundUserMapping_md = userMappingByRole_map.get(keycloakRole);
 
             //Find permission sets for the keycloakRole
-            for(User_Registration_Permission_Set__mdt permissionSet_rec: userPermissionSet)
+            for(IDP_User_Registration_Permission_Set__mdt permissionSet_rec: userPermissionSet)
             {
                 if (foundUserMapping_md.Id == permissionSet_rec.External_Provider_User_Mapping__c)
                 {
@@ -123,6 +125,7 @@ public class UserRegistrationCustomMetadataUtility{
                 }
             }
         }
+        system.debug('foundPermissionSet_list:' + foundPermissionSet_list );
         return foundPermissionSet_list;
     }
 }

@@ -52,15 +52,11 @@ public with sharing class UserRegistrationService{
      */
         List<User> user_list= new List<User>();
         for (User deactivateUser : [Select Id, isActive, FederationIdentifier From User where Id IN : userId]) {
-            deactivateUser.isActive = false;
+            //deactivateUser.isActive = false;
             user_list.add(deactivateUser);
         }
         Update(user_list);
         
-    }
-    
-    public static void deleteUsers(List<Id> userId, List<Id> portalId, List<Auth.UserData> data) {
-
     }
     
     public static User createUser(Id portalId, Auth.UserData data) {   
@@ -80,16 +76,16 @@ public with sharing class UserRegistrationService{
         String l_username = UserRegistrationService.generateUserName(data);
         
         UserRegistrationCustomMetadataUtility fetchRoles = new UserRegistrationCustomMetadataUtility(data.attributeMap.get('roles'));
-        list<User_Registration_User_Mapping__mdt> userRole_list = new list<User_Registration_User_Mapping__mdt>();
+        list<IDP_User_Registration_User_Mapping__mdt> userRole_list = new list<IDP_User_Registration_User_Mapping__mdt>();
         userRole_list.add(fetchRoles.ReadMapping(data.attributeMap.get('roles')));
         system.debug('data:'+ json.serializePretty(data));
         User newUser = new User();
         if (userRole_list.size() > 0)
         {
-            for (User_Registration_User_Mapping__mdt userRole_rec : userRole_list)
+            for (IDP_User_Registration_User_Mapping__mdt userRole_rec : userRole_list)
             {
             system.debug('userRole_rec:' + userRole_rec );
-                Profile p = [SELECT Id FROM profile WHERE name='MoH Standard User']; //:userRole_rec.Salesforce_User_Profile__c];
+                Profile p = [SELECT Id FROM profile WHERE name=:userRole_rec.Salesforce_User_Profile__c]; //:userRole_rec.Salesforce_User_Profile__c];
         
                 newUser.username = l_username;
                 newUser.email = data.email;
@@ -116,14 +112,14 @@ public with sharing class UserRegistrationService{
             managePermissionSet(newUser.Id, data);
             
             // add/update user role
-            List<User_Registration_User_Mapping__mdt>  matchingRole_list = new List<User_Registration_User_Mapping__mdt>();
+            List<IDP_User_Registration_User_Mapping__mdt>  matchingRole_list = new List<IDP_User_Registration_User_Mapping__mdt>();
             
             matchingRole_list.add(manageUserRole(newUser.Id, data));
-            for (User_Registration_User_Mapping__mdt matchingRole_rec : matchingRole_list)
+            for (IDP_User_Registration_User_Mapping__mdt matchingRole_rec : matchingRole_list)
             {
                 for (UserRole userRole_rec: [SELECT DeveloperName,Id,Name FROM UserRole Where Name =: matchingRole_rec.Salesforce_User_Role__c])
                 {
-                    newUser.UserRoleId = userRole_rec.Id;
+                    //newUser.UserRoleId = userRole_rec.Id;
                 }
             }       
             
@@ -191,10 +187,10 @@ public with sharing class UserRegistrationService{
         managePermissionSet(existingUser.Id, data);
         
         // add/update user role
-        List<User_Registration_User_Mapping__mdt>  matchingRole_list = new List<User_Registration_User_Mapping__mdt>();
+        List<IDP_User_Registration_User_Mapping__mdt>  matchingRole_list = new List<IDP_User_Registration_User_Mapping__mdt>();
 
         matchingRole_list.add(manageUserRole(existingUser.Id, data));
-        for (User_Registration_User_Mapping__mdt matchingRole_rec : matchingRole_list)
+        for (IDP_User_Registration_User_Mapping__mdt matchingRole_rec : matchingRole_list)
         {
             for (UserRole userRole_rec: [SELECT DeveloperName,Id,Name FROM UserRole Where Name =: matchingRole_rec.Salesforce_User_Role__c])
             {
@@ -236,9 +232,9 @@ public with sharing class UserRegistrationService{
         UserRegistrationCustomMetadataUtility processPermissions = new UserRegistrationCustomMetadataUtility();
         UserRegistrationCustomMetadataUtility processRoles = new UserRegistrationCustomMetadataUtility(UserRoleAssign);
        
-        User_Registration_User_Mapping__mdt userRole = new User_Registration_User_Mapping__mdt();
+        IDP_User_Registration_User_Mapping__mdt userRole = new IDP_User_Registration_User_Mapping__mdt();
         // get role metadata
-        for (User_Registration_User_Mapping__mdt userMapping : processRoles.userMapping)
+        for (IDP_User_Registration_User_Mapping__mdt userMapping : processRoles.userMapping)
         {
             availableRoles.add(userMapping.DeveloperName);
             
@@ -265,7 +261,7 @@ public with sharing class UserRegistrationService{
         // get permission metadata
         Set<String> associatedPermset = new Set<String>();
         Set<String> associatedPermsetGroup= new Set<String>();
-        for (User_Registration_Permission_Set__mdt userPerms : processRoles.userPermissionSet)
+        for (IDP_User_Registration_Permission_Set__mdt userPerms : processRoles.userPermissionSet)
         {
             if (userPerms.Assignment_Type__c == USER_ASSIGNMENT_TYPE_PERMISSIONSET)
             {
@@ -337,7 +333,7 @@ public with sharing class UserRegistrationService{
     
     }
     
-    private static User_Registration_User_Mapping__mdt manageUserRole(Id userId, Auth.UserData data)
+    private static IDP_User_Registration_User_Mapping__mdt manageUserRole(Id userId, Auth.UserData data)
     {
          /*
         * Description: Manage user role
@@ -345,27 +341,27 @@ public with sharing class UserRegistrationService{
         *     Id userId: Id of the user logging into the system via provider
         *     Auth.UserData data: UserData id token payload, including attributeMap representing the id token equivalent
         * Returns:
-        *     User_Registration_User_Mapping__mdt: roles
+        *     IDP_User_Registration_User_Mapping__mdt: roles
         * 
         */           
         UserRegistrationCustomMetadataUtility processPermissions = new UserRegistrationCustomMetadataUtility();
         UserRegistrationCustomMetadataUtility processRoles = new UserRegistrationCustomMetadataUtility(data.attributeMap.get('roles'));
 
-        User_Registration_User_Mapping__mdt roles = processRoles.ReadMapping(data.attributeMap.get('roles'));
+        IDP_User_Registration_User_Mapping__mdt roles = processRoles.ReadMapping(data.attributeMap.get('roles'));
         
         return roles;
     }
     
-    private static string fetchLicenseType(Auth.UserData data)
+    public static string fetchLicenseType(Auth.UserData data)
     {
         String licenseType = '';
         UserRegistrationCustomMetadataUtility fetchLicenseType = New UserRegistrationCustomMetadataUtility(data.attributeMap.get('roles'));
-        List<User_Registration_User_Mapping__mdt> foundRoleMaping = new List<User_Registration_User_Mapping__mdt>();
+        List<IDP_User_Registration_User_Mapping__mdt> foundRoleMaping = new List<IDP_User_Registration_User_Mapping__mdt>();
         foundRoleMaping.add(fetchLicenseType.ReadMapping(data.attributeMap.get('roles')));
         
         if (foundRoleMaping.size() > 0)
         {
-            for (User_Registration_User_Mapping__mdt foundRoleMaping_rec : foundRoleMaping)
+            for (IDP_User_Registration_User_Mapping__mdt foundRoleMaping_rec : foundRoleMaping)
             {
                 licenseType = foundRoleMaping_rec.Salesforce_User_License__c;
             }

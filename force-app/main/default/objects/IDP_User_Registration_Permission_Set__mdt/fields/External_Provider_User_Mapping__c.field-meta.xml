@@ -6,7 +6,7 @@
     <externalId>false</externalId>
     <fieldManageability>SubscriberControlled</fieldManageability>
     <label>External Provider User Mapping</label>
-    <referenceTo>User_Registration_User_Mapping__mdt</referenceTo>
+    <referenceTo>IDP_User_Registration_User_Mapping__mdt</referenceTo>
     <relationshipLabel>User Registration Permission Sets</relationshipLabel>
     <relationshipName>Keycloak_Permission_Sets</relationshipName>
     <required>true</required>

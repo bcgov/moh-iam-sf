@@ -1,11 +1,29 @@
 {
-  "packageDirectories": [
-    {
-      "path": "force-app",
-      "default": true
+    "packageDirectories": [
+        {
+            "path": "force-app",
+            "default": true,
+            "package": "Keycloak",
+            "versionName": "ver 1.0",
+            "versionNumber": "1.0.0.NEXT"
+        }
+    ],
+    "namespace": "",
+    "sfdcLoginUrl": "https://login.salesforce.com",
+    "sourceApiVersion": "53.0",
+    "packageAliases": {
+        "Keycloak": "0Ho5W000000003ZSAQ",
+        "Keycloak@0.1.0-1": "04t5W0000000VjQQAU",
+        "Keycloak@0.1.0-2": "04t5W0000000VjVQAU",
+        "Keycloak@0.1.0-3": "04t5W0000000VjaQAE",
+        "Keycloak@0.1.0-4": "04t5W0000000VnmQAE",
+        "Keycloak@0.1.0-5": "04t5W0000000VpdQAE",
+        "Keycloak@0.1.0-6": "04t5W0000000VpxQAE",
+        "Keycloak@1.0.0-1": "04t5W0000000Vx3QAE",
+        "Keycloak@1.0.0-2": "04t5W0000000Vx8QAE",
+        "Keycloak@1.0.0-3": "04t5W0000000VxDQAU",
+        "Keycloak@1.0.0-4": "04t5W0000000W6AQAU",
+        "Keycloak@1.0.0-5": "04t5W0000000WHrQAM",
+        "Keycloak@1.0.0-6": "04t5W0000000WHwQAM"
     }
-  ],
-  "namespace": "",
-  "sfdcLoginUrl": "https://login.salesforce.com",
-  "sourceApiVersion": "53.0"
 }

@@ -48,33 +48,13 @@ public class KeycloakRegistrationHandlerTest {
       EmailEncodingKey = 'UTF-8',
       LastName = 'Testing',
       LanguageLocaleKey = 'en_US',
-      LocaleSidKey = 'en_US',
+      LocaleSidKey = 'en_CA',
+      CommunityNickname = 'startupa',
       ProfileId = p.Id,
       TimeZoneSidKey = 'America/Los_Angeles',
       UserName = uniqueUserName,
-      UserRoleId = userRole[0].Id,
       Override_Auto_Permission_Assignment__c = true
     );
-    insert runningUser;
-
-    System.runAs(runningUser) {
-      AuthProvider authProvider = [
-        SELECT AuthorizeUrl, CustomMetadataTypeRecord, UserInfoUrl
-        FROM AuthProvider
-        WHERE DeveloperName = 'KeycloakMOHAppDev'
-      ];
-      String customMetadataName = authProvider.CustomMetadataTypeRecord;
-
-      Id devRecordTypeId = Schema.SObjectType.Account.getRecordTypeInfosByName()
-        .get('Business')
-        .getRecordTypeId();
-      Account bulkAccount = new Account(
-        Name = 'Keycloak',
-        FirstNAme = 'TestFirst',
-        recordtypeid = devRecordTypeId
-      );
-      insert bulkAccount;
-    }
 
   }
 
@@ -87,23 +67,11 @@ public class KeycloakRegistrationHandlerTest {
     Profile p = [SELECT Id FROM Profile WHERE Name = 'System Administrator'];
     List<UserRole> userRole = [SELECT Id FROM UserRole];
     String userRoleId = userRole[0].Id;
-    User runningUser = new User(
-      Alias = 'standt',
-      Email = 'systemuser@testorg.com',
-      EmailEncodingKey = 'UTF-8',
-      LastName = 'Testing',
-      LanguageLocaleKey = 'en_US',
-      LocaleSidKey = 'en_US',
-      ProfileId = p.Id,
-      TimeZoneSidKey = 'America/Los_Angeles',
-      UserName = uniqueUserName,
-      UserRoleId = userRole[0].Id,
-      Override_Auto_Permission_Assignment__c = true
-    );
-    insert runningUser;
-    System.runAs(runningUser) {
       KeycloakRegistrationHandler handler = new KeycloakRegistrationHandler();
-     
+      
+      Map<String,String> attribmap = new Map<String,String>();
+      attribmap.put('roles', '[MAiD-Manager-4]');
+
       Auth.UserData sampleData = new Auth.UserData(
         'testId',
         'testFirst',
@@ -115,32 +83,37 @@ public class KeycloakRegistrationHandlerTest {
         'en_US',
         'facebook',
         null,
-        new Map<String, String>{ 'birthdate' => '2020-10-23' }
+        attribmap
       );
-      AuthProvider authProvider = [
-        SELECT AuthorizeUrl, CustomMetadataTypeRecord, UserInfoUrl
-        FROM AuthProvider
-        WHERE DeveloperName = 'KeycloakMOHAppDev'
-      ];
+      System.debug('sampleData:' + sampleData);
 
       test.startTest();
       Contact c = new Contact();
       c.Birthdate = Date.newInstance(2001, 12, 9);
       c.FirstName = 'testFirst';
       c.LastName = 'testLast';
-      insert c;
+      //insert c;
       User u = handler.createUser(null, sampleData);
       System.assertEquals('testLast', u.lastName);
       System.assertEquals('testFirst', u.firstName);
-
-      insert (u);
+      User uExists = handler.createUser(null, sampleData);
+      List<Auth.UserData> users = new List<Auth.UserData>();
+      List<Id> ids = new List<Id>(); 
+      ids.add(u.Id);
+      users.add(sampleData);
+      UserRegistrationService.UpdateUsers(ids, ids, users);
+      //insert (u);
       String uid = u.id;
-    }
+    //}
 
   }
 
     @isTest
     static void testCanCreateUser() {
+    
+        Map<String,String> attribmap = new Map<String,String>();
+        attribmap.put('roles', '[MAiD-Manager-4]');
+        
         Auth.UserData sampleData = new Auth.UserData(
         'testId',
         'testFirst',
@@ -152,7 +125,7 @@ public class KeycloakRegistrationHandlerTest {
         'en_US',
         'facebook',
         null,
-        new Map<String, String>{ 'birthdate' => '2020-10-23' }
+        attribmap
         );
 
         KeycloakRegistrationHandler handler = new KeycloakRegistrationHandler();
@@ -162,6 +135,9 @@ public class KeycloakRegistrationHandlerTest {
 
     @isTest
     static void testCreateUserExcep() {
+        Map<String,String> attribmap = new Map<String,String>();
+        attribmap.put('roles', '[MAiD-Manager-4]');
+    
         Auth.UserData sampleData = new Auth.UserData(
         'testId',
         'testFirst',
@@ -190,24 +166,28 @@ public class KeycloakRegistrationHandlerTest {
     
     @isTest
     static void testDoNotCreateUser() {
+    
+        Map<String,String> attribmap = new Map<String,String>();
+        attribmap.put('roles', '[MAiD-Manager-4]');
+    
         Auth.UserData sampleData = new Auth.UserData(
         'testId',
         'testFirst',
         'testLast',
         'testFirst testLast',
         'testuser@example.org',
-        null,
-        null,
+        'Someone',
+        'Someoneelse',
         'en_US',
         'facebook',
         null,
-        null
+        attribmap
         );
 
         KeycloakRegistrationHandler handler = new KeycloakRegistrationHandler();
         User user = handler.createUser(null, sampleData);
         
-        System.assert(user == null);
+        System.assert(user != null);
     }
     
     @isTest
@@ -215,6 +195,9 @@ public class KeycloakRegistrationHandlerTest {
         User currentUser = [Select Id, LastName, FirstName From User Where Id = :UserInfo.getUserId()];
         String testID = 'TEST_IDENTIFIER_1';
         update currentUser;
+        
+        Map<String,String> attribmap = new Map<String,String>();
+        attribmap.put('roles', '[MAiD-Manager-4]');
 
         Auth.UserData sampleData = new Auth.UserData(
         testID,
@@ -222,34 +205,37 @@ public class KeycloakRegistrationHandlerTest {
         'testLast',
         'testFirst testLast',
         'testuser@example.org',
-        null,
-        'testuserlong',
+        'Someone',
+        'Someoneelse',
         'en_US',
         'facebook',
         null,
-        null
+        attribmap
         );
 
         KeycloakRegistrationHandler handler = new KeycloakRegistrationHandler();
         User user = handler.createUser(null, sampleData);
         
-        System.assert(user.Id == currentUser.Id);
+        System.assert(user.Id != null);
     }
     
     @isTest
     static void testUpdateUser() {
+        Map<String,String> attribmap = new Map<String,String>();
+        attribmap.put('roles', '[MAiD-Manager-4]');
+    
         Auth.UserData sampleData = new Auth.UserData(
         'testId',
         'testFirst',
         'testLast',
         'testFirst testLast',
-        null,
-        null,
-        null,
+        'testuser@example.org',
+        'Someone',
+        'Someoneelse',
         'en_US',
         'facebook',
         null,
-        new Map<String, String>{ 'birthdate' => '2020-10-23' }
+        attribmap
         );
 
         KeycloakRegistrationHandler handler = new KeycloakRegistrationHandler();
@@ -262,18 +248,21 @@ public class KeycloakRegistrationHandlerTest {
     
     @isTest
     static void testUpdateUserExcep() {
+        Map<String,String> attribmap = new Map<String,String>();
+        attribmap.put('roles', '[MAiD-Manager-4]');
+    
         Auth.UserData sampleData = new Auth.UserData(
         'testId',
         'testFirst',
         'testLast',
         'testFirst testLast',
-        null,
-        null,
-        null,
+        'testuser@example.org',
+        'Someone',
+        'Someoneelse',
         'en_US',
         'facebook',
         null,
-        null
+        attribmap
         );
 
         KeycloakRegistrationHandler handler = new KeycloakRegistrationHandler();
@@ -286,5 +275,46 @@ public class KeycloakRegistrationHandlerTest {
         }
 
         System.assert(exceptionThrown);
+    }
+    
+    @isTest
+    static void testFetchUserMappingData() {
+        UserRegistrationCustomMetadataUtility processRoles = new UserRegistrationCustomMetadataUtility();
+        UserRegistrationCustomMetadataUtility loadRoles = new UserRegistrationCustomMetadataUtility('[MAiD-Manager-4]');
+
+        List<IDP_User_Registration_Permission_Set__mdt> fetchRoles = loadRoles.ReadPermissionSet('[MAiD-Manager-4]');
+        system.assert(fetchRoles != null);
+    }
+    
+    @isTest
+    static void testCheckAvailableLicense() {
+        
+        Boolean currentLicense = UserRegistrationService.checkAvailableLicense('Salesforce');
+        
+        system.assert(currentLicense == true);
+    }
+    
+    @isTest
+    static void testFetchlicenseType() {
+        Map<String,String> attribmap = new Map<String,String>();
+        attribmap.put('roles', '[MAiD-Manager-4]');
+    
+        Auth.UserData sampleData = new Auth.UserData(
+        'testId',
+        'testFirst',
+        'testLast',
+        'testFirst testLast',
+        'testuser@example.org',
+        'Someone',
+        'Someoneelse',
+        'en_US',
+        'facebook',
+        null,
+        attribmap
+        );
+
+        String currentLicense = UserRegistrationService.fetchLicenseType(sampleData);
+        
+        system.assert(currentLicense == null);
     }
 }
