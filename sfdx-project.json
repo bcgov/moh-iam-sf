@@ -10,7 +10,7 @@
     ],
     "namespace": "",
     "sfdcLoginUrl": "https://login.salesforce.com",
-    "sourceApiVersion": "53.0",
+    "sourceApiVersion": "56.0",
     "packageAliases": {
         "Keycloak": "0Ho5W000000003ZSAQ",
         "Keycloak@0.1.0-1": "04t5W0000000VjQQAU",
