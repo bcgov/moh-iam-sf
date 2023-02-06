@@ -23,6 +23,7 @@
 public with sharing class UserRegistrationService{
     public static String USER_ASSIGNMENT_TYPE_PERMISSIONSET = 'Permission Set';
     public static String USER_ASSIGNMENT_TYPE_PERMISSIONSETGROUP = 'Permission Set Group';
+    public static String SALESFORCE_USER_LICENSE_COMMUNITY = 'Community';
 
 
     public static void createUsers(List<Id> portalId, List<Auth.UserData> data){
@@ -97,32 +98,47 @@ public with sharing class UserRegistrationService{
                 newUser.languagelocalekey = UserInfo.getLanguage();
                 newUser.localesidkey = UserInfo.getLocale();
                 newUser.emailEncodingKey = 'UTF-8';
-                newUser.timeZoneSidKey = 'America/Los_Angeles';
+                newUser.timeZoneSidKey = 'America/Vancouver';
                 newUser.profileId = p.Id;
             }
         }
         try {
+            // add/update user role
+            List<IDP_User_Registration_User_Mapping__mdt>  matchingRole_list = new List<IDP_User_Registration_User_Mapping__mdt>();
+            
+            matchingRole_list.add(manageUserRole(data)); 
 
+            for (IDP_User_Registration_User_Mapping__mdt matchingRole_rec : matchingRole_list)
+            {
+                if (matchingRole_rec.Salesforce_User_License__c == SALESFORCE_USER_LICENSE_COMMUNITY)
+                {
+                    CommunityUserContact initContact = New CommunityUserContact(); 
+                    CommunityUserContact newContact = New CommunityUserContact();
+                    initContact.AccountName = matchingRole_rec.Associated_Account_Name__c;
+                    newContact = manageContact(initContact, data);
+                    newUser.ContactId = newContact.ContactId;
+                    Site.createExternalUser(newUser, initContact.AccountId);
+                } else {
+                    insert newUser;
+                }
+            }
 
-            insert newUser;
             // Update user role & permissionset based on latest payload
             UserRegistrationCustomMetadataUtility processRoles = new UserRegistrationCustomMetadataUtility();
             
             // add/update any new permission sets
             managePermissionSet(newUser.Id, data);
             
-            // add/update user role
-            List<IDP_User_Registration_User_Mapping__mdt>  matchingRole_list = new List<IDP_User_Registration_User_Mapping__mdt>();
-            
-            matchingRole_list.add(manageUserRole(newUser.Id, data));
             for (IDP_User_Registration_User_Mapping__mdt matchingRole_rec : matchingRole_list)
             {
-                for (UserRole userRole_rec: [SELECT DeveloperName,Id,Name FROM UserRole Where Name =: matchingRole_rec.Salesforce_User_Role__c])
+                if (matchingRole_rec.Salesforce_User_Role__c != Null)
                 {
-                    //newUser.UserRoleId = userRole_rec.Id;
-                }
-            }       
-            
+                    for (UserRole userRole_rec: [SELECT DeveloperName,Id,Name FROM UserRole Where Name =: matchingRole_rec.Salesforce_User_Role__c])
+                    {
+                        newUser.UserRoleId = userRole_rec.Id;
+                    }
+                }       
+            }            
             update newUser;
         }
         catch (Exception e) {
@@ -189,7 +205,7 @@ public with sharing class UserRegistrationService{
         // add/update user role
         List<IDP_User_Registration_User_Mapping__mdt>  matchingRole_list = new List<IDP_User_Registration_User_Mapping__mdt>();
 
-        matchingRole_list.add(manageUserRole(existingUser.Id, data));
+        matchingRole_list.add(manageUserRole(data));
         for (IDP_User_Registration_User_Mapping__mdt matchingRole_rec : matchingRole_list)
         {
             for (UserRole userRole_rec: [SELECT DeveloperName,Id,Name FROM UserRole Where Name =: matchingRole_rec.Salesforce_User_Role__c])
@@ -209,6 +225,40 @@ public with sharing class UserRegistrationService{
 
         return existingUser;
         
+    }
+    private static CommunityUserContact manageContact(CommunityUserContact initContact, Auth.UserData data)
+    {
+        CommunityUserContact newContact = New CommunityUserContact(); 
+        Account existingAccount = new Account();
+        Contact communityContact = new Contact();
+
+        newContact.AccountName = initContact.AccountName;
+        // get existing Contact Account
+        for (Account processAccount : [SELECT Id FROM Account WHERE Name =: initContact.AccountName Limit 1])
+        {
+            existingAccount.Id = processAccount.Id;
+        }
+        communityContact.AccountId = existingAccount.Id <> null ? existingAccount.Id: null;
+        // Check for existing Contact
+        if (communityContact.AccountId != null)
+        {
+            Id businessRecordTypeId = Schema.Sobjecttype.Contact.getRecordTypeInfosByName().get('Business').getRecordTypeId();
+            for (Contact processContact : [SELECT Id FROM Contact WHERE Email =: data.email And RecordTypeId =: businessRecordTypeId Limit 1])
+            {
+                communityContact.Id = processContact.Id;
+            }
+            // Create new contact
+            communityContact.RecordTypeId = businessRecordTypeId;
+            communityContact.FirstName = data.firstName;
+            communityContact.LastName = data.lastName;
+            communityContact.Email = data.email;
+            upsert communityContact;
+            newContact.ContactId = communityContact.Id;
+            newContact.AccountId = communityContact.AccountId;
+
+        }
+
+        return newContact;
     }
     
     private static void managePermissionSet(Id userId, Auth.UserData data)
@@ -333,12 +383,11 @@ public with sharing class UserRegistrationService{
     
     }
     
-    private static IDP_User_Registration_User_Mapping__mdt manageUserRole(Id userId, Auth.UserData data)
+    private static IDP_User_Registration_User_Mapping__mdt manageUserRole(Auth.UserData data)
     {
          /*
         * Description: Manage user role
         * Parameters:
-        *     Id userId: Id of the user logging into the system via provider
         *     Auth.UserData data: UserData id token payload, including attributeMap representing the id token equivalent
         * Returns:
         *     IDP_User_Registration_User_Mapping__mdt: roles
@@ -435,6 +484,13 @@ public with sharing class UserRegistrationService{
         }
         return isLicenseAvailable;
         
+    }
+
+    private class CommunityUserContact
+    {
+        Id ContactId;
+        Id AccountId;
+        String AccountName;
     }
 
 }
