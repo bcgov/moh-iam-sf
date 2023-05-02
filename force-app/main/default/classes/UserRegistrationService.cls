@@ -24,18 +24,20 @@ public with sharing class UserRegistrationService{
     public static String USER_ASSIGNMENT_TYPE_PERMISSIONSET = 'Permission Set';
     public static String USER_ASSIGNMENT_TYPE_PERMISSIONSETGROUP = 'Permission Set Group';
     public static String SALESFORCE_USER_LICENSE_COMMUNITY = 'Community';
+    public static String EMAIL_ASPERAND_SIGN = '@';
+    public static String ACCOUNT_PERSONACCOUNT_RECORDTYPE = 'PersonAccount';
 
 
     public static void createUsers(List<Id> portalId, List<Auth.UserData> data){
-/*
- * Description: Mass creates new users
- * Parameters:
- *     List<Id> portalId: Ordered list of Id of the portal (community) where the request originated from
- *     List<Auth.UserData> data: Ordered list of UserData id token payload, including attributeMap representing the id token equivalent
- * Returns:
- *     NONE
- * 
- */
+    /*
+    * Description: Mass creates new users
+    * Parameters:
+    *     List<Id> portalId: Ordered list of Id of the portal (community) where the request originated from
+    *     List<Auth.UserData> data: Ordered list of UserData id token payload, including attributeMap representing the id token equivalent
+    * Returns:
+    *     NONE
+    * 
+    */
         
     }
 
@@ -72,6 +74,7 @@ public with sharing class UserRegistrationService{
         */
         //Verify user data - to be removed prior to completion
         String userdata = JSON.serialize(data.attributeMap);
+        Boolean createUser = true;
 
         //Create user
         String l_username = UserRegistrationService.generateUserName(data);
@@ -112,22 +115,13 @@ public with sharing class UserRegistrationService{
             {
                 if (matchingRole_rec.Salesforce_User_License__c == SALESFORCE_USER_LICENSE_COMMUNITY)
                 {
-                    CommunityUserContact initContact = New CommunityUserContact(); 
-                    CommunityUserContact newContact = New CommunityUserContact();
-                    initContact.AccountName = matchingRole_rec.Associated_Account_Name__c;
-                    newContact = manageContact(initContact, data);
-                    newUser.ContactId = newContact.ContactId;
-                    Site.createExternalUser(newUser, initContact.AccountId);
-                } else {
-                    insert newUser;
+                    String contactId = managePersonAccount(data);
+                    newUser.ContactId = contactId;
                 }
             }
 
             // Update user role & permissionset based on latest payload
             UserRegistrationCustomMetadataUtility processRoles = new UserRegistrationCustomMetadataUtility();
-            
-            // add/update any new permission sets
-            managePermissionSet(newUser.Id, data);
             
             for (IDP_User_Registration_User_Mapping__mdt matchingRole_rec : matchingRole_list)
             {
@@ -138,8 +132,24 @@ public with sharing class UserRegistrationService{
                         newUser.UserRoleId = userRole_rec.Id;
                     }
                 }       
-            }            
-            update newUser;
+            }
+            List<User> checkUser = [
+                SELECT Id 
+                FROM User 
+                WHERE FederationIdentifier =: data.username ];
+
+            if(checkUser.size() > 0) {
+                createUser = false;
+                newUser.Id = checkUser[0].Id;
+            }        
+            if(createUser) {
+                insert newUser;
+            } else {
+                update newUser;
+            } 
+             // add/update any new permission sets
+            managePermissionSet(newUser.Id, data);           
+            
         }
         catch (Exception e) {
             system.debug(e.getMessage());
@@ -194,7 +204,7 @@ public with sharing class UserRegistrationService{
         existingUser.languagelocalekey = UserInfo.getLanguage();
         existingUser.localesidkey = UserInfo.getLocale();
         existingUser.emailEncodingKey = 'UTF-8';
-        existingUser.timeZoneSidKey = 'America/Los_Angeles';
+        existingUser.timeZoneSidKey = 'America/Vancouver';
         
         // Update user role & permissionset based on latest payload
         UserRegistrationCustomMetadataUtility processRoles = new UserRegistrationCustomMetadataUtility();
@@ -226,6 +236,60 @@ public with sharing class UserRegistrationService{
         return existingUser;
         
     }
+
+    private static String managePersonAccount(Auth.UserData data) 
+    {
+        Boolean isNewAccount = false;
+        Id newCommUser = null;
+        String searchEmail = '';
+        
+        if (data.email!= null) {
+            searchEmail = data.email;
+        } else {
+            searchEmail = data.username;
+        }
+        
+        List<Account> existingAccount = [
+            SELECT Id, PersonContactId, FirstName, LastName, PersonEmail, RecordTypeId 
+            FROM Account where PersonEmail =: searchEmail 
+            AND RecordType.DeveloperName =: ACCOUNT_PERSONACCOUNT_RECORDTYPE];
+        Account newPersonAccount = new Account();
+        
+        if (existingAccount.size() == 0) 
+        {
+            isNewAccount = true;
+            Id personAccountRecordTypeId =  Schema.SObjectType.Account.getRecordTypeInfosByDeveloperName().get('PersonAccount').getRecordTypeId();
+        
+            newPersonAccount.FirstName = data.firstName ;
+
+            newPersonAccount.LastName = data.lastName;
+
+            if(data.email!= null) {
+                String emailaddress = data.email;
+                if (emailaddress.length() > 0) {
+                    newPersonAccount.PersonEmail = emailaddress;
+                } else {
+                    newPersonAccount.PersonEmail = data.username;
+                }
+            } else {
+                newPersonAccount.PersonEmail = data.username;
+            }
+
+            newPersonAccount.RecordTypeId = personAccountRecordTypeId;
+            insert newPersonAccount;
+
+            newCommUser = [SELECT PersonContactId FROM Account WHERE Id =:newPersonAccount.Id ].PersonContactId;
+        } else {
+            newCommUser = existingAccount[0].PersonContactId;
+        }
+
+        if (!isNewAccount) {
+            update(existingAccount);
+        }
+        return newCommUser ;
+    }
+
+
     private static CommunityUserContact manageContact(CommunityUserContact initContact, Auth.UserData data)
     {
         CommunityUserContact newContact = New CommunityUserContact(); 
@@ -373,14 +437,24 @@ public with sharing class UserRegistrationService{
             if(removeOtherPerms.size() > 0)
             {
                 delete removeOtherPerms;
-            }            
-            upsert permissionSetAssignList;
-            
-            
+            } 
+            if(permissionSetAssignList.size() > 0) {
+                String json_PermissionSetAssign = JSON.serialize(permissionSetAssignList, true);          
+                //insert permissionSetAssignList;
+                insertPermissionSetAssignment(json_PermissionSetAssign);
+            }
         }catch(exception e){
             system.debug('exception caught:' + e);
         }   
     
+    }
+    
+    @Future
+    public static void insertPermissionSetAssignment(String permissionsets) {
+        List<PermissionSetAssignment> permissionSetAssignList = (List<PermissionSetAssignment>)JSON.deserialize(permissionsets, List<PermissionSetAssignment>.class);
+        
+        insert permissionSetAssignList;
+
     }
     
     private static IDP_User_Registration_User_Mapping__mdt manageUserRole(Auth.UserData data)
@@ -437,8 +511,9 @@ public with sharing class UserRegistrationService{
         if (String.isEmpty(suffixName)) {
             suffixName = customDomain;
         }
+        String directoryName = data.email.substringAfter(EMAIL_ASPERAND_SIGN);
         
-        return data.identifier + '@MoH.com.' + suffixName;
+        return data.identifier + EMAIL_ASPERAND_SIGN + directoryName + '.' + suffixName;
     }
     
     public static string generateUserAlias(Auth.UserData data)
@@ -450,7 +525,7 @@ public with sharing class UserRegistrationService{
         * Returns:
         *     String: Username
         * 
-        */    
+        */
         integer unique_num = Math.mod(Math.abs(Crypto.getRandomInteger()), 10);
         return String.valueof(data.username.left(4) + '_' + String.Valueof(unique_num)).left(8);
     }

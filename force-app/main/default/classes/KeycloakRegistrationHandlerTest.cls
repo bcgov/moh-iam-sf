@@ -101,7 +101,7 @@ public class KeycloakRegistrationHandlerTest {
       List<Id> ids = new List<Id>(); 
       ids.add(u.Id);
       users.add(sampleData);
-      UserRegistrationService.UpdateUsers(ids, ids, users);
+      UserRegistrationService.UpdateUser(ids, ids, users);
       //insert (u);
       String uid = u.id;
     //}
@@ -237,6 +237,8 @@ public class KeycloakRegistrationHandlerTest {
         null,
         attribmap
         );
+
+        Id existingUser = [SELECT Id FROM User WHERE ] 
 
         KeycloakRegistrationHandler handler = new KeycloakRegistrationHandler();
         handler.updateUser(UserInfo.getUserId(), null, sampleData);
