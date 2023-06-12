@@ -21,11 +21,15 @@
 
 
 public with sharing class UserRegistrationService{
-    public static String USER_ASSIGNMENT_TYPE_PERMISSIONSET = 'Permission Set';
-    public static String USER_ASSIGNMENT_TYPE_PERMISSIONSETGROUP = 'Permission Set Group';
-    public static String SALESFORCE_USER_LICENSE_COMMUNITY = 'Community';
-    public static String EMAIL_ASPERAND_SIGN = '@';
-    public static String ACCOUNT_PERSONACCOUNT_RECORDTYPE = 'PersonAccount';
+    public static final String USER_ASSIGNMENT_TYPE_PERMISSIONSET = 'Permission Set';
+    public static final String USER_ASSIGNMENT_TYPE_PERMISSIONSETGROUP = 'Permission Set Group';
+    public static final String SALESFORCE_USER_LICENSE_COMMUNITY = 'Community';
+    public static final String SALESFORCE_USER_LICENSE_STANDARD = 'Salesforce';
+    public static final String EMAIL_ASPERAND_SIGN = '@';
+    public static final String ACCOUNT_PERSONACCOUNT_RECORDTYPE = 'PersonAccount';
+    public static final String BCSC_IDP_KEY = 'idp';
+    public static final String MOH_IDP_KEY = 'roles';
+    public static final String USER_USERNAME_REFERENCE = 'data.username';
 
 
     public static void createUsers(List<Id> portalId, List<Auth.UserData> data){
@@ -75,26 +79,43 @@ public with sharing class UserRegistrationService{
         //Verify user data - to be removed prior to completion
         String userdata = JSON.serialize(data.attributeMap);
         Boolean createUser = true;
+        String existingBcscGuid = null;
 
-        //Create user
-        String l_username = UserRegistrationService.generateUserName(data);
-        
-        UserRegistrationCustomMetadataUtility fetchRoles = new UserRegistrationCustomMetadataUtility(data.attributeMap.get('roles'));
-        list<IDP_User_Registration_User_Mapping__mdt> userRole_list = new list<IDP_User_Registration_User_Mapping__mdt>();
-        userRole_list.add(fetchRoles.ReadMapping(data.attributeMap.get('roles')));
+        String keyLookup = UserRegistrationService.fetchUserMappingKey(data);
+        UserRegistrationCustomMetadataUtility fetchRoles = new UserRegistrationCustomMetadataUtility(data.attributeMap.get(keyLookup));
+        list<IDP_User_Registration_User_Mapping__mdt> userRoleList = new list<IDP_User_Registration_User_Mapping__mdt>();
+        //Get user mapping record based on source IDP
+        userRoleList.add(fetchRoles.ReadMapping(data.attributeMap.get(keyLookup)));
+     
         system.debug('data:'+ json.serializePretty(data));
         User newUser = new User();
-        if (userRole_list.size() > 0)
+        //Create user
+        if (userRoleList.size() > 0)
         {
-            for (IDP_User_Registration_User_Mapping__mdt userRole_rec : userRole_list)
+            for (IDP_User_Registration_User_Mapping__mdt userRoleRec : userRoleList)
             {
-            system.debug('userRole_rec:' + userRole_rec );
-                Profile p = [SELECT Id FROM profile WHERE name=:userRole_rec.Salesforce_User_Profile__c]; //:userRole_rec.Salesforce_User_Profile__c];
+                system.debug('userRole_rec:' + userRoleRec );
+                String userName = UserRegistrationService.generateUserName(data, userRoleRec.Username_Type__c, userRoleRec.Default_Domain__c);
+                String emailAddress = UserRegistrationService.generateEmailAddress(data, userName);
+                Profile p = [SELECT Id FROM profile WHERE name=:userRoleRec.Salesforce_User_Profile__c];
         
-                newUser.username = l_username;
-                newUser.email = data.email;
-                newUser.lastName = data.lastName;
-                newUser.firstName = data.firstName;
+                newUser.username = userName;
+                if (data.attributeMap.containsKey('pidp_email')) {
+                    newUser.email = data.attributeMap.get('pidp_email');
+                } else {
+                    newUser.email = emailAddress;
+                }  
+                if (data.attributeMap.containsKey('family_name')) {
+                    newUser.LastName = data.attributeMap.get('family_name');
+                } else {
+                    newUser.lastName = data.lastName;
+                }
+                if (data.attributeMap.containsKey('given_name')) {
+                    newUser.firstName = data.attributeMap.get('given_name');
+                } else {
+                    newUser.firstName = data.firstName;
+                }
+
                 newUser.FederationIdentifier = data.username;
                 newUser.alias = UserRegistrationService.generateUserAlias(data);
                 
@@ -106,11 +127,80 @@ public with sharing class UserRegistrationService{
             }
         }
         try {
-            // add/update user role
+            /****************************************************************** */
             List<IDP_User_Registration_User_Mapping__mdt>  matchingRole_list = new List<IDP_User_Registration_User_Mapping__mdt>();
-            
+                        
             matchingRole_list.add(manageUserRole(data)); 
+    
+            for (IDP_User_Registration_User_Mapping__mdt matchingRole_rec : matchingRole_list)
+            {
+                if (matchingRole_rec.Salesforce_User_License__c == SALESFORCE_USER_LICENSE_COMMUNITY)
+                {
+                    Boolean isEndorserData = false;
+                    Boolean isEndorserFound = false;
+                    Boolean isBCSCData = false;
+                    Boolean isHdidMatch = null;
+                    String contactId = null;
+                    List<Account> bcscMatch = new List<Account>();
+                    List<Account> endorserData = new List<Account>();
+//
 
+//
+                    if (data.attributeMap.containsKey('idp') && data.attributeMap.containsKey('bcsc_guid')) {
+                        isBCSCData = true;
+                        List<String> keyValue = new List<String>();
+                        keyValue.addAll(data.attributeMap.get('bcsc_guid').split(','));
+                        if (!keyValue.isEmpty()) {
+                            bcscMatch = fetchPersonAccount(keyValue);
+                        }
+                        
+                    }
+                    if (data.attributeMap.containsKey('endorser_data')) {
+                        isEndorserData = true;
+                        List<String> keyValue = new List<String>();
+                        keyValue.addAll(data.attributeMap.get('endorser_data').split(','));
+                        if (!keyValue.isEmpty()) {
+                            endorserData = fetchPersonAccount(keyValue);
+                            if (!endorserData.isEmpty()) {
+                                isEndorserFound = true;
+                            }
+                        }
+                    }
+                    // Create 
+                    
+                    if (data.attributeMap.containsKey('idp') && data.attributeMap.containsKey('hdid') 
+                            && fetchRoles.isFieldExisting('Account', 'HDID__c')) {
+                        String qryString = 'select id,PersonContactId from Account where HDID__c= :' + data.attributeMap.get('hdid');
+                        List<Account> accountList = Database.query(qryString);
+                        
+                        if(accountList.size() > 0 && String.isNotBlank(accountList[0].PersonContactId)){
+                            isHdidMatch = true;
+                            contactId = accountList[0].PersonContactId;  
+                        } else {
+                            isHdidMatch = false;
+                        }
+                    }
+
+                    if (bcscMatch.isEmpty() && isBCSCData && !isHdidMatch) {
+                        throw new Auth.AuthProviderPluginException('No Match found for BCSC');
+                    }
+                    if (isEndorserData && !isEndorserFound && !isHdidMatch) {
+                        throw new Auth.AuthProviderPluginException('No Match found for Endorser Supplied Data');
+                    }
+                    if (!isHdidMatch && isHdidMatch != null) {
+                        throw new Auth.AuthProviderPluginException('No Match found for HDID');
+                    } else if (isHdidMatch)
+                    {
+                        newUser.ContactId = contactId;
+                    } else {
+                        contactId = managePersonAccount(data);
+                    }
+                    newUser.ContactId = contactId;
+                }
+            }
+            /****************************************************************** */        
+        
+            // add/update user role
             for (IDP_User_Registration_User_Mapping__mdt matchingRole_rec : matchingRole_list)
             {
                 if (matchingRole_rec.Salesforce_User_License__c == SALESFORCE_USER_LICENSE_COMMUNITY)
@@ -129,7 +219,7 @@ public with sharing class UserRegistrationService{
                 {
                     for (UserRole userRole_rec: [SELECT DeveloperName,Id,Name FROM UserRole Where Name =: matchingRole_rec.Salesforce_User_Role__c])
                     {
-                        newUser.UserRoleId = userRole_rec.Id;
+                        newUser.UserRoleId = matchingRole_rec.Id;
                     }
                 }       
             }
@@ -148,7 +238,16 @@ public with sharing class UserRegistrationService{
                 update newUser;
             } 
              // add/update any new permission sets
-            managePermissionSet(newUser.Id, data);           
+            managePermissionSet(newUser.Id, data);
+            
+            // add user to Public Group
+            for (IDP_User_Registration_User_Mapping__mdt matchingRole_rec : matchingRole_list)
+            {
+                if (matchingRole_rec.Salesforce_Public_Group__c != Null)
+                {
+                    managePublicGroups(newUser.Id, matchingRole_rec.Salesforce_Public_Group__c);
+                }     
+            }      
             
         }
         catch (Exception e) {
@@ -172,23 +271,14 @@ public with sharing class UserRegistrationService{
         */       
         system.debug('data:'+ json.serializePretty(data));
         //Fetch Salesforce Id
-        User existingUser = [Select Id, username, email,lastname,firstname,alias,
+        User existingUser = [SELECT Id, username, email,lastname,firstname,alias,
                                 emailEncodingKey,timeZoneSidKey,languagelocaleKey,localesidkey
-                             From User where Id =: userId];
+                             FROM User WHERE Id =: userId];
         
          //Verify user data - to be removed prior to completion
 
         String l_userdata = JSON.serialize(data.attributeMap);
-        String l_username = UserRegistrationService.generateUserName(data);    
 
-        if (existingUser.username != l_username)
-        {
-            existingUser.username = l_username;
-        }
-        if (existingUser.email != data.email)
-        {
-            existingUser.email = data.email;
-        }
         if (existingUser.lastName != data.lastName)
         {
             existingUser.lastName = data.lastName;
@@ -216,14 +306,34 @@ public with sharing class UserRegistrationService{
         List<IDP_User_Registration_User_Mapping__mdt>  matchingRole_list = new List<IDP_User_Registration_User_Mapping__mdt>();
 
         matchingRole_list.add(manageUserRole(data));
-        for (IDP_User_Registration_User_Mapping__mdt matchingRole_rec : matchingRole_list)
+        for (IDP_User_Registration_User_Mapping__mdt matchingRoleRec : matchingRole_list)
         {
-            for (UserRole userRole_rec: [SELECT DeveloperName,Id,Name FROM UserRole Where Name =: matchingRole_rec.Salesforce_User_Role__c])
+            String userName = UserRegistrationService.generateUserName(data, matchingRoleRec.Username_Type__c, matchingRoleRec.Default_Domain__c);
+            String emailAddress = UserRegistrationService.generateEmailAddress(data, userName);   
+
+            if (existingUser.username != userName)
             {
-                existingUser.UserRoleId = userRole_rec.Id;
+                existingUser.username = userName;
+            }
+            if (existingUser.email != emailAddress)
+            {
+                existingUser.email = emailAddress;
+            }
+            for (UserRole userRoleRec : [SELECT DeveloperName,Id,Name FROM UserRole Where Name =: matchingRoleRec.Salesforce_User_Role__c])
+            {
+                existingUser.UserRoleId = userRoleRec.Id;
                 existingUser.isActive = true;
             }
         }
+        
+            // add user to Public Group
+            for (IDP_User_Registration_User_Mapping__mdt matchingRole_rec : matchingRole_list)
+            {
+                if (matchingRole_rec.Salesforce_Public_Group__c != Null)
+                {
+                    managePublicGroups(existingUser.Id, matchingRole_rec.Salesforce_Public_Group__c);
+                }     
+            }         
         try {
             update(existingUser);
         } 
@@ -235,6 +345,26 @@ public with sharing class UserRegistrationService{
 
         return existingUser;
         
+    }
+
+    private static List<Account> fetchPersonAccount(List<String> keyLookup) 
+    {
+        Boolean isNewAccount = false;
+        List<Account> newCommUser = new List<Account>();
+        List<String> bcscGuid = new List<String>();
+        
+        if (!keyLookup.isEmpty()) {
+            bcscGuid.addAll(keyLookup);
+        } else {
+            return newCommUser;
+        }
+        
+        List<Account> existingAccount = [
+            SELECT Id, PersonContactId, FirstName, LastName, PersonEmail, RecordTypeId, SourceSystemIdentifier 
+            FROM Account where SourceSystemIdentifier IN : bcscGuid 
+            AND RecordType.DeveloperName =: ACCOUNT_PERSONACCOUNT_RECORDTYPE];
+        
+        return existingAccount;
     }
 
     private static String managePersonAccount(Auth.UserData data) 
@@ -307,12 +437,12 @@ public with sharing class UserRegistrationService{
         if (communityContact.AccountId != null)
         {
             Id businessRecordTypeId = Schema.Sobjecttype.Contact.getRecordTypeInfosByName().get('Business').getRecordTypeId();
-            for (Contact processContact : [SELECT Id FROM Contact WHERE Email =: data.email And RecordTypeId =: businessRecordTypeId Limit 1])
+            for (Contact processContact : [SELECT Id FROM Contact WHERE Email =: data.email Limit 1]) // And RecordTypeId =: businessRecordTypeId
             {
                 communityContact.Id = processContact.Id;
             }
             // Create new contact
-            communityContact.RecordTypeId = businessRecordTypeId;
+            //communityContact.RecordTypeId = businessRecordTypeId;
             communityContact.FirstName = data.firstName;
             communityContact.LastName = data.lastName;
             communityContact.Email = data.email;
@@ -325,9 +455,27 @@ public with sharing class UserRegistrationService{
         return newContact;
     }
     
+    @Future
+    public static void managePublicGroups(Id userId, String userPublicGroup)
+    {
+
+        list<groupMember> groupList = new list<groupMember>();
+        list<Group> grp = [select id from Group where DeveloperName = : userPublicGroup];
+        
+        for(group g : grp){
+            groupMember gp = new groupMember(groupId = g.Id);
+            gp.UserOrGroupId = userId;
+            groupList.add(gp);
+        }
+            
+        if(groupList.size() > 0)
+        insert groupList;
+        System.debug('GroupList: ' + groupList);
+    }
+    
     private static void managePermissionSet(Id userId, Auth.UserData data)
     {
-          /*
+        /*
         * Description: Manage user permissionset(s)
         * Parameters:
         *     Id userId: Id of the user logging into the system via provider
@@ -341,7 +489,9 @@ public with sharing class UserRegistrationService{
         Set<Id> PermIds = new Set<Id>();
         Set<String> availableRoles = new Set<String>();
         
-        String UserRoleAssign = data.attributeMap.get('roles');
+        String keyLookup = UserRegistrationService.fetchUserMappingKey(data);
+        //Get user mapping record based on source IDP
+        String UserRoleAssign = data.attributeMap.get(keyLookup);
         
         UserRegistrationCustomMetadataUtility processPermissions = new UserRegistrationCustomMetadataUtility();
         UserRegistrationCustomMetadataUtility processRoles = new UserRegistrationCustomMetadataUtility(UserRoleAssign);
@@ -375,8 +525,14 @@ public with sharing class UserRegistrationService{
         // get permission metadata
         Set<String> associatedPermset = new Set<String>();
         Set<String> associatedPermsetGroup= new Set<String>();
+
+
+
         for (IDP_User_Registration_Permission_Set__mdt userPerms : processRoles.userPermissionSet)
         {
+            System.debug('userRole.DeveloperName:' + userRole.DeveloperName);
+            System.debug('userPerms.QualifiedApiName' + userPerms.QualifiedApiName);
+
             if (userPerms.Assignment_Type__c == USER_ASSIGNMENT_TYPE_PERMISSIONSET)
             {
                 if (userRole.DeveloperName == userPerms.QualifiedApiName)
@@ -432,6 +588,7 @@ public with sharing class UserRegistrationService{
             PermissionSetAssignment psa = new PermissionSetAssignment (PermissionSetGroupId = perm.Id, AssigneeId = userId);
             permissionSetAssignList.add(psa);
         }
+        System.debug('removeOtherPerms: ' + removeOtherPerms);
 
         try {
             if(removeOtherPerms.size() > 0)
@@ -466,13 +623,38 @@ public with sharing class UserRegistrationService{
         * Returns:
         *     IDP_User_Registration_User_Mapping__mdt: roles
         * 
-        */           
-        UserRegistrationCustomMetadataUtility processPermissions = new UserRegistrationCustomMetadataUtility();
-        UserRegistrationCustomMetadataUtility processRoles = new UserRegistrationCustomMetadataUtility(data.attributeMap.get('roles'));
+        */ 
 
-        IDP_User_Registration_User_Mapping__mdt roles = processRoles.ReadMapping(data.attributeMap.get('roles'));
+        UserRegistrationCustomMetadataUtility processPermissions = new UserRegistrationCustomMetadataUtility();
+        IDP_User_Registration_User_Mapping__mdt roles = new IDP_User_Registration_User_Mapping__mdt();
+        UserRegistrationCustomMetadataUtility processRoles = new UserRegistrationCustomMetadataUtility();
+
+        //Determine source IDP
+        if (data.attributeMap.containsKey('idp')) {
+            // BCSC
+            processRoles = new UserRegistrationCustomMetadataUtility(data.attributeMap.get('idp'));
+            roles = processRoles.ReadMapping(data.attributeMap.get('idp'));
+        } else if (data.attributemap.containsKey('roles')) {
+            // MoH
+            processRoles = new UserRegistrationCustomMetadataUtility(data.attributeMap.get('roles'));
+            roles = processRoles.ReadMapping(data.attributeMap.get('roles'));
+        }
         
         return roles;
+    }
+
+    public static string fetchUserMappingKey(Auth.UserData data)
+    {
+        String mappingKey = '';
+        //Determine source IDP
+        if (data.attributeMap.containsKey('idp')) {
+            // BCSC
+            mappingKey = 'idp';
+        } else if (data.attributemap.containsKey('roles')) {
+            //MoH
+            mappingKey = 'roles';
+        }
+        return mappingKey;
     }
     
     public static string fetchLicenseType(Auth.UserData data)
@@ -492,17 +674,20 @@ public with sharing class UserRegistrationService{
         Return licenseType;
     }
     
-    public static string generateUserName(Auth.UserData data)
+    public static string generateUserName(Auth.UserData data, String nameType, String domainName)
     {
         /*
         * Description: Generate User name used in user creation/matching
         * Parameters:
         *     Auth.UserData data: UserData id token payload, including attributeMap representing the id token equivalent
+                            nameType: source attribute to use for username construction
+                            domainName: supplied domainName to be used when username is is not in email format
         * Returns:
         *     String: Username
         * 
         */
         String suffixName = '';
+        String directoryName = domainName;
         String customDomain = URL.getSalesforceBaseUrl()
                         .toExternalForm()
                         .substringAfter('https://')
@@ -511,11 +696,34 @@ public with sharing class UserRegistrationService{
         if (String.isEmpty(suffixName)) {
             suffixName = customDomain;
         }
-        String directoryName = data.email.substringAfter(EMAIL_ASPERAND_SIGN);
+        //first see if attributeMap contains a valid email
+        if (data.email != null && data.email.contains(EMAIL_ASPERAND_SIGN)) {
+            directoryName = data.email.substringAfter(EMAIL_ASPERAND_SIGN);
+        }
         
         return data.identifier + EMAIL_ASPERAND_SIGN + directoryName + '.' + suffixName;
     }
-    
+
+    public static string generateEmailAddress(Auth.UserData data, String userName)
+    {
+        /*
+        * Description: Generate/determin User email used in user creation/matching
+        * Parameters:
+        *     Auth.UserData data: UserData id token payload, including attributeMap representing the id token equivalent
+                            userName: source attribute to use for email construction
+        * Returns:
+        *     String: email
+        * 
+        */  
+        String emailAddressComplete = '';    
+        //first see if attributeMap contains a valid email
+        if (data.email != null && data.email.contains(EMAIL_ASPERAND_SIGN)) {
+            emailAddressComplete = data.email;
+        } else {
+            emailAddressComplete = userName;
+        }
+        return emailAddressComplete;
+    }
     public static string generateUserAlias(Auth.UserData data)
     {
         /*

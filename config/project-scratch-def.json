@@ -1,22 +1,12 @@
 {
   "orgName": "IAM Dev",
   "edition": "Enterprise",
-  "hasSampleData": true,
-  "features": ["RecordTypes","Communities","PersonAccounts", "LightningServiceConsole", "ServiceCloud", "ForceComPlatform", "ServiceCloud", "ContactsToMultipleAccounts","PlatformEncryption"],
-  "settings": {
-    "lightningExperienceSettings": {
-      "enableS1DesktopEnabled": true
-    },
-    "mobileSettings": {
-      "enableS1EncryptedStoragePref2": false
-    },
-    "nameSettings": {
-      "enableMiddleName": true
-    }
+  "orgPreferences" : {
+    "enabled": ["PersonAccounts"]
   },
-  "objectSettings": {
-    "account": {
-      "sharingModel": "readWrite"
-    }
-  }
+  "hasSampleData": false,
+  "features": [
+    "HealthCloudAddOn",
+    "PersonAccounts"
+  ]
 }
