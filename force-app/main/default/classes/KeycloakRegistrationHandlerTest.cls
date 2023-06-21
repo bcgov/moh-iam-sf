@@ -70,7 +70,7 @@ public class KeycloakRegistrationHandlerTest {
       KeycloakRegistrationHandler handler = new KeycloakRegistrationHandler();
       
       Map<String,String> attribmap = new Map<String,String>();
-      attribmap.put('roles', '[MAiD-Manager-4]');
+      attribmap.put('roles', 'TESTONLY');
 
       Auth.UserData sampleData = new Auth.UserData(
         'testId',
@@ -112,7 +112,7 @@ public class KeycloakRegistrationHandlerTest {
     static void testCanCreateUser() {
     
         Map<String,String> attribmap = new Map<String,String>();
-        attribmap.put('roles', '[MAiD-Manager-4]');
+        attribmap.put('roles', 'TESTONLY');
         
         Auth.UserData sampleData = new Auth.UserData(
         'testId',
@@ -136,7 +136,7 @@ public class KeycloakRegistrationHandlerTest {
     @isTest
     static void testCreateUserExcep() {
         Map<String,String> attribmap = new Map<String,String>();
-        attribmap.put('roles', '[MAiD-Manager-4]');
+        attribmap.put('roles', 'TESTONLY');
     
         Auth.UserData sampleData = new Auth.UserData(
         'testId',
@@ -168,7 +168,7 @@ public class KeycloakRegistrationHandlerTest {
     static void testDoNotCreateUser() {
     
         Map<String,String> attribmap = new Map<String,String>();
-        attribmap.put('roles', '[MAiD-Manager-4]');
+        attribmap.put('roles', 'TESTONLY');
     
         Auth.UserData sampleData = new Auth.UserData(
         'testId',
@@ -197,7 +197,7 @@ public class KeycloakRegistrationHandlerTest {
         update currentUser;
         
         Map<String,String> attribmap = new Map<String,String>();
-        attribmap.put('roles', '[MAiD-Manager-4]');
+        attribmap.put('roles', 'TESTONLY');
 
         Auth.UserData sampleData = new Auth.UserData(
         testID,
@@ -222,7 +222,7 @@ public class KeycloakRegistrationHandlerTest {
     @isTest
     static void testUpdateUser() {
         Map<String,String> attribmap = new Map<String,String>();
-        attribmap.put('roles', '[MAiD-Manager-4]');
+        attribmap.put('roles', 'TESTONLY');
     
         Auth.UserData sampleData = new Auth.UserData(
         'testId',
@@ -251,7 +251,7 @@ public class KeycloakRegistrationHandlerTest {
     @isTest
     static void testUpdateUserExcep() {
         Map<String,String> attribmap = new Map<String,String>();
-        attribmap.put('roles', '[MAiD-Manager-4]');
+        attribmap.put('roles', 'TESTONLY');
     
         Auth.UserData sampleData = new Auth.UserData(
         'testId',
@@ -282,9 +282,9 @@ public class KeycloakRegistrationHandlerTest {
     @isTest
     static void testFetchUserMappingData() {
         UserRegistrationCustomMetadataUtility processRoles = new UserRegistrationCustomMetadataUtility();
-        UserRegistrationCustomMetadataUtility loadRoles = new UserRegistrationCustomMetadataUtility('[MAiD-Manager-4]');
+        UserRegistrationCustomMetadataUtility loadRoles = new UserRegistrationCustomMetadataUtility('TESTONLY');
 
-        List<IDP_User_Registration_Permission_Set__mdt> fetchRoles = loadRoles.ReadPermissionSet('[MAiD-Manager-4]');
+        List<IDP_User_Registration_Permission_Set__mdt> fetchRoles = loadRoles.ReadPermissionSet('TESTONLY');
         system.assert(fetchRoles != null);
     }
     
@@ -299,7 +299,7 @@ public class KeycloakRegistrationHandlerTest {
     @isTest
     static void testFetchlicenseType() {
         Map<String,String> attribmap = new Map<String,String>();
-        attribmap.put('roles', '[MAiD-Manager-4]');
+        attribmap.put('roles', 'TESTONLY');
     
         Auth.UserData sampleData = new Auth.UserData(
         'testId',
