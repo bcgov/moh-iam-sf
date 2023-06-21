@@ -141,6 +141,7 @@ public class UserRegistrationCustomMetadataUtility{
             if(objectFields.containsKey(fieldName))
             {
                 isFieldFound = true;
+                system.debug('isFieldFound:'+isFieldFound);
             }
          }
          return isFieldFound;
