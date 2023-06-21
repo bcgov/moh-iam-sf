@@ -11,4 +11,6 @@ package.xml
 # LWC Jest
 **/__tests__/**
 
-force-app/main/default/customMetadata
+# force-app/main/default/customMetadata
+force-app\main\default\classes\KeycloakSchedulerService.cls
+force-app\main\default\classes\KeycloakScheduler.cls
