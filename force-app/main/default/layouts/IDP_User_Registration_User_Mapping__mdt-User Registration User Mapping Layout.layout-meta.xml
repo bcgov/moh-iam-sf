@@ -50,6 +50,10 @@
                 <behavior>Edit</behavior>
                 <field>Payload_Includes_PIdP_Data__c</field>
             </layoutItems>
+            <layoutItems>
+                <behavior>Edit</behavior>
+                <field>Non_Regulated_User_Record_Type__c</field>
+            </layoutItems>
         </layoutColumns>
         <layoutColumns>
             <layoutItems>

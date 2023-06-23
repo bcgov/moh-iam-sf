@@ -23,12 +23,16 @@
         <value xsi:type="xsd:boolean">true</value>
     </values>
     <values>
+        <field>Non_Regulated_User_Record_Type__c</field>
+        <value xsi:nil="true"/>
+    </values>
+    <values>
         <field>Payload_Includes_PIdP_Data__c</field>
         <value xsi:type="xsd:boolean">false</value>
     </values>
     <values>
         <field>Salesforce_Public_Group__c</field>
-        <value xsi:nil="true"/>
+        <value xsi:type="xsd:string">Test_Group</value>
     </values>
     <values>
         <field>Salesforce_User_License__c</field>
@@ -36,7 +40,7 @@
     </values>
     <values>
         <field>Salesforce_User_Profile__c</field>
-        <value xsi:type="xsd:string">Standard User</value>
+        <value xsi:type="xsd:string">System Administrator</value>
     </values>
     <values>
         <field>Salesforce_User_Role__c</field>

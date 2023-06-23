@@ -30,7 +30,7 @@ public with sharing class UserRegistrationService{
     public static final String BCSC_IDP_KEY = 'idp';
     public static final String MOH_IDP_KEY = 'roles';
     public static final String USER_USERNAME_REFERENCE = 'data.username';
-    public static final String NON_REGULATED_USER_RECORD_TYPE = 'Non_Regulated_User_Record_Type__c';
+    public static final String NON_REGULATED_USER_RECORD_TYPE = 'MOHBC_PRV_Clinic_Staff';
 
 
     public static void createUsers(List<Id> portalId, List<Auth.UserData> data){
@@ -140,9 +140,11 @@ public with sharing class UserRegistrationService{
     
             for (IDP_User_Registration_User_Mapping__mdt matchingRole_rec : matchingRole_list)
             {
+                System.debug('matchingRole_rec: ' + matchingRole_rec);
                 if (matchingRole_rec.Non_Regulated_User_Record_Type__c == NON_REGULATED_USER_RECORD_TYPE)
                 {
                     nonRegulatedStaff = matchingRole_rec.Non_Regulated_User_Record_Type__c;
+                    
                 }
                 else {
                     nonRegulatedStaff = 'PersonAccount';
@@ -159,7 +161,9 @@ public with sharing class UserRegistrationService{
                     List<Account> bcscMatch = new List<Account>();
                     List<Account> endorserData = new List<Account>();
                     List<Account> cpnData = new List<Account>();
+//
 
+//
                     if (data.attributeMap.containsKey('idp') && data.attributeMap.containsKey('bcsc_guid')) {
                         isBCSCData = true;
                         List<String> keyValue = new List<String>();
@@ -281,6 +285,7 @@ public with sharing class UserRegistrationService{
                     managePublicGroups(newUser.Id, matchingRole_rec.Salesforce_Public_Group__c);
                 }     
             }      
+            
         }
         catch (Exception e) {
             system.debug(e.getMessage());
@@ -381,7 +386,9 @@ public with sharing class UserRegistrationService{
 
     private static List<Account> fetchPersonAccount(List<String> keyLookup) 
     {
+        System.debug('keyLookup_fetchvalue: ' + keyLookup);
         Boolean isNewAccount = false;
+        String qryFilter = '';
         List<Account> newCommUser = new List<Account>();
         List<String> keyvalues = new List<String>();
         
@@ -390,17 +397,17 @@ public with sharing class UserRegistrationService{
         } else {
             return newCommUser;
         }
-        
         List<Account> existingAccount = [
             SELECT Id, PersonContactId, FirstName, LastName, PersonEmail, RecordTypeId, SourceSystemIdentifier 
             FROM Account where HealthCloudGA__SourceSystemId__pc IN : keyValues 
-            ];
-        
+            ]; 
+
         return existingAccount;
     }
 
     private static String managePersonAccount(Auth.UserData data, String optionalRecordType) 
     {
+        System.debug('optionalRecordType: ' + optionalRecordType);
         Boolean isNewAccount = false;
         Id newCommUser = null;
         String searchEmail = '';
@@ -414,6 +421,7 @@ public with sharing class UserRegistrationService{
         List<Account> existingAccount = [
             SELECT Id, PersonContactId, FirstName, LastName, PersonEmail, RecordTypeId 
             FROM Account where PersonEmail =: searchEmail 
+            //AND RecordType.DeveloperName =: ACCOUNT_PERSONACCOUNT_RECORDTYPE
             ];
         Account newPersonAccount = new Account();
         

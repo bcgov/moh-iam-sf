@@ -7,6 +7,14 @@
   "hasSampleData": false,
   "features": [
     "HealthCloudAddOn",
-    "PersonAccounts"
-  ]
+    "PersonAccounts",
+    "CustomerCommunityPlusLogin",
+    "ContactsToMultipleAccounts",
+    "HealthCloudUser",
+    "ExternalIdentityLogin"
+  ],
+  "communitiesSettings": {
+    "enableNetworksEnabled": true,
+    "enableOotbProfExtUserOpsEnable": true
+  }
 }
