@@ -3,6 +3,10 @@
     <label>PC_Practitioner MD</label>
     <protected>false</protected>
     <values>
+        <field>Account_Record_Type__c</field>
+        <value xsi:type="xsd:string">Practitioner</value>
+    </values>
+    <values>
         <field>Assurance_Level__c</field>
         <value xsi:type="xsd:string">3</value>
     </values>
@@ -21,6 +25,10 @@
     <values>
         <field>MFA_Flag__c</field>
         <value xsi:type="xsd:boolean">true</value>
+    </values>
+    <values>
+        <field>Non_Regulated_User_Record_Type__c</field>
+        <value xsi:nil="true"/>
     </values>
     <values>
         <field>Payload_Includes_PIdP_Data__c</field>

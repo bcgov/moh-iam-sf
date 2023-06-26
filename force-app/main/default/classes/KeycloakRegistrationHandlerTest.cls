@@ -19,48 +19,38 @@ public class KeycloakRegistrationHandlerTest {
   private static final String API_USER_VERSION_URL = 'http://www.dummyhost.com/user/20/1';
   private static final String AUTH_URL = 'http://www.dummy.com/authurl';
   private static final String API_USER_URL = 'www.concursolutions.com/user/api';
+  private static User RUN_TIME_USER = new User();
+
   private static Map<String, String> setupAuthProviderConfig() {
-    Map<String, String> authProviderConfiguration = new Map<String, String>();
-    authProviderConfiguration.put('Key__c', KEY);
-    authProviderConfiguration.put('Auth_Url__c', AUTH_URL);
-    authProviderConfiguration.put('Secret__c', SECRET);
-    authProviderConfiguration.put('Access_Token_Url__c', ACCESS_TOKEN_URL);
-    authProviderConfiguration.put('API_User_Url__c', API_USER_URL);
-    authProviderConfiguration.put(
-      'API_User_Version_Url__c',
-      API_USER_VERSION_URL
-    );
-    authProviderConfiguration.put('Redirect_Url__c', REDIRECT_URL);
-    return authProviderConfiguration;
+      Map<String, String> authProviderConfiguration = new Map<String, String>();
+      authProviderConfiguration.put('Key__c', KEY);
+      authProviderConfiguration.put('Auth_Url__c', AUTH_URL);
+      authProviderConfiguration.put('Secret__c', SECRET);
+      authProviderConfiguration.put('Access_Token_Url__c', ACCESS_TOKEN_URL);
+      authProviderConfiguration.put('API_User_Url__c', API_USER_URL);
+      authProviderConfiguration.put(
+        'API_User_Version_Url__c',
+        API_USER_VERSION_URL
+      );
+      authProviderConfiguration.put('Redirect_Url__c', REDIRECT_URL);
+      return authProviderConfiguration;
   }
+
   @TestSetup
   public static void testSetup() {
-    String uniqueUserName =
-      'standarduser' +
-      DateTime.now().getTime() +
-      '@testorg.com';
-    Profile p = [SELECT Id FROM Profile WHERE Name = 'System Administrator'];
-    List<UserRole> userRole = [SELECT Id FROM UserRole];
-    String userRoleId = userRole[0].Id;
-/*     User runningUser = new User(
-      Alias = 'standt',
-      Email = 'systemuser@testorg.com',
-      EmailEncodingKey = 'UTF-8',
-      LastName = 'Testing',
-      LanguageLocaleKey = 'en_US',
-      LocaleSidKey = 'en_CA',
-      CommunityNickname = 'startupa',
-      ProfileId = p.Id,
-      TimeZoneSidKey = 'America/Los_Angeles',
-      UserName = uniqueUserName,
-      Override_Auto_Permission_Assignment__c = true
-    ); */
+
+    test.startTest();
+        verifyTestUser();
+    test.stopTest();
+
+    User runtimeUser = [SELECT Id FROM User WHERE Email = 'systemuser@testorg.com' LIMIT 1];
+    System.runAs(runtimeUser) {   
 
         Profile commUserType = [
             SELECT Id, Name, UserType 
             FROM Profile 
             WHERE Name = 'Customer Community Plus Login User' Limit 1];  
-    
+
         Account newPersonAccount0 = new Account();    
         Account newPersonAccount = new Account();
         List<Account> newPersonAccounts = new List<Account>();
@@ -73,7 +63,8 @@ public class KeycloakRegistrationHandlerTest {
         newPersonAccount0.LastName = 'TESTONLY_LAST';
         newPersonAccount0.PersonEmail = 'TESTONLY0@EMAIL.com';
         newPersonAccount0.SourceSystemIdentifier = 'CPN.TSTP00000.CPSID.GS';
-        setIdentifier = (String)newPersonAccount0.put('HealthCloudGA__SourceSystemId__pc', 'CPN.TSTP00000.CPSID.GS');
+        newPersonAccount0.HealthCloudGA__SourceSystemId__pc = 'CPN.TSTP00000.CPSID.GS';
+        //setIdentifier = (String)newPersonAccount0.put('HealthCloudGA__SourceSystemId__pc', 'CPN.TSTP00000.CPSID.GS');
         
         newPersonAccounts.Add(newPersonAccount0);
         
@@ -82,43 +73,53 @@ public class KeycloakRegistrationHandlerTest {
         newPersonAccount.LastName = 'TESTONLY_LAST';
         newPersonAccount.PersonEmail = 'TESTONLY@EMAIL.com';
         newPersonAccount.SourceSystemIdentifier = 'CPN.TSTP00015.CPSID.GS';
-        //newPersonAccount.HealthCloudGA__SourceSystemId__pc = 'CPN.TSTP00015.CPSID.GS';
-        setIdentifier = (String)newPersonAccount.put('HealthCloudGA__SourceSystemId__pc', 'CPN.TSTP00015.CPSID.GS');
+        newPersonAccount.HealthCloudGA__SourceSystemId__pc = 'CPN.TSTP00015.CPSID.GS';
+        //setIdentifier = (String)newPersonAccount.put('HealthCloudGA__SourceSystemId__pc', 'CPN.TSTP00015.CPSID.GS');
 
         newPersonAccounts.Add(newPersonAccount);
         
         Account newPersonAccount3 = new Account();
         newPersonAccount3.RecordTypeId = personAccountRecordTypeId;
-        newPersonAccount3.FirstName = 'TESTONLYBCSC_FIRST';
-        newPersonAccount3.LastName = 'TESTONLYBCSC_LAST';
-        newPersonAccount3.PersonEmail = 'testusername@me.com';
+        newPersonAccount3.FirstName = 'TESTONLYBCSC3_FIRST';
+        newPersonAccount3.LastName = 'TESTONLYBCSC3_LAST';
+        newPersonAccount3.PersonEmail = 'testusername3@me.com';
         newPersonAccount3.SourceSystemIdentifier = 'CPN.TSTP00016.CPSID.GS';
-        //newPersonAccount3.HealthCloudGA__SourceSystemId__pc = 'CPN.TSTP00016.CPSID.GS';
-        setIdentifier = (String)newPersonAccount3.put('HealthCloudGA__SourceSystemId__pc', 'CPN.TSTP00016.CPSID.GS');
+        newPersonAccount3.HealthCloudGA__SourceSystemId__pc = 'CPN.TSTP00016.CPSID.GS';
+        //setIdentifier = (String)newPersonAccount3.put('HealthCloudGA__SourceSystemId__pc', 'CPN.TSTP00016.CPSID.GS');
         
         newPersonAccounts.Add(newPersonAccount3);
 
         Account newPersonAccount2 = new Account();
         newPersonAccount2.RecordTypeId = personAccountRecordTypeId;
-        newPersonAccount2.FirstName = 'TESTONLYBCSC_FIRST';
-        newPersonAccount2.LastName = 'TESTONLYBCSC_LAST';
-        newPersonAccount2.PersonEmail = 'TESTONLYBCSC@EMAIL.com';
+        newPersonAccount2.FirstName = 'TESTONLYBCSC2_FIRST';
+        newPersonAccount2.LastName = 'TESTONLYBCSC2_LAST';
+        newPersonAccount2.PersonEmail = 'TESTONLYBCSC2@EMAIL.com';
         newPersonAccount2.SourceSystemIdentifier = 'GUID01';
-        //newPersonAccount2.HealthCloudGA__SourceSystemId__pc = 'GUID01';
-        setIdentifier = (String)newPersonAccount2.put('HealthCloudGA__SourceSystemId__pc', 'GUID01');
+        newPersonAccount2.HealthCloudGA__SourceSystemId__pc = 'GUID01';
+        //setIdentifier = (String)newPersonAccount2.put('HealthCloudGA__SourceSystemId__pc', 'GUID01');
 
         newPersonAccounts.Add(newPersonAccount2);        
 
         Account newPersonAccount4 = new Account();
         newPersonAccount4.RecordTypeId = personAccountRecordTypeId;
-        newPersonAccount4.FirstName = 'TESTONLYBCSC_FIRST';
-        newPersonAccount4.LastName = 'TESTONLYBCSC_LAST';
-        newPersonAccount4.PersonEmail = 'TESTONLYBCSC@EMAIL.com';
+        newPersonAccount4.FirstName = 'TESTONLYBCSC4_FIRST';
+        newPersonAccount4.LastName = 'TESTONLYBCSC4_LAST';
+        newPersonAccount4.PersonEmail = 'TESTONLYBCSC4@EMAIL.com';
         newPersonAccount4.SourceSystemIdentifier = 'GUID02';
-        //newPersonAccount4.HealthCloudGA__SourceSystemId__pc = 'GUID02';
-        setIdentifier = (String)newPersonAccount4.put('HealthCloudGA__SourceSystemId__pc', 'GUID02');
+        newPersonAccount4.HealthCloudGA__SourceSystemId__pc = 'GUID02';
+        //setIdentifier = (String)newPersonAccount4.put('HealthCloudGA__SourceSystemId__pc', 'GUID02');
 
         newPersonAccounts.Add(newPersonAccount4);  
+
+        Account newPersonAccount5 = new Account();
+        newPersonAccount5.RecordTypeId = personAccountRecordTypeId;
+        newPersonAccount5.FirstName = 'TESTONLYBCSC5_FIRST';
+        newPersonAccount5.LastName = 'TESTONLYBCSC5_LAST';
+        newPersonAccount5.PersonEmail = 'TESTONLYBCSC5@EMAIL.com';
+        newPersonAccount5.SourceSystemIdentifier = 'BCSC01';
+        //setIdentifier = (String)newPersonAccount4.put('HealthCloudGA__SourceSystemId__pc', 'GUID02');
+
+        newPersonAccounts.Add(newPersonAccount5);      
 
         insert newPersonAccounts;
         
@@ -127,43 +128,27 @@ public class KeycloakRegistrationHandlerTest {
             FROM Account 
             WHERE PersonEmail = 'TESTONLY0@EMAIL.com'];        
 
-        User runningUser = new User(
-          ContactId = fetchAccount.PersonContactId,
-          Alias = 'standt',
-          Email = 'TESTONLY0@EMAIL.com',
-          EmailEncodingKey = 'UTF-8',
-          LastName = 'Testing',
-          FirstName = 'TestingLast0',
-          LanguageLocaleKey = 'en_US',
-          LocaleSidKey = 'en_CA',
-          CommunityNickname = 'startupa',
-          ProfileId = commUserType.Id,
-          TimeZoneSidKey = 'America/Los_Angeles',
-          UserName = uniqueUserName
-        );
-        insert runningUser;
-
         Group testGroup = new Group();
         testGroup.Name = 'Test_Group';
         insert testGroup;    
-
+    }
   }
 
   @isTest
-  public static void testUpdateCommunityeUser() {
+    public static void testUpdateCommunityeUser() {
     String uniqueUserName =
-      'standarduser' +
-      DateTime.now().getTime() +
-      '@testorg.com';
+        'standarduser' +
+        DateTime.now().getTime() +
+        '@testorg.com';
 
     List<UserRole> userRole = [SELECT Id FROM UserRole];
     String userRoleId = userRole[0].Id;
-      KeycloakRegistrationHandler handler = new KeycloakRegistrationHandler();
-      
-      Map<String,String> attribmap = new Map<String,String>();
-      attribmap.put('roles', 'SALESFORCE_TESTONLY');
+    KeycloakRegistrationHandler handler = new KeycloakRegistrationHandler();
 
-      Auth.UserData sampleData = new Auth.UserData(
+    Map<String,String> attribmap = new Map<String,String>();
+    attribmap.put('roles', 'SALESFORCE_TESTONLY');
+
+    Auth.UserData sampleData = new Auth.UserData(
         'testId',
         'testFirst',
         'testLast',
@@ -175,265 +160,262 @@ public class KeycloakRegistrationHandlerTest {
         'facebook',
         null,
         attribmap
-      );
-      System.debug('sampleData:' + sampleData);
+    );
+    System.debug('sampleData:' + sampleData);
+        test.startTest();
+            verifyTestUser();
+        test.stopTest();
+        User runtimeUser = [SELECT Id FROM User WHERE Email = 'systemuser@testorg.com' LIMIT 1];
+        System.runAs(runtimeUser) {
 
-      test.startTest();
-      Contact c = new Contact();
-      c.Birthdate = Date.newInstance(2001, 12, 9);
-      c.FirstName = 'testFirst';
-      c.LastName = 'testLast';
-      //insert c;
-      User u = handler.createUser(null, sampleData);
-      System.assertEquals('testLast', u.lastName);
-      System.assertEquals('testFirst', u.firstName);
-      List<Auth.UserData> users = new List<Auth.UserData>();
-      List<Id> ids = new List<Id>(); 
-      ids.add(u.Id);
-      users.add(sampleData);
-      UserRegistrationService.UpdateUsers(ids, ids, users);
-
-      String uid = u.id;
+            User u = handler.createUser(null, sampleData);
+            System.assertEquals('testLast', u.lastName);
+            System.assertEquals('testFirst', u.firstName);
+            List<Auth.UserData> users = new List<Auth.UserData>();
+            List<Id> ids = new List<Id>(); 
+            ids.add(u.Id);
+            users.add(sampleData);
+            UserRegistrationService.UpdateUsers(ids, ids, users);
+            String uid = u.id;
+        }
+  
   }
 
   @isTest
   public static void testCreateIdirUser() {
-    String uniqueUserName =
-      'standarduser' +
-      DateTime.now().getTime() +
-      '@testorg.com';
+        String uniqueUserName =
+            'standarduser' +
+        DateTime.now().getTime() +
+            '@testorg.com';
 
-    List<UserRole> userRole = [SELECT Id FROM UserRole];
-    String userRoleId = userRole[0].Id;
-      KeycloakRegistrationHandler handler = new KeycloakRegistrationHandler();
-      
-      Map<String,String> attribmap = new Map<String,String>();
-      attribmap.put('roles', 'SALESFORCE_TESTONLY');
-      attribmap.put('email', 'test.last@gov.bc.ca');
-      attribmap.put('family_name', 'TestLast');
-      attribmap.put('given_name', 'TestFirst');
-      attribmap.put('preferred_username', 'test@idir');
-      attribmap.put('name', 'TestFirst TestLast');
-      attribmap.put('email_verified', 'false');
-      attribmap.put('sub', 'f6aac22a-03bd-4d08-a9de-1a050b0e2c15');
+        List<UserRole> userRole = [SELECT Id FROM UserRole];
+        String userRoleId = userRole[0].Id;
+        KeycloakRegistrationHandler handler = new KeycloakRegistrationHandler();
+        
+        Map<String,String> attribmap = new Map<String,String>();
+        attribmap.put('roles', 'SALESFORCE_TESTONLY');
+        attribmap.put('email', 'test.last@gov.bc.ca');
+        attribmap.put('family_name', 'TestLast');
+        attribmap.put('given_name', 'TestFirst');
+        attribmap.put('preferred_username', 'test@idir');
+        attribmap.put('name', 'TestFirst TestLast');
+        attribmap.put('email_verified', 'false');
+        attribmap.put('sub', 'f6aac22a-03bd-4d08-a9de-1a050b0e2c15');
 
-      Auth.UserData sampleData = new Auth.UserData(
-        'f6aac22a-03bd-4d08-a9de-1a050b0e2c15',
-        'TestFirst',
-        'TestLast',
-        'TestFirst TestLast',
-        'test.last@gov.bc.ca',
-        null,
-        'test@idir',
-        'en_CA',
-        'Open ID Connect',
-        null,
-        attribmap
-      );
-      System.debug('sampleData:' + sampleData);
+        Auth.UserData sampleData = new Auth.UserData(
+            'f6aac22a-03bd-4d08-a9de-1a050b0e2c15',
+            'TestFirst',
+            'TestLast',
+            'TestFirst TestLast',
+            'test.last@gov.bc.ca',
+            null,
+            'test@idir',
+            'en_CA',
+            'Open ID Connect',
+            null,
+            attribmap
+        );
+        System.debug('sampleData:' + sampleData);
 
-      test.startTest();
-      Contact c = new Contact();
-      c.Birthdate = Date.newInstance(2001, 12, 9);
-      c.FirstName = 'TestFirst';
-      c.LastName = 'TestLast';
-      //insert c;
-      User u = handler.createUser(null, sampleData);
-      System.assertEquals('TestLast', u.lastName);
-      System.assertEquals('TestFirst', u.firstName);
+        test.startTest();
+            verifyTestUser();
+        test.stopTest();
 
-      String uid = u.id;
+        User runtimeUser = [SELECT Id FROM User WHERE Email = 'systemuser@testorg.com' LIMIT 1];
+        System.runAs(runtimeUser) {
 
+            User u = handler.createUser(null, sampleData);
+            System.assertEquals('TestLast', u.lastName);
+            System.assertEquals('TestFirst', u.firstName);
+        }
+  }
+
+  @isTest
+    public static void testCreatCPNUser() {
+        String uniqueUserName =
+            'standarduser' +
+        DateTime.now().getTime() +
+            '@testorg.com';
+        Profile p = [SELECT Id FROM Profile WHERE Name = 'System Administrator'];
+        List<UserRole> userRole = [SELECT Id FROM UserRole];
+        String userRoleId = userRole[0].Id;
+
+        KeycloakRegistrationHandler handler = new KeycloakRegistrationHandler();
+
+        Map<String,String> attribmap = new Map<String,String>();
+        attribmap.put('roles', 'BCSC_TESTONLY');
+        attribmap.put('pidp_email', 'testonly@bcsc.ca');
+        attribmap.put('family_name', 'TestOnlyLast');
+        attribmap.put('given_name', 'TestOnlyGiven');
+        attribmap.put('common_provider_number', 'GUID01');
+        attribmap.put('preferred_username', 'pidp.fifteen@bcprovidertest.onmicrosoft.com@bcp');
+        attribmap.put('name', 'TestOnlyGiven TestOnlyLast');
+
+        Auth.UserData sampleData = new Auth.UserData(
+            'testIdComm',
+            'testFirst',
+            'testLast',
+            'testFirst testLast',
+            'testuserComm@example.org',
+            null,
+            'testonly@bcsc.ca',
+            'en_US',
+            'Open ID Connect',
+            null,
+            attribmap
+        );
+        System.debug('sampleData:' + sampleData);
+
+        test.startTest();
+            verifyTestUser();
+        test.stopTest();
+
+        User runtimeUser = [SELECT Id FROM User WHERE Email = 'systemuser@testorg.com' LIMIT 1];
+        System.runAs(runtimeUser) {        
+            User u = handler.createUser(null, sampleData);
+            System.assertEquals('TestOnlyLast', u.lastName);
+            System.assertEquals('TestOnlyGiven', u.firstName);
+        }
 
   }
 
   @isTest
-  public static void testCreatCPNUser() {
-    String uniqueUserName =
-      'standarduser' +
-      DateTime.now().getTime() +
-      '@testorg.com';
-    Profile p = [SELECT Id FROM Profile WHERE Name = 'System Administrator'];
-    List<UserRole> userRole = [SELECT Id FROM UserRole];
-    String userRoleId = userRole[0].Id;
-      KeycloakRegistrationHandler handler = new KeycloakRegistrationHandler();
-      
-      Map<String,String> attribmap = new Map<String,String>();
-      attribmap.put('roles', 'BCSC_TESTONLY');
-      attribmap.put('pidp_email', 'testonly@bcsc.ca');
-      attribmap.put('family_name', 'TestOnlyLast');
-      attribmap.put('given_name', 'TestOnlyGiven');
-      attribmap.put('common_provider_number', 'GUID01');
-      attribmap.put('preferred_username', 'pidp.fifteen@bcprovidertest.onmicrosoft.com@bcp');
-      attribmap.put('name', 'TestOnlyGiven TestOnlyLast');
+    public static void testCreateBCSCUser() {
+        String uniqueUserName =
+            'standarduser' +
+            DateTime.now().getTime() +
+            '@testorg.com';
+        Profile p = [SELECT Id FROM Profile WHERE Name = 'System Administrator'];
+        List<UserRole> userRole = [SELECT Id FROM UserRole];
+        String userRoleId = userRole[0].Id;
+        KeycloakRegistrationHandler handler = new KeycloakRegistrationHandler();
+        
+        Map<String,String> attribmap = new Map<String,String>();
+        attribmap.put('roles', 'BCSC_TESTONLY');
+        attribmap.put('pidp_email', 'testonly@bcsc.ca');
+        attribmap.put('family_name', 'TestOnlyLast');
+        attribmap.put('given_name', 'TestOnlyGiven');
+        attribmap.put('hdid','BCSC01');
+        attribmap.put('idp','BCSC_TESTONLY');
 
-      Auth.UserData sampleData = new Auth.UserData(
-        'testIdComm',
-        'testFirst',
-        'testLast',
-        'testFirst testLast',
-        'testuserComm@example.org',
-        null,
-        'testusername@me.com',
-        'en_US',
-        'Open ID Connect',
-        null,
-        attribmap
-      );
-      System.debug('sampleData:' + sampleData);
+        Auth.UserData sampleData = new Auth.UserData(
+            'testIdComm',
+            'testFirst',
+            'testLast',
+            'testFirst testLast',
+            'testuserComm@example.org',
+            null,
+            'testusername@me.com',
+            'en_US',
+            'facebook',
+            null,
+            attribmap
+        );
+        System.debug('sampleData:' + sampleData);
+        test.startTest();
+            verifyTestUser();
+        test.stopTest();
 
-      test.startTest();
-      Contact c = new Contact();
-      c.Birthdate = Date.newInstance(2001, 12, 9);
-      c.FirstName = 'TestOnlyGiven';
-      c.LastName = 'TestOnlyLast';
-      //insert c;
-      User u = handler.createUser(null, sampleData);
-      System.assertEquals('TestOnlyLast', u.lastName);
-      System.assertEquals('TestOnlyGiven', u.firstName);
-
-    //}
+        User runtimeUser = [SELECT Id FROM User WHERE Email = 'systemuser@testorg.com' LIMIT 1];
+        System.runAs(runtimeUser) {
+            User u = handler.createUser(null, sampleData);
+            System.assertEquals('TestOnlyLast', u.lastName);
+            System.assertEquals('TestOnlyGiven', u.firstName);
+        }
 
   }
 
   @isTest
-  public static void testCreateBCSCUser() {
-    String uniqueUserName =
-      'standarduser' +
-      DateTime.now().getTime() +
-      '@testorg.com';
-    Profile p = [SELECT Id FROM Profile WHERE Name = 'System Administrator'];
-    List<UserRole> userRole = [SELECT Id FROM UserRole];
-    String userRoleId = userRole[0].Id;
-      KeycloakRegistrationHandler handler = new KeycloakRegistrationHandler();
+    public static void testCreateProviderUser() {
+        String uniqueUserName =
+            'standarduser' +
+        DateTime.now().getTime() +
+            '@testorg.com';
+        Profile p = [SELECT Id FROM Profile WHERE Name = 'System Administrator'];
+        List<UserRole> userRole = [SELECT Id FROM UserRole];
+        String userRoleId = userRole[0].Id;
+        KeycloakRegistrationHandler handler = new KeycloakRegistrationHandler();
       
-      Map<String,String> attribmap = new Map<String,String>();
-      attribmap.put('roles', 'BCSC_TESTONLY');
-      attribmap.put('pidp_email', 'testonly@bcsc.ca');
-      attribmap.put('family_name', 'TestOnlyLast');
-      attribmap.put('given_name', 'TestOnlyGiven');
-      attribmap.put('hdid','GUID01');
-      attribmap.put('idp','BCSC');
+        Map<String,String> attribmap = new Map<String,String>();
+        attribmap.put('roles', 'BCSC_TESTONLY');
+        attribmap.put('pidp_email', 'TESTONLYBCSC4@EMAIL.com');
+        attribmap.put('family_name', 'TestOnlyLast');
+        attribmap.put('given_name', 'TestOnlyGiven');
+        attribmap.put('bcsc_guid','GUID02');
+        attribmap.put('idp','BCSC_TESTONLY');
 
-      Auth.UserData sampleData = new Auth.UserData(
-        'testIdComm',
-        'testFirst',
-        'testLast',
-        'testFirst testLast',
-        'testuserComm@example.org',
-        null,
-        'testusername@me.com',
-        'en_US',
-        'facebook',
-        null,
-        attribmap
-      );
-      System.debug('sampleData:' + sampleData);
+        Auth.UserData sampleData = new Auth.UserData(
+            'testIdComm',
+            'testFirst',
+            'testLast',
+            'testFirst testLast',
+            'TESTONLYBCSC4@EMAIL.com',
+            null,
+            'TESTONLYBCSC4@EMAIL.com',
+            'en_US',
+            'facebook',
+            null,
+            attribmap
+        );
+        System.debug('sampleData:' + sampleData);
 
-      test.startTest();
-      Contact c = new Contact();
-      c.Birthdate = Date.newInstance(2001, 12, 9);
-      c.FirstName = 'TestOnlyGiven';
-      c.LastName = 'TestOnlyLast';
-      //insert c;
-      User u = handler.createUser(null, sampleData);
-      System.assertEquals('TestOnlyLast', u.lastName);
-      System.assertEquals('TestOnlyGiven', u.firstName);
+        test.startTest();
+            verifyTestUser();
+        test.stopTest();
 
-    //}
-
+        User runtimeUser = [SELECT Id FROM User WHERE Email = 'systemuser@testorg.com' LIMIT 1];
+        System.runAs(runtimeUser) {
+            User u = handler.createUser(null, sampleData);
+            System.assertEquals('TestOnlyLast', u.lastName);
+            System.assertEquals('TestOnlyGiven', u.firstName);
+        }
   }
 
   @isTest
-  public static void testCreateProviderUser() {
-    String uniqueUserName =
-      'standarduser' +
-      DateTime.now().getTime() +
-      '@testorg.com';
-    Profile p = [SELECT Id FROM Profile WHERE Name = 'System Administrator'];
-    List<UserRole> userRole = [SELECT Id FROM UserRole];
-    String userRoleId = userRole[0].Id;
-      KeycloakRegistrationHandler handler = new KeycloakRegistrationHandler();
+    public static void testCreateMOAEndorsereUser() {
+        String uniqueUserName = 
+            'standarduser' +
+            DateTime.now().getTime() +
+            '@testorg.com';
+        Profile p = [SELECT Id FROM Profile WHERE Name = 'System Administrator'];
+        List<UserRole> userRole = [SELECT Id FROM UserRole];
+        String userRoleId = userRole[0].Id;
+        KeycloakRegistrationHandler handler = new KeycloakRegistrationHandler();
       
-      Map<String,String> attribmap = new Map<String,String>();
-      attribmap.put('roles', 'BCSC_TESTONLY');
-      attribmap.put('pidp_email', 'testonly@bcsc.ca');
-      attribmap.put('family_name', 'TestOnlyLast');
-      attribmap.put('given_name', 'TestOnlyGiven');
-      attribmap.put('bcsc_guid','GUID02');
-      attribmap.put('idp','BCSC');
+        Map<String,String> attribmap = new Map<String,String>();
+        attribmap.put('roles', 'BCSC_TESTONLY');
+        attribmap.put('pidp_email', 'testusername3@me.com');
+        attribmap.put('family_name', 'TestOnlyLast');
+        attribmap.put('given_name', 'TestOnlyGiven');
+        attribmap.put('endorser_data','CPN.TSTP00016.CPSID.GS');
+        attribmap.put('preferred_username', 'pidp.fifteen@bcprovidertest.onmicrosoft.com@bcp');
+        attribmap.put('name', 'TestOnlyGiven TestOnlyLast');
 
-      Auth.UserData sampleData = new Auth.UserData(
-        'testIdComm',
-        'testFirst',
-        'testLast',
-        'testFirst testLast',
-        'testuserComm@example.org',
-        null,
-        'testusername@me.com',
-        'en_US',
-        'facebook',
-        null,
-        attribmap
-      );
-      System.debug('sampleData:' + sampleData);
+        Auth.UserData sampleData = new Auth.UserData(
+            'testIdComm',
+            'testFirst',
+            'testLast',
+            'testFirst testLast',
+            'testusername3@me.com',
+            null,
+            'testusername3@me.com',
+            'en_US',
+            'Open ID Connect',
+            null,
+            attribmap
+        );
+        System.debug('sampleData:' + sampleData);
 
-      test.startTest();
-      Contact c = new Contact();
-      c.Birthdate = Date.newInstance(2001, 12, 9);
-      c.FirstName = 'TestOnlyGiven';
-      c.LastName = 'TestOnlyLast';
+        test.startTest();
+            verifyTestUser();
+        test.stopTest();
 
-      User u = handler.createUser(null, sampleData);
-      System.assertEquals('TestOnlyLast', u.lastName);
-      System.assertEquals('TestOnlyGiven', u.firstName);
-
-  }
-
-  @isTest
-  public static void testCreateMOAEndorsereUser() {
-    String uniqueUserName =
-      'standarduser' +
-      DateTime.now().getTime() +
-      '@testorg.com';
-    Profile p = [SELECT Id FROM Profile WHERE Name = 'System Administrator'];
-    List<UserRole> userRole = [SELECT Id FROM UserRole];
-    String userRoleId = userRole[0].Id;
-      KeycloakRegistrationHandler handler = new KeycloakRegistrationHandler();
-      
-      Map<String,String> attribmap = new Map<String,String>();
-      attribmap.put('roles', 'BCSC_TESTONLY');
-      attribmap.put('pidp_email', 'testonly@bcsc.ca');
-      attribmap.put('family_name', 'TestOnlyLast');
-      attribmap.put('given_name', 'TestOnlyGiven');
-      attribmap.put('endorser_data','CPN.TSTP00016.CPSID.GS');
-      attribmap.put('preferred_username', 'pidp.fifteen@bcprovidertest.onmicrosoft.com@bcp');
-      attribmap.put('name', 'TestOnlyGiven TestOnlyLast');
-
-      Auth.UserData sampleData = new Auth.UserData(
-        'testIdComm',
-        'testFirst',
-        'testLast',
-        'testFirst testLast',
-        'testuserComm@example.org',
-        null,
-        'testusername@me.com',
-        'en_US',
-        'Open ID Connect',
-        null,
-        attribmap
-      );
-      System.debug('sampleData:' + sampleData);
-
-      test.startTest();
-      Contact c = new Contact();
-      c.Birthdate = Date.newInstance(2001, 12, 9);
-      c.FirstName = 'TestOnlyGiven';
-      c.LastName = 'TestOnlyLast';
-
-      User u = handler.createUser(null, sampleData);
-      System.assertEquals('TestOnlyLast', u.lastName);
-      System.assertEquals('TestOnlyGiven', u.firstName);
+        User runtimeUser = [SELECT Id FROM User WHERE Email = 'systemuser@testorg.com' LIMIT 1];
+        System.runAs(runtimeUser) {
+            User u = handler.createUser(null, sampleData);
+            System.assertEquals('TestOnlyLast', u.lastName);
+            System.assertEquals('TestOnlyGiven', u.firstName);
+        }
 
   }
 
@@ -444,22 +426,28 @@ public class KeycloakRegistrationHandlerTest {
         attribmap.put('roles', 'SALESFORCE_TESTONLY');
         
         Auth.UserData sampleData = new Auth.UserData(
-        'testId',
-        'testFirst',
-        'testLast',
-        'testFirst testLast',
-        null,
-        null,
-        null,
-        'en_US',
-        'facebook',
-        null,
-        attribmap
+            'testId',
+            'testFirst',
+            'testLast',
+            'testFirst testLast',
+            null,
+            null,
+            null,
+            'en_US',
+            'facebook',
+            null,
+            attribmap
         );
+        test.startTest();
+            verifyTestUser();
+        test.stopTest();
 
-        KeycloakRegistrationHandler handler = new KeycloakRegistrationHandler();
-        Boolean canCreate = handler.canCreateUser(sampleData);
-        System.assert(!canCreate);
+        User runtimeUser = [SELECT Id FROM User WHERE Email = 'systemuser@testorg.com' LIMIT 1];
+        System.runAs(runtimeUser) {
+            KeycloakRegistrationHandler handler = new KeycloakRegistrationHandler();
+            Boolean canCreate = handler.canCreateUser(sampleData);
+            System.assert(!canCreate);
+        }
     }
 
     @isTest
@@ -468,24 +456,31 @@ public class KeycloakRegistrationHandlerTest {
         attribmap.put('roles', 'SALESFORCE_TESTONLY');
     
         Auth.UserData sampleData = new Auth.UserData(
-        'testId',
-        'testFirst',
-        'testLast',
-        'testFirst testLast',
-        'testuser@example.org',
-        null,
-        'testuserlong',
-        'en_US',
-        'facebook',
-        null,
-        null
+            'testId',
+            'testFirst',
+            'testLast',
+            'testFirst testLast',
+            'testuser@example.org',
+            null,
+            'testuserlong',
+            'en_US',
+            'facebook',
+            null,
+            null
         );
 
         KeycloakRegistrationHandler handler = new KeycloakRegistrationHandler();
         Boolean exceptionThrown = false;
 
         try {
-            handler.createUser(null, sampleData);
+            test.startTest();
+                verifyTestUser();
+            test.stopTest();
+
+            User runtimeUser = [SELECT Id FROM User WHERE Email = 'systemuser@testorg.com' LIMIT 1];
+            System.runAs(runtimeUser) {
+                handler.createUser(null, sampleData);
+            }
         } catch(Exception e) {
             exceptionThrown = true;
         }
@@ -500,27 +495,34 @@ public class KeycloakRegistrationHandlerTest {
         attribmap.put('roles', 'FAIL');
     
         Auth.UserData sampleData = new Auth.UserData(
-        'testId',
-        'testFirst',
-        'testLast',
-        'testFirst testLast',
-        'testuser@example.org',
-        'Someone',
-        'Someoneelse',
-        'en_US',
-        'facebook',
-        null,
-        attribmap
+            'testId',
+            'testFirst',
+            'testLast',
+            'testFirst testLast',
+            'testuser@example.org',
+            'Someone',
+            'Someoneelse',
+            'en_US',
+            'facebook',
+            null,
+            attribmap
         );
 
-        KeycloakRegistrationHandler handler = new KeycloakRegistrationHandler();
-        try {
-            User user = handler.createUser(null, sampleData);
-        } catch(Exception e) {
-            exceptionThrown = true;
+        test.startTest();
+            verifyTestUser();
+        test.stopTest();
+
+        User runtimeUser = [SELECT Id FROM User WHERE Email = 'systemuser@testorg.com' LIMIT 1];
+        System.runAs(runtimeUser) {
+            KeycloakRegistrationHandler handler = new KeycloakRegistrationHandler();
+            try {
+                User user = handler.createUser(null, sampleData);
+            } catch(Exception e) {
+                exceptionThrown = true;
+            }
+            
+            System.assert(exceptionThrown);
         }
-        
-        System.assert(exceptionThrown);
     }
     
     @isTest
@@ -533,23 +535,30 @@ public class KeycloakRegistrationHandlerTest {
         attribmap.put('roles', 'SALESFORCE_TESTONLY');
 
         Auth.UserData sampleData = new Auth.UserData(
-        testID,
-        'testFirst',
-        'testLast',
-        'testFirst testLast',
-        'testuser@example.org',
-        'Someone',
-        'Someoneelse',
-        'en_US',
-        'facebook',
-        null,
-        attribmap
+            testID,
+            'testFirst',
+            'testLast',
+            'testFirst testLast',
+            'testuser@example.org',
+            'Someone',
+            'Someoneelse',
+            'en_US',
+            'facebook',
+            null,
+            attribmap
         );
 
-        KeycloakRegistrationHandler handler = new KeycloakRegistrationHandler();
-        User user = handler.createUser(null, sampleData);
-        
-        System.assert(user.Id != null);
+        test.startTest();
+            verifyTestUser();
+        test.stopTest();
+
+        User runtimeUser = [SELECT Id FROM User WHERE Email = 'systemuser@testorg.com' LIMIT 1];
+        System.runAs(runtimeUser) {        
+            KeycloakRegistrationHandler handler = new KeycloakRegistrationHandler();
+            User user = handler.createUser(null, sampleData);
+            
+            System.assert(user.Id != null);
+        }
     }
     
     @isTest
@@ -558,25 +567,32 @@ public class KeycloakRegistrationHandlerTest {
         attribmap.put('roles', 'BCSC_TESTONLY');
     
         Auth.UserData sampleData = new Auth.UserData(
-        'testId',
-        'testFirst',
-        'testLast',
-        'testFirst testLast',
-        'testuser@example.org',
-        'Someone',
-        'Someoneelse',
-        'en_US',
-        'facebook',
-        null,
-        attribmap
+            'testId',
+            'testFirst',
+            'testLast',
+            'testFirst testLast',
+            'testuser@example.org',
+            'Someone',
+            'Someoneelse',
+            'en_US',
+            'facebook',
+            null,
+            attribmap
         );
 
-        KeycloakRegistrationHandler handler = new KeycloakRegistrationHandler();
-        handler.updateUser(UserInfo.getUserId(), null, sampleData);
-        
-        User user = [Select Id, LastName, FirstName From User Where Id = :UserInfo.getUserId()];
-        System.assert(user.LastName == sampleData.lastName);
-        System.assert(user.FirstName == sampleData.firstName);
+        test.startTest();
+            verifyTestUser();
+        test.stopTest();
+
+        User runtimeUser = [SELECT Id FROM User WHERE Email = 'systemuser@testorg.com' LIMIT 1];
+        System.runAs(runtimeUser) {
+            KeycloakRegistrationHandler handler = new KeycloakRegistrationHandler();
+            handler.updateUser(UserInfo.getUserId(), null, sampleData);
+            
+            User user = [Select Id, LastName, FirstName From User Where Id = :UserInfo.getUserId()];
+            System.assert(user.LastName == sampleData.lastName);
+            System.assert(user.FirstName == sampleData.firstName);
+        }
     }
     
     @isTest
@@ -585,29 +601,36 @@ public class KeycloakRegistrationHandlerTest {
         attribmap.put('roles', 'SALESFORCE_TESTONLY');
     
         Auth.UserData sampleData = new Auth.UserData(
-        'testId',
-        'testFirst',
-        'testLast',
-        'testFirst testLast',
-        'testuser@example.org',
-        'Someone',
-        'Someoneelse',
-        'en_US',
-        'facebook',
-        null,
-        attribmap
+            'testId',
+            'testFirst',
+            'testLast',
+            'testFirst testLast',
+            'testuser@example.org',
+            'Someone',
+            'Someoneelse',
+            'en_US',
+            'facebook',
+            null,
+            attribmap
         );
 
-        KeycloakRegistrationHandler handler = new KeycloakRegistrationHandler();
-        Boolean exceptionThrown = false;
+        test.startTest();
+            verifyTestUser();
+        test.stopTest();
 
-        try {
-            handler.updateUser(null, null, sampleData);
-        } catch(Exception e) {
-            exceptionThrown = true;
+        User runtimeUser = [SELECT Id FROM User WHERE Email = 'systemuser@testorg.com' LIMIT 1];
+        System.runAs(runtimeUser) {
+            KeycloakRegistrationHandler handler = new KeycloakRegistrationHandler();
+            Boolean exceptionThrown = false;
+
+            try {
+                handler.updateUser(null, null, sampleData);
+            } catch(Exception e) {
+                exceptionThrown = true;
+            }
+
+            System.assert(exceptionThrown);
         }
-
-        System.assert(exceptionThrown);
     }
     
     @isTest
@@ -649,5 +672,38 @@ public class KeycloakRegistrationHandlerTest {
         String currentLicense = UserRegistrationService.fetchLicenseType(sampleData);
         
         system.assert(currentLicense == 'Salesforce');
+    }
+    @Future
+    public static void verifyTestUser() {
+
+        if (RUN_TIME_USER.Id == null) {
+            UserRole userRole = new UserRole(Name='TestRoleOnly');
+            Insert userRole;
+            //runningUser.UserRoleId = userRole.Id;
+
+            String uniqueUserName =
+            'standarduser' +
+            DateTime.now().getTime() +
+            '@testorg.com';
+    
+            Profile p = [SELECT Id FROM Profile WHERE Name = 'System Administrator'];
+
+            User runningUser = new User(
+                Alias = 'standt',
+                Email = 'systemuser@testorg.com',
+                EmailEncodingKey = 'UTF-8',
+                LastName = 'Testing',
+                LanguageLocaleKey = 'en_US',
+                LocaleSidKey = 'en_CA',
+                ProfileId = p.Id,
+                TimeZoneSidKey = 'America/Los_Angeles',
+                UserName = uniqueUserName,
+                UserRoleId = userRole.Id
+            );
+
+            Insert runningUser;
+            RUN_TIME_USER = runningUser;
+        }
+        
     }
 }

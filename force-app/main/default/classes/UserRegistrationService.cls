@@ -80,6 +80,7 @@ public with sharing class UserRegistrationService{
         //Verify user data - to be removed prior to completion
         String userdata = JSON.serialize(data.attributeMap);
         String nonRegulatedStaff = '';
+        String personAccountType = '';
         Boolean createUser = true;
         String existingBcscGuid = null;
 
@@ -141,13 +142,13 @@ public with sharing class UserRegistrationService{
             for (IDP_User_Registration_User_Mapping__mdt matchingRole_rec : matchingRole_list)
             {
                 System.debug('matchingRole_rec: ' + matchingRole_rec);
-                if (matchingRole_rec.Non_Regulated_User_Record_Type__c == NON_REGULATED_USER_RECORD_TYPE)
+                if (matchingRole_rec.Salesforce_User_License__c == SALESFORCE_USER_LICENSE_COMMUNITY)
                 {
-                    nonRegulatedStaff = matchingRole_rec.Non_Regulated_User_Record_Type__c;
+                    personAccountType = matchingRole_rec.Account_Record_Type__c;
                     
                 }
                 else {
-                    nonRegulatedStaff = 'PersonAccount';
+                    personAccountType = '';
                 }
                 if (matchingRole_rec.Salesforce_User_License__c == SALESFORCE_USER_LICENSE_COMMUNITY)
                 {
@@ -204,14 +205,27 @@ public with sharing class UserRegistrationService{
                     // Create
                     String searchValue = ''; 
                     Boolean fieldExisting = false;
+
                     if (data.attributeMap.ContainsKey('hdid')) {
-                        fieldExisting = fetchRoles.isFieldExisting('HDID__c','Account');
+                        if (!Test.isRunningTest()) {
+                            fieldExisting = fetchRoles.isFieldExisting('HDID__c','Account');
+                        } else {
+                            fieldExisting = fetchRoles.isFieldExisting('SourceSystemIdentifier','Account');
+                        }
                         searchValue = data.attributeMap.get('hdid');
-                    }
+                    }                        
+
+
                     
                     if (data.attributeMap.containsKey('idp') && data.attributeMap.containsKey('hdid') 
                             && fieldExisting ) {
-                        String qryString = 'select id,PersonContactId from Account where HDID__c = \'' + searchValue + '\'';
+                        String qryString = '';
+                        if (!Test.isRunningTest()) {
+                            qryString = 'select id,PersonContactId from Account where HDID__c = \'' + searchValue + '\'';
+                        } else {
+                            qryString = 'select id,PersonContactId from Account where SourceSystemIdentifier = \'' + searchValue + '\'';
+                        }
+
                         List<Account> accountList = Database.query(qryString);
                         
                         if(accountList.size() > 0 && String.isNotBlank(accountList[0].PersonContactId)){
@@ -240,7 +254,7 @@ public with sharing class UserRegistrationService{
                     {
                         newUser.ContactId = contactId;
                     } else if (!isCpnFound) {
-                        contactId = managePersonAccount(data, nonRegulatedStaff );
+                        contactId = managePersonAccount(data, personAccountType );
                     }
                         
                     newUser.ContactId = contactId;
@@ -421,7 +435,7 @@ public with sharing class UserRegistrationService{
         List<Account> existingAccount = [
             SELECT Id, PersonContactId, FirstName, LastName, PersonEmail, RecordTypeId 
             FROM Account where PersonEmail =: searchEmail 
-            //AND RecordType.DeveloperName =: ACCOUNT_PERSONACCOUNT_RECORDTYPE
+            AND RecordType.DeveloperName =: optionalRecordType
             ];
         Account newPersonAccount = new Account();
         

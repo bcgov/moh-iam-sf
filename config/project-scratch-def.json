@@ -11,10 +11,10 @@
     "CustomerCommunityPlusLogin",
     "ContactsToMultipleAccounts",
     "HealthCloudUser",
-    "ExternalIdentityLogin"
+    "ExternalIdentityLogin",
+    "SalesforceIdentityForCommunities"
   ],
   "communitiesSettings": {
-    "enableNetworksEnabled": true,
-    "enableOotbProfExtUserOpsEnable": true
+    "enableNetworksEnabled": true
   }
 }

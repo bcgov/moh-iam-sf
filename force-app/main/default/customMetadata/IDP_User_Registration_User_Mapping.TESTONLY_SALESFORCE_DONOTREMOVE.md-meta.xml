@@ -3,6 +3,10 @@
     <label>TESTONLY SALESFORCE DONOTREMOVE</label>
     <protected>false</protected>
     <values>
+        <field>Account_Record_Type__c</field>
+        <value xsi:nil="true"/>
+    </values>
+    <values>
         <field>Assurance_Level__c</field>
         <value xsi:type="xsd:string">3</value>
     </values>
