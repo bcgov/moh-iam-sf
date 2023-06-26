@@ -4,7 +4,7 @@
     <protected>false</protected>
     <values>
         <field>Account_Record_Type__c</field>
-        <value xsi:nil="true"/>
+        <value xsi:type="xsd:string">MOHBC_PRV_Clinic_Staff</value>
     </values>
     <values>
         <field>Assurance_Level__c</field>
@@ -32,7 +32,7 @@
     </values>
     <values>
         <field>Payload_Includes_PIdP_Data__c</field>
-        <value xsi:type="xsd:boolean">false</value>
+        <value xsi:type="xsd:boolean">true</value>
     </values>
     <values>
         <field>Salesforce_Public_Group__c</field>
@@ -40,11 +40,11 @@
     </values>
     <values>
         <field>Salesforce_User_License__c</field>
-        <value xsi:type="xsd:string">Salesforce</value>
+        <value xsi:type="xsd:string">Community</value>
     </values>
     <values>
         <field>Salesforce_User_Profile__c</field>
-        <value xsi:type="xsd:string">BCPH Standard User</value>
+        <value xsi:type="xsd:string">BCPH Provider Portal Tier 0 Support</value>
     </values>
     <values>
         <field>Salesforce_User_Role__c</field>
