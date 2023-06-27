@@ -43,6 +43,13 @@ public class KeycloakRegistrationHandlerTest {
         verifyTestUser();
     test.stopTest();
 
+    PermissionSetGroup psg = [select Id, Status from PermissionSetGroup where DeveloperName='TESTONLY_DONOTREMOVE'];
+    
+    // force calculation of the PSG if it is not already Updated
+    if (psg.Status != 'Updated') {
+      Test.calculatePermissionSetGroup(psg.Id);
+    }
+
     User runtimeUser = [SELECT Id FROM User WHERE Email = 'systemuser@testorg.com' LIMIT 1];
     System.runAs(runtimeUser) {   
 
