@@ -146,7 +146,7 @@ public class KeycloakRegistrationHandlerTest {
     KeycloakRegistrationHandler handler = new KeycloakRegistrationHandler();
 
     Map<String,String> attribmap = new Map<String,String>();
-    attribmap.put('roles', 'SALESFORCE_TESTONLY');
+    attribmap.put('roles', 'BCSC_TESTONLY');
 
     Auth.UserData sampleData = new Auth.UserData(
         'testId',
@@ -175,7 +175,54 @@ public class KeycloakRegistrationHandlerTest {
             List<Id> ids = new List<Id>(); 
             ids.add(u.Id);
             users.add(sampleData);
-            UserRegistrationService.UpdateUsers(ids, ids, users);
+            handler.updateUser(u.Id, null, sampleData);
+            String uid = u.id;
+        }
+  
+  }
+
+  @isTest
+    public static void testUpdateCommunityNewAccountUser() {
+    String uniqueUserName =
+        'standarduser' +
+        DateTime.now().getTime() +
+        '@testorg.com';
+
+    List<UserRole> userRole = [SELECT Id FROM UserRole];
+    String userRoleId = userRole[0].Id;
+    KeycloakRegistrationHandler handler = new KeycloakRegistrationHandler();
+
+    Map<String,String> attribmap = new Map<String,String>();
+    attribmap.put('roles', 'BCSC_TESTONLY');
+
+    Auth.UserData sampleData = new Auth.UserData(
+        'testIdacct',
+        'testFirstacct',
+        'testLastacct',
+        'testFirstacct testLastacct',
+        'testuseracct@example.org',
+        null,
+        'testuserlongacct',
+        'en_US',
+        'IDP_USER',
+        null,
+        attribmap
+    );
+    System.debug('sampleData:' + sampleData);
+        test.startTest();
+            verifyTestUser();
+        test.stopTest();
+        User runtimeUser = [SELECT Id FROM User WHERE Email = 'systemuser@testorg.com' LIMIT 1];
+        System.runAs(runtimeUser) {
+
+            User u = handler.createUser(null, sampleData);
+            System.assertEquals('testLastacct', u.lastName);
+            System.assertEquals('testFirstacct', u.firstName);
+            List<Auth.UserData> users = new List<Auth.UserData>();
+            List<Id> ids = new List<Id>(); 
+            ids.add(u.Id);
+            users.add(sampleData);
+            handler.updateUser(u.Id, null, sampleData);
             String uid = u.id;
         }
   
@@ -564,7 +611,7 @@ public class KeycloakRegistrationHandlerTest {
     @isTest
     static void testUpdateUser() {
         Map<String,String> attribmap = new Map<String,String>();
-        attribmap.put('roles', 'BCSC_TESTONLY');
+        attribmap.put('roles', 'SALESFORCE_TESTONLY');
     
         Auth.UserData sampleData = new Auth.UserData(
             'testId',

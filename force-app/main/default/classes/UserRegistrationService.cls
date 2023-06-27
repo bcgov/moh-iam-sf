@@ -8,8 +8,6 @@
 *         NONE
 *    Methods:
 *         public static void createUsers(List<Id> portalId, List<Auth.UserData> data): Mass create new users
-*         public static void updateUsers(List<Id> userId, List<Id> portalId, List<Auth.UserData> data): Mass update existing users 
-*         public static void deleteUsers(List<Id> userId, List<Id> portalId, List<Auth.UserData> data): Mass delete (deactivate) existing users 
 *         public static User createUser(Id portalId, Auth.UserData data): Create new user
 *         public static void updateUser(Id userId, Id portalId, Auth.UserData data): Update existing user 
 *         public static void deleteUser(Id userId, Id portalId, Auth.UserData data): Delete (deactivate) existing user
@@ -32,41 +30,6 @@ public with sharing class UserRegistrationService{
     public static final String USER_USERNAME_REFERENCE = 'data.username';
     public static final String NON_REGULATED_USER_RECORD_TYPE = 'MOHBC_PRV_Clinic_Staff';
 
-
-    public static void createUsers(List<Id> portalId, List<Auth.UserData> data){
-    /*
-    * Description: Mass creates new users
-    * Parameters:
-    *     List<Id> portalId: Ordered list of Id of the portal (community) where the request originated from
-    *     List<Auth.UserData> data: Ordered list of UserData id token payload, including attributeMap representing the id token equivalent
-    * Returns:
-    *     NONE
-    * 
-    */
-        
-    }
-
-
-    public static void updateUsers(List<Id> userId, List<Id> portalId, List<Auth.UserData> data) {
-    /*
-     * Description: Mass updates existing users
-     * Parameters:
-     *     List<Id> userId: Ordered list of Id of the existing user
-     *     List<Id> portalId: Ordered list of Id of the portal (community) where the request originated from
-     *     List<Auth.UserData> data: Ordered list of UserData id token payload, including attributeMap representing the id token equivalent
-     * Returns:
-     *     NONE
-     * 
-     */
-        List<User> user_list= new List<User>();
-        for (User deactivateUser : [Select Id, isActive, FederationIdentifier From User where Id IN : userId]) {
-            //deactivateUser.isActive = false;
-            user_list.add(deactivateUser);
-        }
-        Update(user_list);
-        
-    }
-    
     public static User createUser(Id portalId, Auth.UserData data) {   
         /*
         * Description: Create new user
@@ -435,7 +398,7 @@ public with sharing class UserRegistrationService{
         List<Account> existingAccount = [
             SELECT Id, PersonContactId, FirstName, LastName, PersonEmail, RecordTypeId 
             FROM Account where PersonEmail =: searchEmail 
-            AND RecordType.DeveloperName =: optionalRecordType
+            ///AND RecordType.DeveloperName =: optionalRecordType
             ];
         Account newPersonAccount = new Account();
         
@@ -617,9 +580,9 @@ public with sharing class UserRegistrationService{
                 delete removeOtherPerms;
             } 
             if(permissionSetAssignList.size() > 0) {
-                String json_PermissionSetAssign = JSON.serialize(permissionSetAssignList, true);          
+                String json_PermissionSetAssign = JSON.serialize(permissionSetAssignList, true);
                 //insert permissionSetAssignList;
-                insertPermissionSetAssignment(json_PermissionSetAssign);
+                insertPermissionSetAssignment(json_PermissionSetAssign,userId);
             }
         }catch(exception e){
             system.debug('exception caught:' + e);
@@ -628,9 +591,22 @@ public with sharing class UserRegistrationService{
     }
     
     @Future
-    public static void insertPermissionSetAssignment(String permissionsets) {
+    public static void insertPermissionSetAssignment(String permissionsets, Id userId) {
+
         List<PermissionSetAssignment> permissionSetAssignList = (List<PermissionSetAssignment>)JSON.deserialize(permissionsets, List<PermissionSetAssignment>.class);
-        
+        List<PermissionSetAssignment> removeOtherPerms = new List<PermissionSetAssignment>();
+
+        for(PermissionSetAssignment existingPSAByUser_rec : [SELECT AssigneeId,Id,PermissionSetId,PermissionSet.Name 
+                FROM PermissionSetAssignment 
+                WHERE AssigneeId =: userId
+                AND PermissionSet.ProfileId = null  
+                ORDER BY AssigneeId ASC])
+        {
+            removeOtherPerms.add(existingPSAByUser_rec);
+        }   
+        if (removeOtherPerms.size() > 0) {
+            delete removeOtherPerms;
+        }     
         insert permissionSetAssignList;
 
     }
