@@ -1,16 +1,20 @@
 {
   "orgName": "IAM Dev",
   "edition": "Enterprise",
-  "features": ["PersonAccounts", "LightningServiceConsole", "ServiceCloud"],
-  "settings": {
-    "lightningExperienceSettings": {
-      "enableS1DesktopEnabled": true
-    },
-    "mobileSettings": {
-      "enableS1EncryptedStoragePref2": false
-    },
-    "nameSettings": {
-      "enableMiddleName": true
-    }
+  "orgPreferences" : {
+    "enabled": ["PersonAccounts"]
+  },
+  "hasSampleData": false,
+  "features": [
+    "HealthCloudAddOn",
+    "PersonAccounts",
+    "CustomerCommunityPlusLogin",
+    "ContactsToMultipleAccounts",
+    "HealthCloudUser",
+    "ExternalIdentityLogin",
+    "SalesforceIdentityForCommunities"
+  ],
+  "communitiesSettings": {
+    "enableNetworksEnabled": true
   }
 }

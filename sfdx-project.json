@@ -2,10 +2,52 @@
   "packageDirectories": [
     {
       "path": "force-app",
-      "default": true
+      "default": true,
+      "package": "Keycloak",
+      "versionName": "ver 1.0",
+      "versionNumber": "1.0.0.NEXT"
+    },
+    {
+      "path": "force-app",
+      "package": "Keycloak.Community",
+      "versionName": "ver 1.2",
+      "versionNumber": "1.2.0.NEXT",
+      "default": false,
+      "versionDescription": "Keycloak User Provisioning, community enabled",
+      "definitionFile": "config/project-scratch-min.json",
+      "dependencies": [
+        {
+          "package": "HealthCloud",
+          "subscriberPackageVersionId": "04t4W000002V2H1QAK"
+        }
+      ]
     }
   ],
   "namespace": "",
   "sfdcLoginUrl": "https://login.salesforce.com",
-  "sourceApiVersion": "51.0"
+  "sourceApiVersion": "58.0",
+  "packageAliases": {
+    "Keycloak": "0Ho5W000000003ZSAQ",
+    "Keycloak@0.1.0-1": "04t5W0000000VjQQAU",
+    "Keycloak@0.1.0-2": "04t5W0000000VjVQAU",
+    "Keycloak@0.1.0-3": "04t5W0000000VjaQAE",
+    "Keycloak@0.1.0-4": "04t5W0000000VnmQAE",
+    "Keycloak@0.1.0-5": "04t5W0000000VpdQAE",
+    "Keycloak@0.1.0-6": "04t5W0000000VpxQAE",
+    "Keycloak@1.0.0-1": "04t5W0000000Vx3QAE",
+    "Keycloak@1.0.0-2": "04t5W0000000Vx8QAE",
+    "Keycloak@1.0.0-3": "04t5W0000000VxDQAU",
+    "Keycloak@1.0.0-4": "04t5W0000000W6AQAU",
+    "Keycloak@1.0.0-5": "04t5W0000000WHrQAM",
+    "Keycloak@1.0.0-6": "04t5W0000000WHwQAM",
+    "Keycloak.Community": "0HoJQ00000000WH0AY",
+    "Keycloak.Community@1.1.0-1": "04tJQ0000002oWzYAI",
+    "Keycloak.Community@1.1.0-2": "04tJQ0000002peLYAQ",
+    "Keycloak.Community@1.1.0-3": "04tJQ0000002sU9YAI",
+    "Keycloak.Community@1.1.0-4": "04tJQ0000002sYzYAI",
+    "Keycloak.Community@1.1.0-5": "04tJQ0000002sdpYAA",
+    "Keycloak.Community@1.1.0-6": "04tJQ0000002v0bYAA",
+    "Keycloak.Community@1.1.0-7": "04tJQ0000002xnBYAQ",
+    "Keycloak.Community@1.2.0-1": "04tJQ0000002y89YAA"
+  }
 }
