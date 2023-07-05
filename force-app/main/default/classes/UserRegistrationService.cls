@@ -65,7 +65,11 @@ public with sharing class UserRegistrationService{
                 String emailAddress = UserRegistrationService.generateEmailAddress(data, userName);
                 List<Profile> profileId = [SELECT Id FROM profile WHERE name=:userRoleRec.Salesforce_User_Profile__c LIMIT 1];
                 if (profileId.size() > 0) {
-
+                    if (userRoleRec.Flow_User__c) {
+                        newUser.UserPermissionsInteractionUser = true;
+                    } else {
+                        newUser.UserPermissionsInteractionUser = false;
+                    }
                     newUser.username = userName;
                     if (data.attributeMap.containsKey('pidp_email')) {
                         newUser.email = data.attributeMap.get('pidp_email');
@@ -301,6 +305,7 @@ public with sharing class UserRegistrationService{
         {
             existingUser.firstName = data.firstName;
         }
+
         existingUser.FederationIdentifier = data.username;
         
         existingUser.alias = UserRegistrationService.generateUserAlias(data);
@@ -323,7 +328,13 @@ public with sharing class UserRegistrationService{
         for (IDP_User_Registration_User_Mapping__mdt matchingRoleRec : matchingRole_list)
         {
             String userName = UserRegistrationService.generateUserName(data, matchingRoleRec.Username_Type__c, matchingRoleRec.Default_Domain__c);
-            String emailAddress = UserRegistrationService.generateEmailAddress(data, userName);   
+            String emailAddress = UserRegistrationService.generateEmailAddress(data, userName);  
+            
+            if (matchingRoleRec.Flow_User__c) {
+                existingUser.UserPermissionsInteractionUser = true;
+            } else {
+                existingUser.UserPermissionsInteractionUser = false;
+            }
 
             if (existingUser.username != userName)
             {
