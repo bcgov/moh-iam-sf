@@ -2,7 +2,10 @@
   "orgName": "IAM Dev",
   "edition": "Enterprise",
   "hasSampleData": true,
-  "features": ["RecordTypes","Communities","PersonAccounts", "LightningServiceConsole", "ServiceCloud", "ForceComPlatform", "ServiceCloud", "ContactsToMultipleAccounts","PlatformEncryption"],
+  "features": [
+    "RecordTypes",
+    "Communities",
+    "PersonAccounts"],
   "settings": {
     "lightningExperienceSettings": {
       "enableS1DesktopEnabled": true
@@ -12,11 +15,6 @@
     },
     "nameSettings": {
       "enableMiddleName": true
-    }
-  },
-  "objectSettings": {
-    "account": {
-      "sharingModel": "readWrite"
     }
   }
 }
