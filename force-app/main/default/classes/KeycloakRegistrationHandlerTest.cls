@@ -473,6 +473,7 @@ public class KeycloakRegistrationHandlerTest {
 
   }
 
+
     @isTest
     static void testCanCreateUser() {
     
@@ -503,6 +504,54 @@ public class KeycloakRegistrationHandlerTest {
             System.assert(!canCreate);
         }
     }
+
+    @isTest
+    public static void testCreateMoaNoEndorserUser() {
+        String uniqueUserName = 
+            'standarduser' +
+            DateTime.now().getTime() +
+            '@testorg.com';
+        Profile p = [SELECT Id FROM Profile WHERE Name = 'System Administrator'];
+        List<UserRole> userRole = [SELECT Id FROM UserRole];
+        String userRoleId = userRole[0].Id;
+        KeycloakRegistrationHandler handler = new KeycloakRegistrationHandler();
+      
+        Map<String,String> attribmap = new Map<String,String>();
+        attribmap.put('roles', 'BCSC_TESTONLY');
+        attribmap.put('pidp_email', 'testusername3@me.com');
+        attribmap.put('family_name', 'TestOnlyLast');
+        attribmap.put('given_name', 'TestOnlyGiven');
+        attribmap.put('endorser_data','[]');
+        attribmap.put('preferred_username', 'pidp.fifteen@bcprovidertest.onmicrosoft.com@bcp');
+        attribmap.put('name', 'TestOnlyGiven TestOnlyLast');
+
+        Auth.UserData sampleData = new Auth.UserData(
+            'testIdComm',
+            'testFirst',
+            'testLast',
+            'testFirst testLast',
+            'testusername3@me.com',
+            null,
+            'testusername3@me.com',
+            'en_US',
+            'Open ID Connect',
+            null,
+            attribmap
+        );
+        System.debug('sampleData:' + sampleData);
+
+        test.startTest();
+            verifyTestUser();
+        test.stopTest();
+
+        User runtimeUser = [SELECT Id FROM User WHERE Email = 'systemuser@testorg.com' LIMIT 1];
+        System.runAs(runtimeUser) {
+            User u = handler.createUser(null, sampleData);
+            System.assertEquals('TestOnlyLast', u.lastName);
+            System.assertEquals('TestOnlyGiven', u.firstName);
+        }
+
+  }
 
     @isTest
     static void testCreateUserExcep() {

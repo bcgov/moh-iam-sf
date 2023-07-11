@@ -121,6 +121,7 @@ public with sharing class UserRegistrationService{
                 {
                     Boolean isEndorserData = false;
                     Boolean isEndorserFound = false;
+                    Boolean isEndorserValuesProvided = true;
                     Boolean isCpnFound = false;
                     Boolean isBCSCData = false;
                     Boolean isHdidMatch = false;
@@ -145,6 +146,9 @@ public with sharing class UserRegistrationService{
                     if (data.attributeMap.containsKey('endorser_data')) {
                         isEndorserData = true;
                         List<String> keyValue = new List<String>();
+                        if (data.attributeMap.get('endorser_data') == '[]') {
+
+                        }
                         keyValue.addAll(data.attributeMap.get('endorser_data').remove('[').remove(']').split(','));
                         System.debug('keyValue:' + keyValue);
                         if (!keyValue.isEmpty()) {
@@ -152,6 +156,8 @@ public with sharing class UserRegistrationService{
                             if (!endorserData.isEmpty()) {
                                 isEndorserFound = true;
                             }
+                        } else {
+                            isEndorserValuesProvided = false;
                         }
                     }
                     //lookup up when common_provider_number is available
@@ -212,13 +218,12 @@ public with sharing class UserRegistrationService{
                     if (cpnData.isEmpty() && !isCpnFound && isCpnData) {
                         throw new Auth.AuthProviderPluginException('No Match found for CPN');
                     }
-                    if (isEndorserData && !isEndorserFound && !isHdidMatch) {
+                    if (isEndorserData && (!isEndorserFound && !isHdidMatch && !isEndorserValuesProvided)) {
                         throw new Auth.AuthProviderPluginException('No Match found for Endorser Supplied Data');
                     }
                     if (!isHdidMatch && isHdidMatch != null && fieldExisting) {
                         throw new Auth.DiscoveryCustomErrorException('No Match found for HDID');
-                    } else if (isHdidMatch)
-                    {
+                    } else if (isHdidMatch) {
                         newUser.ContactId = contactId;
                     } else if (!isCpnFound) {
                         contactId = managePersonAccount(data, personAccountType );
@@ -297,23 +302,20 @@ public with sharing class UserRegistrationService{
 
         String l_userdata = JSON.serialize(data.attributeMap);
 
-        if (existingUser.lastName != data.lastName)
-        {
+        if (data.attributeMap.containsKey('family_name')) {
+            existingUser.LastName = data.attributeMap.get('family_name');
+        } else {
             existingUser.lastName = data.lastName;
         }
-        if (existingUser.firstName != data.firstName)
-        {
+        if (data.attributeMap.containsKey('given_name')) {
+            existingUser.firstName = data.attributeMap.get('given_name');
+        } else {
             existingUser.firstName = data.firstName;
-        }
+        }        
 
         existingUser.FederationIdentifier = data.username;
         
         existingUser.alias = UserRegistrationService.generateUserAlias(data);
-        
-        existingUser.languagelocalekey = UserInfo.getLanguage();
-        existingUser.localesidkey = UserInfo.getLocale();
-        existingUser.emailEncodingKey = 'UTF-8';
-        existingUser.timeZoneSidKey = 'America/Vancouver';
         
         // Update user role & permissionset based on latest payload
         UserRegistrationCustomMetadataUtility processRoles = new UserRegistrationCustomMetadataUtility();
@@ -339,10 +341,6 @@ public with sharing class UserRegistrationService{
             if (existingUser.username != userName)
             {
                 existingUser.username = userName;
-            }
-            if (existingUser.email != emailAddress)
-            {
-                existingUser.email = emailAddress;
             }
             for (UserRole userRoleRec : [SELECT DeveloperName,Id,Name FROM UserRole Where Name =: matchingRoleRec.Salesforce_User_Role__c])
             {
