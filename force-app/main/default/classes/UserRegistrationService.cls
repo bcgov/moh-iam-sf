@@ -28,7 +28,8 @@ public with sharing class UserRegistrationService{
     public static final String BCSC_IDP_KEY = 'idp';
     public static final String MOH_IDP_KEY = 'roles';
     public static final String USER_USERNAME_REFERENCE = 'data.username';
-    public static final String NON_REGULATED_USER_RECORD_TYPE = 'MOHBC_PRV_Clinic_Staff';
+    public static final String EMAIL_ENCODING_KEY = 'UTF-8';
+    public static final String TIME_ZONE_SID_KEY = 'America/Vancouver';
 
     public static User createUser(Id portalId, Auth.UserData data) {   
         /*
@@ -92,8 +93,8 @@ public with sharing class UserRegistrationService{
                     
                     newUser.languagelocalekey = UserInfo.getLanguage();
                     newUser.localesidkey = UserInfo.getLocale();
-                    newUser.emailEncodingKey = 'UTF-8';
-                    newUser.timeZoneSidKey = 'America/Vancouver';
+                    newUser.emailEncodingKey = EMAIL_ENCODING_KEY;
+                    newUser.timeZoneSidKey = TIME_ZONE_SID_KEY;
                     newUser.profileId = profileId[0].Id;
                 } else {
                     throw new Auth.AuthProviderPluginException('No Match found, Missing Profile Info');
@@ -112,7 +113,6 @@ public with sharing class UserRegistrationService{
                 if (matchingRole_rec.Salesforce_User_License__c == SALESFORCE_USER_LICENSE_COMMUNITY)
                 {
                     personAccountType = matchingRole_rec.Account_Record_Type__c;
-                    
                 }
                 else {
                     personAccountType = '';
@@ -415,10 +415,17 @@ public with sharing class UserRegistrationService{
         {
             isNewAccount = true;
             Id personAccountRecordTypeId =  Schema.SObjectType.Account.getRecordTypeInfosByDeveloperName().get(optionalRecordType).getRecordTypeId();
-        
-            newPersonAccount.FirstName = data.firstName ;
 
-            newPersonAccount.LastName = data.lastName;
+            if (data.attributeMap.containsKey('family_name')) {
+                newPersonAccount.LastName = data.attributeMap.get('family_name');
+            } else {
+                newPersonAccount.lastName = data.lastName;
+            }
+            if (data.attributeMap.containsKey('given_name')) {
+                newPersonAccount.firstName = data.attributeMap.get('given_name');
+            } else {
+                newPersonAccount.firstName = data.firstName;
+            }            
 
             if(data.email!= null) {
                 String emailaddress = data.email;
@@ -702,12 +709,13 @@ public with sharing class UserRegistrationService{
         if (String.isEmpty(suffixName)) {
             suffixName = customDomain;
         }
-        //first see if attributeMap contains a valid email
-        if (data.email != null && data.email.contains(EMAIL_ASPERAND_SIGN)) {
+        if (data.attributeMap.containsKey('pidp_email') && !String.isEmpty(data.attributeMap.get('pidp_email'))) {
+            directoryName = data.attributeMap.get('pidp_email').substringAfter(EMAIL_ASPERAND_SIGN);
+        } else if (data.email != null && data.email.contains(EMAIL_ASPERAND_SIGN)) {
             if (String.isEmpty(directoryName)) {
                 directoryName = data.email.substringAfter(EMAIL_ASPERAND_SIGN);
             }
-        } 
+        }  
         
         return data.identifier + EMAIL_ASPERAND_SIGN + directoryName + '.' + suffixName;
     }

@@ -19,6 +19,10 @@
         <value xsi:type="xsd:string">BCSC_TESTONLY</value>
     </values>
     <values>
+        <field>Flow_User__c</field>
+        <value xsi:type="xsd:boolean">false</value>
+    </values>
+    <values>
         <field>Identity_Provider__c</field>
         <value xsi:type="xsd:string">Keycloak</value>
     </values>
