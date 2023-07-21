@@ -10,5 +10,6 @@
       "CustomerCommunityPlus",
       "ContactsToMultipleAccounts",
       "SalesforceIdentityForCommunities"
-    ]
+    ],
+    "paths": ["moh-iam-sf/force-app/main/default","moh-iam-sf/release-config/primary-care/prod/main/default/customMetadata"]
   }

@@ -28,7 +28,8 @@ public with sharing class UserRegistrationService{
     public static final String BCSC_IDP_KEY = 'idp';
     public static final String MOH_IDP_KEY = 'roles';
     public static final String USER_USERNAME_REFERENCE = 'data.username';
-    public static final String NON_REGULATED_USER_RECORD_TYPE = 'MOHBC_PRV_Clinic_Staff';
+    public static final String EMAIL_ENCODING_KEY = 'UTF-8';
+    public static final String TIME_ZONE_SID_KEY = 'America/Vancouver';
 
     public static User createUser(Id portalId, Auth.UserData data) {   
         /*
@@ -55,6 +56,14 @@ public with sharing class UserRegistrationService{
      
         system.debug('data:'+ json.serializePretty(data));
         User newUser = new User();
+        List<User> checkUser = [
+            SELECT Id, email 
+            FROM User 
+            WHERE FederationIdentifier =: data.username ];
+        if (checkUser.size() > 0) {
+            newUser = checkUser[0];
+        } 
+
         //Create user
         if (userRoleList.size() > 0)
         {
@@ -71,11 +80,14 @@ public with sharing class UserRegistrationService{
                         newUser.UserPermissionsInteractionUser = false;
                     }
                     newUser.username = userName;
-                    if (data.attributeMap.containsKey('pidp_email')) {
-                        newUser.email = data.attributeMap.get('pidp_email');
-                    } else {
-                        newUser.email = emailAddress;
-                    }  
+                    if (newUser.email == null) {
+                        if (data.attributeMap.containsKey('pidp_email')) {
+                            newUser.email = data.attributeMap.get('pidp_email');
+                        } else {
+                            newUser.email = emailAddress;
+                        }  
+                    }
+
                     if (data.attributeMap.containsKey('family_name')) {
                         newUser.LastName = data.attributeMap.get('family_name');
                     } else {
@@ -92,8 +104,8 @@ public with sharing class UserRegistrationService{
                     
                     newUser.languagelocalekey = UserInfo.getLanguage();
                     newUser.localesidkey = UserInfo.getLocale();
-                    newUser.emailEncodingKey = 'UTF-8';
-                    newUser.timeZoneSidKey = 'America/Vancouver';
+                    newUser.emailEncodingKey = EMAIL_ENCODING_KEY;
+                    newUser.timeZoneSidKey = TIME_ZONE_SID_KEY;
                     newUser.profileId = profileId[0].Id;
                 } else {
                     throw new Auth.AuthProviderPluginException('No Match found, Missing Profile Info');
@@ -112,7 +124,6 @@ public with sharing class UserRegistrationService{
                 if (matchingRole_rec.Salesforce_User_License__c == SALESFORCE_USER_LICENSE_COMMUNITY)
                 {
                     personAccountType = matchingRole_rec.Account_Record_Type__c;
-                    
                 }
                 else {
                     personAccountType = '';
@@ -121,6 +132,7 @@ public with sharing class UserRegistrationService{
                 {
                     Boolean isEndorserData = false;
                     Boolean isEndorserFound = false;
+                    Boolean isEndorserValuesProvided = true;
                     Boolean isCpnFound = false;
                     Boolean isBCSCData = false;
                     Boolean isHdidMatch = false;
@@ -142,25 +154,30 @@ public with sharing class UserRegistrationService{
                         
                     }
                     //lookup up when endorser_data is available
-                    if (data.attributeMap.containsKey('endorser_data')) {
+                    if (data.attributeMap.containsKey('endorser_data') 
+                            && (data.attributeMap.containsKey('common_provider_number')
+                            && data.attributeMap.get('common_provider_number') == '')) {
                         isEndorserData = true;
                         List<String> keyValue = new List<String>();
+
                         keyValue.addAll(data.attributeMap.get('endorser_data').remove('[').remove(']').split(','));
                         System.debug('keyValue:' + keyValue);
-                        if (!keyValue.isEmpty()) {
+                        if (data.attributeMap.get('endorser_data') != '[]') {
                             endorserData = fetchPersonAccount(keyValue);
                             if (!endorserData.isEmpty()) {
                                 isEndorserFound = true;
                             }
+                        } else {
+                            isEndorserValuesProvided = false;
                         }
                     }
                     //lookup up when common_provider_number is available
-                    if (data.attributeMap.containsKey('common_provider_number')) {
+                    if (data.attributeMap.containsKey('common_provider_number') && data.attributeMap.get('common_provider_number') != '') {
                         isCpnData = true;
                         List<String> keyValue = new List<String>();
                         keyValue.addAll(data.attributeMap.get('common_provider_number').split(','));
                         System.debug('keyValue:' + keyValue);
-                        if (!keyValue.isEmpty()) {
+                        if (data.attributeMap.get('common_provider_number') != '') {
                             cpnData = fetchPersonAccount(keyValue);
                             if (!cpnData.isEmpty()) {
                                 contactId = cpnData[0].PersonContactId;
@@ -212,13 +229,12 @@ public with sharing class UserRegistrationService{
                     if (cpnData.isEmpty() && !isCpnFound && isCpnData) {
                         throw new Auth.AuthProviderPluginException('No Match found for CPN');
                     }
-                    if (isEndorserData && !isEndorserFound && !isHdidMatch) {
+                    if (isEndorserData && (!isEndorserFound && !isHdidMatch && !isEndorserValuesProvided)) {
                         throw new Auth.AuthProviderPluginException('No Match found for Endorser Supplied Data');
                     }
                     if (!isHdidMatch && isHdidMatch != null && fieldExisting) {
                         throw new Auth.DiscoveryCustomErrorException('No Match found for HDID');
-                    } else if (isHdidMatch)
-                    {
+                    } else if (isHdidMatch) {
                         newUser.ContactId = contactId;
                     } else if (!isCpnFound) {
                         contactId = managePersonAccount(data, personAccountType );
@@ -241,10 +257,6 @@ public with sharing class UserRegistrationService{
                     }
                 }       
             }
-            List<User> checkUser = [
-                SELECT Id 
-                FROM User 
-                WHERE FederationIdentifier =: data.username ];
 
             if(checkUser.size() > 0) {
                 createUser = false;
@@ -287,6 +299,13 @@ public with sharing class UserRegistrationService{
         *     None
         * 
         */       
+        Boolean isEndorserData = false;
+        Boolean isEndorserValuesProvided = true;
+        Boolean isHdidMatch = false;
+        Boolean isEndorserFound = false;
+
+        List<Account> endorserData = new List<Account>();
+
         system.debug('data:'+ json.serializePretty(data));
         //Fetch Salesforce Id
         User existingUser = [SELECT Id, username, email,lastname,firstname,alias,
@@ -297,23 +316,45 @@ public with sharing class UserRegistrationService{
 
         String l_userdata = JSON.serialize(data.attributeMap);
 
-        if (existingUser.lastName != data.lastName)
-        {
+        if (data.attributeMap.containsKey('family_name')) {
+            existingUser.LastName = data.attributeMap.get('family_name');
+        } else {
             existingUser.lastName = data.lastName;
         }
-        if (existingUser.firstName != data.firstName)
-        {
+        if (data.attributeMap.containsKey('given_name')) {
+            existingUser.firstName = data.attributeMap.get('given_name');
+        } else {
             existingUser.firstName = data.firstName;
-        }
+        }        
 
         existingUser.FederationIdentifier = data.username;
         
         existingUser.alias = UserRegistrationService.generateUserAlias(data);
+
+        //lookup up when endorser_data is available
+        if (data.attributeMap.containsKey('endorser_data') 
+                && (data.attributeMap.containsKey('common_provider_number')
+                && data.attributeMap.get('common_provider_number') == '')) {
+
+            String emptyEndorser = data.attributeMap.get('endorser_data');
         
-        existingUser.languagelocalekey = UserInfo.getLanguage();
-        existingUser.localesidkey = UserInfo.getLocale();
-        existingUser.emailEncodingKey = 'UTF-8';
-        existingUser.timeZoneSidKey = 'America/Vancouver';
+            if (emptyEndorser == '[]' && !data.attributeMap.containsKey('roles')) {
+                throw new Auth.AuthProviderPluginException('No Match found for Endorser Supplied Data');
+            }
+            isEndorserData = true;
+            List<String> keyValue = new List<String>();
+            
+            if (data.attributeMap.get('endorser_data') != '[]') {
+                keyValue.addAll(data.attributeMap.get('endorser_data').remove('[').remove(']').split(','));
+                endorserData = fetchPersonAccount(keyValue);
+                if (!endorserData.isEmpty()) {
+                    isEndorserFound = true;
+                }
+            } else {
+                isEndorserValuesProvided = false;
+            }
+        }        
+
         
         // Update user role & permissionset based on latest payload
         UserRegistrationCustomMetadataUtility processRoles = new UserRegistrationCustomMetadataUtility();
@@ -339,10 +380,6 @@ public with sharing class UserRegistrationService{
             if (existingUser.username != userName)
             {
                 existingUser.username = userName;
-            }
-            if (existingUser.email != emailAddress)
-            {
-                existingUser.email = emailAddress;
             }
             for (UserRole userRoleRec : [SELECT DeveloperName,Id,Name FROM UserRole Where Name =: matchingRoleRec.Salesforce_User_Role__c])
             {
@@ -417,10 +454,17 @@ public with sharing class UserRegistrationService{
         {
             isNewAccount = true;
             Id personAccountRecordTypeId =  Schema.SObjectType.Account.getRecordTypeInfosByDeveloperName().get(optionalRecordType).getRecordTypeId();
-        
-            newPersonAccount.FirstName = data.firstName ;
 
-            newPersonAccount.LastName = data.lastName;
+            if (data.attributeMap.containsKey('family_name')) {
+                newPersonAccount.LastName = data.attributeMap.get('family_name');
+            } else {
+                newPersonAccount.lastName = data.lastName;
+            }
+            if (data.attributeMap.containsKey('given_name')) {
+                newPersonAccount.firstName = data.attributeMap.get('given_name');
+            } else {
+                newPersonAccount.firstName = data.firstName;
+            }            
 
             if(data.email!= null) {
                 String emailaddress = data.email;
@@ -704,12 +748,13 @@ public with sharing class UserRegistrationService{
         if (String.isEmpty(suffixName)) {
             suffixName = customDomain;
         }
-        //first see if attributeMap contains a valid email
-        if (data.email != null && data.email.contains(EMAIL_ASPERAND_SIGN)) {
+        if (data.attributeMap.containsKey('pidp_email') && !String.isEmpty(data.attributeMap.get('pidp_email'))) {
+            directoryName = data.attributeMap.get('pidp_email').substringAfter(EMAIL_ASPERAND_SIGN);
+        } else if (data.email != null && data.email.contains(EMAIL_ASPERAND_SIGN)) {
             if (String.isEmpty(directoryName)) {
                 directoryName = data.email.substringAfter(EMAIL_ASPERAND_SIGN);
             }
-        } 
+        }  
         
         return data.identifier + EMAIL_ASPERAND_SIGN + directoryName + '.' + suffixName;
     }
