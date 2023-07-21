@@ -56,6 +56,14 @@ public with sharing class UserRegistrationService{
      
         system.debug('data:'+ json.serializePretty(data));
         User newUser = new User();
+        List<User> checkUser = [
+            SELECT Id, email 
+            FROM User 
+            WHERE FederationIdentifier =: data.username ];
+        if (checkUser.size() > 0) {
+            newUser = checkUser[0];
+        } 
+
         //Create user
         if (userRoleList.size() > 0)
         {
@@ -72,11 +80,14 @@ public with sharing class UserRegistrationService{
                         newUser.UserPermissionsInteractionUser = false;
                     }
                     newUser.username = userName;
-                    if (data.attributeMap.containsKey('pidp_email')) {
-                        newUser.email = data.attributeMap.get('pidp_email');
-                    } else {
-                        newUser.email = emailAddress;
-                    }  
+                    if (newUser.email == null) {
+                        if (data.attributeMap.containsKey('pidp_email')) {
+                            newUser.email = data.attributeMap.get('pidp_email');
+                        } else {
+                            newUser.email = emailAddress;
+                        }  
+                    }
+
                     if (data.attributeMap.containsKey('family_name')) {
                         newUser.LastName = data.attributeMap.get('family_name');
                     } else {
@@ -143,15 +154,15 @@ public with sharing class UserRegistrationService{
                         
                     }
                     //lookup up when endorser_data is available
-                    if (data.attributeMap.containsKey('endorser_data')) {
+                    if (data.attributeMap.containsKey('endorser_data') 
+                            && (data.attributeMap.containsKey('common_provider_number')
+                            && data.attributeMap.get('common_provider_number') == '')) {
                         isEndorserData = true;
                         List<String> keyValue = new List<String>();
-                        if (data.attributeMap.get('endorser_data') == '[]') {
 
-                        }
                         keyValue.addAll(data.attributeMap.get('endorser_data').remove('[').remove(']').split(','));
                         System.debug('keyValue:' + keyValue);
-                        if (!keyValue.isEmpty()) {
+                        if (data.attributeMap.get('endorser_data') != '[]') {
                             endorserData = fetchPersonAccount(keyValue);
                             if (!endorserData.isEmpty()) {
                                 isEndorserFound = true;
@@ -161,12 +172,12 @@ public with sharing class UserRegistrationService{
                         }
                     }
                     //lookup up when common_provider_number is available
-                    if (data.attributeMap.containsKey('common_provider_number')) {
+                    if (data.attributeMap.containsKey('common_provider_number') && data.attributeMap.get('common_provider_number') != '') {
                         isCpnData = true;
                         List<String> keyValue = new List<String>();
                         keyValue.addAll(data.attributeMap.get('common_provider_number').split(','));
                         System.debug('keyValue:' + keyValue);
-                        if (!keyValue.isEmpty()) {
+                        if (data.attributeMap.get('common_provider_number') != '') {
                             cpnData = fetchPersonAccount(keyValue);
                             if (!cpnData.isEmpty()) {
                                 contactId = cpnData[0].PersonContactId;
@@ -246,10 +257,6 @@ public with sharing class UserRegistrationService{
                     }
                 }       
             }
-            List<User> checkUser = [
-                SELECT Id 
-                FROM User 
-                WHERE FederationIdentifier =: data.username ];
 
             if(checkUser.size() > 0) {
                 createUser = false;
@@ -292,6 +299,13 @@ public with sharing class UserRegistrationService{
         *     None
         * 
         */       
+        Boolean isEndorserData = false;
+        Boolean isEndorserValuesProvided = true;
+        Boolean isHdidMatch = false;
+        Boolean isEndorserFound = false;
+
+        List<Account> endorserData = new List<Account>();
+
         system.debug('data:'+ json.serializePretty(data));
         //Fetch Salesforce Id
         User existingUser = [SELECT Id, username, email,lastname,firstname,alias,
@@ -316,6 +330,31 @@ public with sharing class UserRegistrationService{
         existingUser.FederationIdentifier = data.username;
         
         existingUser.alias = UserRegistrationService.generateUserAlias(data);
+
+        //lookup up when endorser_data is available
+        if (data.attributeMap.containsKey('endorser_data') 
+                && (data.attributeMap.containsKey('common_provider_number')
+                && data.attributeMap.get('common_provider_number') == '')) {
+
+            String emptyEndorser = data.attributeMap.get('endorser_data');
+        
+            if (emptyEndorser == '[]' && !data.attributeMap.containsKey('roles')) {
+                throw new Auth.AuthProviderPluginException('No Match found for Endorser Supplied Data');
+            }
+            isEndorserData = true;
+            List<String> keyValue = new List<String>();
+            
+            if (data.attributeMap.get('endorser_data') != '[]') {
+                keyValue.addAll(data.attributeMap.get('endorser_data').remove('[').remove(']').split(','));
+                endorserData = fetchPersonAccount(keyValue);
+                if (!endorserData.isEmpty()) {
+                    isEndorserFound = true;
+                }
+            } else {
+                isEndorserValuesProvided = false;
+            }
+        }        
+
         
         // Update user role & permissionset based on latest payload
         UserRegistrationCustomMetadataUtility processRoles = new UserRegistrationCustomMetadataUtility();
