@@ -596,6 +596,7 @@ public class KeycloakRegistrationHandlerTest {
         Boolean exceptionThrown = false;
         Map<String,String> attribmap = new Map<String,String>();
         attribmap.put('roles', 'FAIL');
+
     
         Auth.UserData sampleData = new Auth.UserData(
             'testId',
