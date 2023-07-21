@@ -7,7 +7,7 @@
     <fieldManageability>SubscriberControlled</fieldManageability>
     <label>Salesforce User Role</label>
     <length>40</length>
-    <required>true</required>
+    <required>false</required>
     <type>Text</type>
     <unique>false</unique>
 </CustomField>

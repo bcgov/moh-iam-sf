@@ -1,0 +1,49 @@
+{
+    "orgName": "IAM Dev",
+    "edition": "Enterprise",
+    "orgPreferences" : {
+      "enabled": ["PersonAccounts"]
+    },
+    "hasSampleData": true,
+    "features": [
+      "RecordTypes",
+      "Communities", 
+      "SalesforceIdentityForCommunities", 
+      "PersonAccounts", 
+      "LightningServiceConsole", 
+      "ServiceCloud", 
+      "ForceComPlatform", 
+      "ServiceCloud", 
+      "ContactsToMultipleAccounts",
+      "PlatformEncryption",
+      "CustomerCommunityPlusLogin",
+      "HealthCloudAddOn",
+      "Sites"
+    ],
+    "settings": {
+      "lightningExperienceSettings": {
+        "enableS1DesktopEnabled": true
+      },
+      "experienceBundleSettings": {
+        "enableExperienceBundleMetadata": true
+      },
+      "communitiesSettings": {
+        "enableNetworksEnabled": true
+      },
+      "mobileSettings": {
+        "enableS1EncryptedStoragePref2": false
+      },
+      "nameSettings": {
+        "enableMiddleName": true
+      },
+      "chatterSettings": {
+        "enableChatter": true
+      }
+    },
+    "objectSettings": {
+      "account": {
+        "sharingModel": "private",
+        "defaultRecordType": "PersonAccount"
+      }
+    }
+  }
