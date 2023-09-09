@@ -205,9 +205,9 @@ public with sharing class UserRegistrationService{
                             && fieldExisting ) {
                         String qryString = '';
                         if (!Test.isRunningTest()) {
-                            qryString = 'select id,PersonContactId from Account where HDID__c = \'' + searchValue + '\'';
+                            qryString = 'select id,PersonContactId, isActive from Account where HDID__c = \'' + searchValue + '\'';
                         } else {
-                            qryString = 'select id,PersonContactId from Account where SourceSystemIdentifier = \'' + searchValue + '\'';
+                            qryString = 'select id,PersonContactId, isActive from Account where SourceSystemIdentifier = \'' + searchValue + '\'';
                         }
 
                         List<Account> accountList = Database.query(qryString);
@@ -219,6 +219,15 @@ public with sharing class UserRegistrationService{
                             isHdidMatch = false;
                         }
                     }
+                    if (data.attributeMap.containsKey('endorser_data')) {
+                        String emptyEndorser = data.attributeMap.get('endorser_data');
+                        if (emptyEndorser == '[]' 
+                                && data.attributeMap.containsKey('pidp_email')
+                                && !data.attributeMap.containsKey('roles')) {
+                            throw new Auth.AuthProviderPluginException('No Match found, Endorser Data Not Provided');
+                        }
+                    }    
+
                     if (data.attributeMap.containsKey('pidp_email') 
                             && !data.attributeMap.containsKey('roles')) {
                         throw new Auth.AuthProviderPluginException('No Match found, Missing Roles Data');
@@ -237,7 +246,19 @@ public with sharing class UserRegistrationService{
                     } else if (isHdidMatch) {
                         newUser.ContactId = contactId;
                     } else if (!isCpnFound) {
-                        contactId = managePersonAccount(data, personAccountType );
+
+                        String userPrefix = '';
+                        if (data.attributeMap.containsKey('preferred_username')) {
+                            String preferredUsername = data.attributeMap.get('preferred_username');
+
+                            if (preferredUsername.contains(EMAIL_ASPERAND_SIGN)) {
+                                userPrefix = preferredUsername.substringBefore(EMAIL_ASPERAND_SIGN);
+                
+                            } else {
+                                userPrefix = preferredUsername;
+                            }
+                        }      
+                        contactId = managePersonAccount(data, personAccountType, matchingRole_rec.isAccountSetActive__c, userPrefix);
                     }
                         
                     newUser.ContactId = contactId;
@@ -303,15 +324,19 @@ public with sharing class UserRegistrationService{
         Boolean isEndorserValuesProvided = true;
         Boolean isHdidMatch = false;
         Boolean isEndorserFound = false;
+        String emptyEndorser = '';
 
         List<Account> endorserData = new List<Account>();
 
         system.debug('data:'+ json.serializePretty(data));
         //Fetch Salesforce Id
         User existingUser = [SELECT Id, username, email,lastname,firstname,alias,
-                                emailEncodingKey,timeZoneSidKey,languagelocaleKey,localesidkey
+                                emailEncodingKey,timeZoneSidKey,languagelocaleKey,localesidkey, 
+                                IsPortalEnabled
                              FROM User WHERE Id =: userId];
         
+        System.debug('existingUser: ' + existingUser);              
+
          //Verify user data - to be removed prior to completion
 
         String l_userdata = JSON.serialize(data.attributeMap);
@@ -331,13 +356,20 @@ public with sharing class UserRegistrationService{
         
         existingUser.alias = UserRegistrationService.generateUserAlias(data);
 
+        if (data.attributeMap.containsKey('endorser_data')) {
+            emptyEndorser = data.attributeMap.get('endorser_data');
+            if (emptyEndorser == '[]' 
+                    && data.attributeMap.containsKey('pidp_email')
+                    && !data.attributeMap.containsKey('roles')) {
+                throw new Auth.AuthProviderPluginException('No Match found, Endorser Data Not Provided');
+            }
+        }          
+
         //lookup up when endorser_data is available
         if (data.attributeMap.containsKey('endorser_data') 
                 && (data.attributeMap.containsKey('common_provider_number')
                 && data.attributeMap.get('common_provider_number') == '')) {
-
-            String emptyEndorser = data.attributeMap.get('endorser_data');
-        
+  
             if (emptyEndorser == '[]' && !data.attributeMap.containsKey('roles')) {
                 throw new Auth.AuthProviderPluginException('No Match found for Endorser Supplied Data');
             }
@@ -353,11 +385,50 @@ public with sharing class UserRegistrationService{
             } else {
                 isEndorserValuesProvided = false;
             }
-        }        
+        }
+        User existingPortalUser = new User();
+        UserRegistrationCustomMetadataUtility processFieldcheck = new UserRegistrationCustomMetadataUtility();
+        if (existingUser.IsPortalEnabled == true) {
+            
+            String qryString = '';
+            if (processFieldcheck.isFieldExisting('OneHealthID_Name__c','Contact')) {
+                qryString = 'SELECT Id, username, email,lastname,firstname,alias,emailEncodingKey,timeZoneSidKey,languagelocaleKey,localesidkey,IsPortalEnabled,AccountId,Contact.OneHealthID_Name__c,ContactId FROM User WHERE Id = \'' + userId + '\'';
+            } else {
+                qryString = 'SELECT Id, username, email,lastname,firstname,alias,emailEncodingKey,timeZoneSidKey,languagelocaleKey,localesidkey,IsPortalEnabled,AccountId,ContactId FROM User WHERE Id = \'' + userId + '\'';
+            }
+
+            existingPortalUser = Database.query(qryString);
+            //[SELECT Id, username, email,lastname,firstname,alias,emailEncodingKey,timeZoneSidKey,languagelocaleKey,localesidkey,IsPortalEnabled,AccountId,Contact.OneHealthID_Name__c,ContactId FROM User WHERE Id =: userId];
+        }
+
+
+        if (data.attributeMap.containsKey('preferred_username')) {
+            String preferredUsername = data.attributeMap.get('preferred_username');
+            String userPrefix = '';
+            if (preferredUsername.contains(EMAIL_ASPERAND_SIGN)) {
+                userPrefix = preferredUsername.substringBefore(EMAIL_ASPERAND_SIGN);
+
+            } else {
+                userPrefix = preferredUsername;
+            }
+            if (processFieldcheck.isFieldExisting('OneHealthID_Name__c','Contact')) {
+                if (existingPortalUser.IsPortalEnabled && userPrefix != existingPortalUser.Contact.get('OneHealthID_Name__c')) // existingPortalUser.Contact.OneHealthID_Name__c
+                 {
+                    Contact preferredContact = new Contact();
+                    preferredContact.Id = existingPortalUser.ContactId;
+                    preferredContact.put('OneHealthId_Name__c', userPrefix);
+
+                    String json_ContactDetails = JSON.serialize(preferredContact, true);
+                    //update Contact
+                    updateContactDetails(json_ContactDetails);
+                }
+            }
+        }       
+        
 
         
         // Update user role & permissionset based on latest payload
-        UserRegistrationCustomMetadataUtility processRoles = new UserRegistrationCustomMetadataUtility();
+        //UserRegistrationCustomMetadataUtility processRoles = new UserRegistrationCustomMetadataUtility();
 
         // add/update any new permission sets
         managePermissionSet(existingUser.Id, data);
@@ -384,7 +455,8 @@ public with sharing class UserRegistrationService{
             for (UserRole userRoleRec : [SELECT DeveloperName,Id,Name FROM UserRole Where Name =: matchingRoleRec.Salesforce_User_Role__c])
             {
                 existingUser.UserRoleId = userRoleRec.Id;
-                existingUser.isActive = true;
+                existingUser.isActive = false;
+                
             }
         }
         
@@ -430,8 +502,10 @@ public with sharing class UserRegistrationService{
         return existingAccount;
     }
 
-    private static String managePersonAccount(Auth.UserData data, String optionalRecordType) 
+    private static String managePersonAccount(Auth.UserData data, String optionalRecordType, 
+            Boolean isAccountSetActive, String preferredName) 
     {
+        UserRegistrationCustomMetadataUtility processRoles = new UserRegistrationCustomMetadataUtility();
         System.debug('optionalRecordType: ' + optionalRecordType);
         Boolean isNewAccount = false;
         Id newCommUser = null;
@@ -442,12 +516,15 @@ public with sharing class UserRegistrationService{
         } else {
             searchEmail = data.username;
         }
-        
-        List<Account> existingAccount = [
-            SELECT Id, PersonContactId, FirstName, LastName, PersonEmail, RecordTypeId 
-            FROM Account where PersonEmail =: searchEmail 
-            ///AND RecordType.DeveloperName =: optionalRecordType
-            ];
+
+        String qryString = '';
+        if (processRoles.isFieldExisting('OneHealthID_Name__c','Contact')) {
+            qryString = 'SELECT Id, PersonContactId, FirstName, LastName, PersonEmail, RecordTypeId, isActive, OneHealthID_Name__pc  from Account where PersonEmail = \'' + searchEmail + '\'';
+        } else {
+            qryString = 'SELECT Id, PersonContactId, FirstName, LastName, PersonEmail, RecordTypeId, isActive from Account where PersonEmail = \'' + searchEmail + '\'';
+        }
+
+        List<Account> existingAccount = Database.query(qryString);
         Account newPersonAccount = new Account();
         
         if (existingAccount.size() == 0) 
@@ -479,8 +556,19 @@ public with sharing class UserRegistrationService{
                 newPersonAccount.PersonEmail = data.userName;
             }
 
-
             newPersonAccount.RecordTypeId = personAccountRecordTypeId;
+            if (isAccountSetActive) {
+                newPersonAccount.isActive = true;
+            } else {
+                newPersonAccount.isActive = false;
+            }
+            // Set Account 
+
+            if (processRoles.isFieldExisting('OneHealthID_Name__c','Contact')) {
+                newPersonAccount.put('OneHealthID_Name__pc', preferredName);
+//                newPersonAccount.OneHealthID_Name__pc = preferredName;
+            }
+
             insert newPersonAccount;
 
             newCommUser = [SELECT PersonContactId FROM Account WHERE Id =:newPersonAccount.Id ].PersonContactId;
@@ -489,6 +577,11 @@ public with sharing class UserRegistrationService{
         }
 
         if (!isNewAccount) {
+            if (isAccountSetActive) {
+                existingAccount[0].isActive = true;
+            } else {
+                existingAccount[0].isActive = false;
+            }
             update(existingAccount);
         }
         return newCommUser ;
@@ -643,6 +736,12 @@ public with sharing class UserRegistrationService{
             system.debug('exception caught:' + e);
         }   
     
+    }
+    @Future
+    public static void updateContactDetails(String contactDetails) {
+        Contact contactDetail = (Contact)JSON.deserialize(contactDetails, Contact.class);
+        update contactDetail;
+            
     }
     
     @Future
