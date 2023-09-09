@@ -48,7 +48,7 @@
     </values>
     <values>
         <field>Salesforce_User_Profile__c</field>
-        <value xsi:type="xsd:string">BCPH Community Login User</value>
+        <value xsi:type="xsd:string">BCPH Community Auth User</value>
     </values>
     <values>
         <field>Salesforce_User_Role__c</field>
@@ -61,5 +61,9 @@
     <values>
         <field>Username_Type__c</field>
         <value xsi:nil="true"/>
+    </values>
+    <values>
+        <field>isAccountSetActive__c</field>
+        <value xsi:type="xsd:boolean">false</value>
     </values>
 </CustomMetadata>
