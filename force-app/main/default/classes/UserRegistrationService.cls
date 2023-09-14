@@ -112,11 +112,14 @@ public with sharing class UserRegistrationService{
                 }
             }
         }
+        List<IDP_User_Registration_User_Mapping__mdt>  matchingRole_list = new List<IDP_User_Registration_User_Mapping__mdt>();
+                        
+        matchingRole_list.add(manageUserRole(data)); 
+
+        String activeUserId = '';
         try {
             /****************************************************************** */
-            List<IDP_User_Registration_User_Mapping__mdt>  matchingRole_list = new List<IDP_User_Registration_User_Mapping__mdt>();
-                        
-            matchingRole_list.add(manageUserRole(data)); 
+
     
             for (IDP_User_Registration_User_Mapping__mdt matchingRole_rec : matchingRole_list)
             {
@@ -288,23 +291,29 @@ public with sharing class UserRegistrationService{
             } else {
                 update newUser;
             } 
-             // add/update any new permission sets
-            managePermissionSet(newUser.Id, data);
-            
-            // add user to Public Group
-            for (IDP_User_Registration_User_Mapping__mdt matchingRole_rec : matchingRole_list)
-            {
-                if (matchingRole_rec.Salesforce_Public_Group__c != Null)
-                {
-                    managePublicGroups(newUser.Id, matchingRole_rec.Salesforce_Public_Group__c);
-                }     
-            }      
-            
+            activeUserId = newUser.Id;  
         }
         catch (Exception e) {
             system.debug(e.getMessage());
             throw e;
             //throw new Auth.LoginDiscoveryException(e.getMessage());
+        }
+        Savepoint sp_perm = Database.setSavepoint();
+        try {
+            // add/update any new permission sets
+           managePermissionSet(activeUserId, data);
+           
+           // add user to Public Group
+           for (IDP_User_Registration_User_Mapping__mdt matchingRole_rec : matchingRole_list)
+           {
+               if (matchingRole_rec.Salesforce_Public_Group__c != Null)
+               {
+                   managePublicGroups(activeUserId, matchingRole_rec.Salesforce_Public_Group__c);
+               }     
+           } 
+        } catch (Exception e) {
+            Database.rollback( sp_perm );
+            throw e;
         }
         return newUser;
     }
@@ -587,24 +596,6 @@ public with sharing class UserRegistrationService{
         return newCommUser ;
     }
 
-    @Future
-    public static void managePublicGroups(Id userId, String userPublicGroup)
-    {
-
-        list<groupMember> groupList = new list<groupMember>();
-        list<Group> grp = [select id from Group where DeveloperName in : userPublicGroup.split(',')];
-        
-        for(group g : grp){
-            groupMember gp = new groupMember(groupId = g.Id);
-            gp.UserOrGroupId = userId;
-            groupList.add(gp);
-        }
-            
-        if(groupList.size() > 0)
-        insert groupList;
-        System.debug('GroupList: ' + groupList);
-    }
-    
     private static void managePermissionSet(Id userId, Auth.UserData data)
     {
         /*
@@ -737,6 +728,24 @@ public with sharing class UserRegistrationService{
         }   
     
     }
+    //@Future
+    public static void managePublicGroups(Id userId, String userPublicGroup)
+    {
+
+        list<groupMember> groupList = new list<groupMember>();
+        list<Group> grp = [select id from Group where DeveloperName in : userPublicGroup.split(',')];
+        
+        for(group g : grp){
+            groupMember gp = new groupMember(groupId = g.Id);
+            gp.UserOrGroupId = userId;
+            groupList.add(gp);
+        }
+            
+        if(groupList.size() > 0)
+        insert groupList;
+        System.debug('GroupList: ' + groupList);
+    }
+
     @Future
     public static void updateContactDetails(String contactDetails) {
         Contact contactDetail = (Contact)JSON.deserialize(contactDetails, Contact.class);
@@ -744,7 +753,7 @@ public with sharing class UserRegistrationService{
             
     }
     
-    @Future
+    //@Future
     public static void insertPermissionSetAssignment(String permissionsets, Id userId) {
 
         List<PermissionSetAssignment> permissionSetAssignList = (List<PermissionSetAssignment>)JSON.deserialize(permissionsets, List<PermissionSetAssignment>.class);
