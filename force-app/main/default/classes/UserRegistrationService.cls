@@ -49,6 +49,7 @@ public with sharing class UserRegistrationService{
         String existingBcscGuid = null;
 
         String keyLookup = UserRegistrationService.fetchUserMappingKey(data);
+        UserRegistrationCustomMetadataUtility processRoles = new UserRegistrationCustomMetadataUtility();
         UserRegistrationCustomMetadataUtility fetchRoles = new UserRegistrationCustomMetadataUtility(data.attributeMap.get(keyLookup));
         list<IDP_User_Registration_User_Mapping__mdt> userRoleList = new list<IDP_User_Registration_User_Mapping__mdt>();
         //Get user mapping record based on source IDP
@@ -57,7 +58,7 @@ public with sharing class UserRegistrationService{
         system.debug('data:'+ json.serializePretty(data));
         User newUser = new User();
         List<User> checkUser = [
-            SELECT Id, email 
+            SELECT Id, email, User_Provisioning_Role__c 
             FROM User 
             WHERE FederationIdentifier =: data.username ];
         if (checkUser.size() > 0) {
@@ -70,6 +71,7 @@ public with sharing class UserRegistrationService{
             for (IDP_User_Registration_User_Mapping__mdt userRoleRec : userRoleList)
             {
                 system.debug('userRole_rec:' + userRoleRec );
+                String keycloakRole = '';
                 String userName = UserRegistrationService.generateUserName(data, userRoleRec.Username_Type__c, userRoleRec.Default_Domain__c);
                 String emailAddress = UserRegistrationService.generateEmailAddress(data, userName);
                 List<Profile> profileId = [SELECT Id FROM profile WHERE name=:userRoleRec.Salesforce_User_Profile__c LIMIT 1];
@@ -98,7 +100,18 @@ public with sharing class UserRegistrationService{
                     } else {
                         newUser.firstName = data.firstName;
                     }
-    
+                    if (data.attributeMap.containsKey('roles') && processRoles.isFieldExisting('User_Provisioning_Role__c', 'User')) {
+                        //keycloakRole = data.attributeMap.get('roles'); 
+                        List<IDP_User_Registration_User_Mapping__mdt>  matchingRole_list = new List<IDP_User_Registration_User_Mapping__mdt>();
+                        
+                        matchingRole_list.add(manageUserRole(data)); 
+
+                        for (IDP_User_Registration_User_Mapping__mdt matchingRole_rec : matchingRole_list) {
+                            if (newUser.User_Provisioning_Role__c != matchingRole_rec.External_Provider_Role__c) {
+                                newUser.User_Provisioning_Role__c = matchingRole_rec.External_Provider_Role__c;
+                            }
+                        }
+                    }
                     newUser.FederationIdentifier = data.username;
                     newUser.alias = UserRegistrationService.generateUserAlias(data);
                     
@@ -269,7 +282,6 @@ public with sharing class UserRegistrationService{
             }
 
             // Update user role & permissionset based on latest payload
-            UserRegistrationCustomMetadataUtility processRoles = new UserRegistrationCustomMetadataUtility();
             
             for (IDP_User_Registration_User_Mapping__mdt matchingRole_rec : matchingRole_list)
             {
@@ -298,23 +310,7 @@ public with sharing class UserRegistrationService{
             throw e;
             //throw new Auth.LoginDiscoveryException(e.getMessage());
         }
-        Savepoint sp_perm = Database.setSavepoint();
-        try {
-            // add/update any new permission sets
-           managePermissionSet(activeUserId, data);
-           
-           // add user to Public Group
-           for (IDP_User_Registration_User_Mapping__mdt matchingRole_rec : matchingRole_list)
-           {
-               if (matchingRole_rec.Salesforce_Public_Group__c != Null)
-               {
-                   managePublicGroups(activeUserId, matchingRole_rec.Salesforce_Public_Group__c);
-               }     
-           } 
-        } catch (Exception e) {
-            Database.rollback( sp_perm );
-            throw e;
-        }
+
         return newUser;
     }
     
@@ -341,7 +337,7 @@ public with sharing class UserRegistrationService{
         //Fetch Salesforce Id
         User existingUser = [SELECT Id, username, email,lastname,firstname,alias,
                                 emailEncodingKey,timeZoneSidKey,languagelocaleKey,localesidkey, 
-                                IsPortalEnabled
+                                IsPortalEnabled, User_Provisioning_Role__c
                              FROM User WHERE Id =: userId];
         
         System.debug('existingUser: ' + existingUser);              
@@ -397,6 +393,20 @@ public with sharing class UserRegistrationService{
         }
         User existingPortalUser = new User();
         UserRegistrationCustomMetadataUtility processFieldcheck = new UserRegistrationCustomMetadataUtility();
+
+        if (data.attributeMap.containsKey('roles') && processFieldcheck.isFieldExisting('User_Provisioning_Role__c', 'User')) {
+            //keycloakRole = data.attributeMap.get('roles'); 
+            List<IDP_User_Registration_User_Mapping__mdt>  matchingRole_list = new List<IDP_User_Registration_User_Mapping__mdt>();
+            
+            matchingRole_list.add(manageUserRole(data)); 
+
+            for (IDP_User_Registration_User_Mapping__mdt matchingRole_rec : matchingRole_list) {
+                if (existingUser.User_Provisioning_Role__c != matchingRole_rec.External_Provider_Role__c) {
+                    existingUser.User_Provisioning_Role__c = matchingRole_rec.External_Provider_Role__c;
+                }
+            }
+        }
+
         if (existingUser.IsPortalEnabled == true) {
             
             String qryString = '';
@@ -440,7 +450,7 @@ public with sharing class UserRegistrationService{
         //UserRegistrationCustomMetadataUtility processRoles = new UserRegistrationCustomMetadataUtility();
 
         // add/update any new permission sets
-        managePermissionSet(existingUser.Id, data);
+        //managePermissionSet(existingUser.Id, data);
         
         // add/update user role
         List<IDP_User_Registration_User_Mapping__mdt>  matchingRole_list = new List<IDP_User_Registration_User_Mapping__mdt>();
@@ -474,7 +484,7 @@ public with sharing class UserRegistrationService{
             {
                 if (matchingRole_rec.Salesforce_Public_Group__c != Null)
                 {
-                    managePublicGroups(existingUser.Id, matchingRole_rec.Salesforce_Public_Group__c);
+                    //managePublicGroups(existingUser.Id, matchingRole_rec.Salesforce_Public_Group__c);
                 }     
             }         
         try {
@@ -488,6 +498,41 @@ public with sharing class UserRegistrationService{
 
         return existingUser;
         
+    }
+    public static void processPermissions(List<User> userList)
+    {
+        Savepoint sp_perm = Database.setSavepoint();
+        System.debug('userList: ' + userList);
+        //UserRegistrationCustomMetadataUtility processRoles = new UserRegistrationCustomMetadataUtility();
+        List<IDP_User_Registration_User_Mapping__mdt>  matchingRole_list = new List<IDP_User_Registration_User_Mapping__mdt>();
+        IDP_User_Registration_User_Mapping__mdt  matchingRole = new IDP_User_Registration_User_Mapping__mdt();
+                
+        for (User processUser: userList) {
+            if (processUser.User_Provisioning_Role__c != null) {
+                try {
+                    UserRegistrationCustomMetadataUtility processRoles = new UserRegistrationCustomMetadataUtility(processUser.User_Provisioning_Role__c);
+
+                    matchingRole = processRoles.ReadMapping(processUser.User_Provisioning_Role__c);  
+                    matchingRole_list.add(matchingRole);                 
+                    // add/update any new permission sets
+                   managePermissionSet(processUser.Id, processUser.User_Provisioning_Role__c);
+                   
+                   // add user to Public Group
+                   for (IDP_User_Registration_User_Mapping__mdt matchingRole_rec : matchingRole_list)
+                   {
+                       if (matchingRole_rec.Salesforce_Public_Group__c != Null)
+                       {
+                           managePublicGroups(processUser.Id, matchingRole_rec.Salesforce_Public_Group__c);
+                       }     
+                   } 
+                } catch (Exception e) {
+                    Database.rollback( sp_perm );
+                    throw e;
+                }
+            }
+
+        }
+
     }
 
     private static List<Account> fetchPersonAccount(List<String> keyLookup) 
@@ -596,7 +641,7 @@ public with sharing class UserRegistrationService{
         return newCommUser ;
     }
 
-    private static void managePermissionSet(Id userId, Auth.UserData data)
+    private static void managePermissionSet(Id userId, String keycloakRole)
     {
         /*
         * Description: Manage user permissionset(s)
@@ -612,12 +657,12 @@ public with sharing class UserRegistrationService{
         Set<Id> PermIds = new Set<Id>();
         Set<String> availableRoles = new Set<String>();
         
-        String keyLookup = UserRegistrationService.fetchUserMappingKey(data);
+        //String keyLookup = UserRegistrationService.fetchUserMappingKey(data);
         //Get user mapping record based on source IDP
-        String UserRoleAssign = data.attributeMap.get(keyLookup);
+        //String UserRoleAssign = data.attributeMap.get(keyLookup);
         
-        UserRegistrationCustomMetadataUtility processPermissions = new UserRegistrationCustomMetadataUtility();
-        UserRegistrationCustomMetadataUtility processRoles = new UserRegistrationCustomMetadataUtility(UserRoleAssign);
+        //UserRegistrationCustomMetadataUtility processPermissions = new UserRegistrationCustomMetadataUtility();
+        UserRegistrationCustomMetadataUtility processRoles = new UserRegistrationCustomMetadataUtility(keycloakRole);
        
         IDP_User_Registration_User_Mapping__mdt userRole = new IDP_User_Registration_User_Mapping__mdt();
         // get role metadata
@@ -625,7 +670,7 @@ public with sharing class UserRegistrationService{
         {
             availableRoles.add(userMapping.DeveloperName);
             
-            if (userMapping.External_Provider_Role__c == UserRoleAssign)
+            if (userMapping.External_Provider_Role__c == keycloakRole)
             {
                 roleIds.add(userMapping.Id);
                 userRole = userMapping;
@@ -728,7 +773,7 @@ public with sharing class UserRegistrationService{
         }   
     
     }
-    //@Future
+
     public static void managePublicGroups(Id userId, String userPublicGroup)
     {
 
