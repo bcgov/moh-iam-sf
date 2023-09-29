@@ -130,6 +130,7 @@ public with sharing class UserRegistrationService{
         matchingRole_list.add(manageUserRole(data)); 
 
         String activeUserId = '';
+        //Savepoint sp_user = Database.setSavepoint();
         try {
             /****************************************************************** */
 
@@ -307,6 +308,7 @@ public with sharing class UserRegistrationService{
         }
         catch (Exception e) {
             system.debug(e.getMessage());
+            //Database.rollback(sp_user);
             throw e;
             //throw new Auth.LoginDiscoveryException(e.getMessage());
         }
@@ -484,7 +486,7 @@ public with sharing class UserRegistrationService{
             {
                 if (matchingRole_rec.Salesforce_Public_Group__c != Null)
                 {
-                    //managePublicGroups(existingUser.Id, matchingRole_rec.Salesforce_Public_Group__c);
+                    managePublicGroups(existingUser.Id, matchingRole_rec.Salesforce_Public_Group__c);
                 }     
             }         
         try {
@@ -499,14 +501,24 @@ public with sharing class UserRegistrationService{
         return existingUser;
         
     }
+    public static void updateUserPermissions(List<User> userList)
+    {
+        List<User> updatedUsers = new List<User>();
+        for (User processUser: UserList) {
+            processUser.CompanyName = 'Canada';
+            updatedUsers.add(processUser);
+        }
+        if (updatedUsers.size() > 0) {
+            update updatedUsers;
+        }
+    }
     public static void processPermissions(List<User> userList)
     {
-        Savepoint sp_perm = Database.setSavepoint();
+        //Savepoint sp_perm = Database.setSavepoint();
         System.debug('userList: ' + userList);
         //UserRegistrationCustomMetadataUtility processRoles = new UserRegistrationCustomMetadataUtility();
         List<IDP_User_Registration_User_Mapping__mdt>  matchingRole_list = new List<IDP_User_Registration_User_Mapping__mdt>();
-        IDP_User_Registration_User_Mapping__mdt  matchingRole = new IDP_User_Registration_User_Mapping__mdt();
-                
+        IDP_User_Registration_User_Mapping__mdt  matchingRole = new IDP_User_Registration_User_Mapping__mdt();   
         for (User processUser: userList) {
             if (processUser.User_Provisioning_Role__c != null) {
                 try {
@@ -515,24 +527,74 @@ public with sharing class UserRegistrationService{
                     matchingRole = processRoles.ReadMapping(processUser.User_Provisioning_Role__c);  
                     matchingRole_list.add(matchingRole);                 
                     // add/update any new permission sets
-                   managePermissionSet(processUser.Id, processUser.User_Provisioning_Role__c);
-                   
-                   // add user to Public Group
-                   for (IDP_User_Registration_User_Mapping__mdt matchingRole_rec : matchingRole_list)
-                   {
-                       if (matchingRole_rec.Salesforce_Public_Group__c != Null)
-                       {
-                           managePublicGroups(processUser.Id, matchingRole_rec.Salesforce_Public_Group__c);
-                       }     
-                   } 
+                managePermissionSet(processUser.Id, processUser.User_Provisioning_Role__c);
+                
+                // add user to Public Group
+                for (IDP_User_Registration_User_Mapping__mdt matchingRole_rec : matchingRole_list)
+                {
+                    if (matchingRole_rec.Salesforce_Public_Group__c != Null)
+                    {
+                        managePublicGroups(processUser.Id, matchingRole_rec.Salesforce_Public_Group__c);
+                    }     
+                } 
                 } catch (Exception e) {
-                    Database.rollback( sp_perm );
+                    //Database.rollback( sp_perm );
                     throw e;
                 }
             }
 
         }
+    }
+    public class InputVariables {
+        @InvocableVariable
+        public  List<User> userPerms;
+    }
+    public class ReturnVariables {
+        @InvocableVariable 
+        public List<String> permissionsAdded;
+    }
 
+    @InvocableMethod (label='Process Permissions' description='Process user Permissions')
+    public static List<ReturnVariables> applyPermissions(List<InputVariables> inputVariables)
+    {
+        List<User> userList =  inputVariables.get(0).userPerms;
+        //Savepoint sp_perm = Database.setSavepoint();
+        System.debug('userList: ' + userList);
+        //UserRegistrationCustomMetadataUtility processRoles = new UserRegistrationCustomMetadataUtility();
+        List<IDP_User_Registration_User_Mapping__mdt>  matchingRole_list = new List<IDP_User_Registration_User_Mapping__mdt>();
+        IDP_User_Registration_User_Mapping__mdt  matchingRole = new IDP_User_Registration_User_Mapping__mdt();   
+        for (User processUser: userList) {
+            if (processUser.User_Provisioning_Role__c != null) {
+                try {
+                    UserRegistrationCustomMetadataUtility processRoles = new UserRegistrationCustomMetadataUtility(processUser.User_Provisioning_Role__c);
+
+                    matchingRole = processRoles.ReadMapping(processUser.User_Provisioning_Role__c);  
+                    matchingRole_list.add(matchingRole);                 
+                    // add/update any new permission sets
+                managePermissionSet(processUser.Id, processUser.User_Provisioning_Role__c);
+                
+                // add user to Public Group
+                for (IDP_User_Registration_User_Mapping__mdt matchingRole_rec : matchingRole_list)
+                {
+                    if (matchingRole_rec.Salesforce_Public_Group__c != Null)
+                    {
+                        //managePublicGroups(processUser.Id, matchingRole_rec.Salesforce_Public_Group__c);
+                    }     
+                } 
+                } catch (Exception e) {
+                    //Database.rollback( sp_perm );
+                    throw e;
+                }
+            }
+
+        }
+        List<String> addedPermissions = new List<String>();
+
+        List<ReturnVariables> returnVarsList = new List<ReturnVariables>();
+        ReturnVariables returnVars = new ReturnVariables();
+        returnVars.permissionsAdded = addedPermissions;
+        returnVarsList.add(returnVars);
+        return returnVarsList;
     }
 
     private static List<Account> fetchPersonAccount(List<String> keyLookup) 
@@ -636,7 +698,7 @@ public with sharing class UserRegistrationService{
             } else {
                 existingAccount[0].isActive = false;
             }
-            update(existingAccount);
+            //update(existingAccount);
         }
         return newCommUser ;
     }
@@ -773,7 +835,7 @@ public with sharing class UserRegistrationService{
         }   
     
     }
-
+    @Future
     public static void managePublicGroups(Id userId, String userPublicGroup)
     {
 
