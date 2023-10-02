@@ -520,26 +520,30 @@ public with sharing class UserRegistrationService{
         List<IDP_User_Registration_User_Mapping__mdt>  matchingRole_list = new List<IDP_User_Registration_User_Mapping__mdt>();
         IDP_User_Registration_User_Mapping__mdt  matchingRole = new IDP_User_Registration_User_Mapping__mdt();   
         for (User processUser: userList) {
-            if (processUser.User_Provisioning_Role__c != null) {
-                try {
-                    UserRegistrationCustomMetadataUtility processRoles = new UserRegistrationCustomMetadataUtility(processUser.User_Provisioning_Role__c);
+            UserRegistrationCustomMetadataUtility processRoles = new UserRegistrationCustomMetadataUtility(processUser.User_Provisioning_Role__c);
 
-                    matchingRole = processRoles.ReadMapping(processUser.User_Provisioning_Role__c);  
-                    matchingRole_list.add(matchingRole);                 
-                    // add/update any new permission sets
-                managePermissionSet(processUser.Id, processUser.User_Provisioning_Role__c);
+            matchingRole = processRoles.ReadMapping(processUser.User_Provisioning_Role__c);  
+            matchingRole_list.add(matchingRole);  
+
+            if (processUser.User_Provisioning_Role__c != null) {
+                if (!matchingRole.Requires_Login_Flow__c) {
+                    try {
                 
-                // add user to Public Group
-                for (IDP_User_Registration_User_Mapping__mdt matchingRole_rec : matchingRole_list)
-                {
-                    if (matchingRole_rec.Salesforce_Public_Group__c != Null)
+                        // add/update any new permission sets
+                    managePermissionSet(processUser.Id, processUser.User_Provisioning_Role__c);
+                    
+                    // add user to Public Group
+                    for (IDP_User_Registration_User_Mapping__mdt matchingRole_rec : matchingRole_list)
                     {
-                        managePublicGroups(processUser.Id, matchingRole_rec.Salesforce_Public_Group__c);
-                    }     
-                } 
-                } catch (Exception e) {
-                    //Database.rollback( sp_perm );
-                    throw e;
+                        if (matchingRole_rec.Salesforce_Public_Group__c != Null)
+                        {
+                            managePublicGroups(processUser.Id, matchingRole_rec.Salesforce_Public_Group__c);
+                        }     
+                    } 
+                    } catch (Exception e) {
+                        //Database.rollback( sp_perm );
+                        throw e;
+                    }
                 }
             }
 
@@ -578,7 +582,7 @@ public with sharing class UserRegistrationService{
                 {
                     if (matchingRole_rec.Salesforce_Public_Group__c != Null)
                     {
-                        //managePublicGroups(processUser.Id, matchingRole_rec.Salesforce_Public_Group__c);
+                        managePublicGroups(processUser.Id, matchingRole_rec.Salesforce_Public_Group__c);
                     }     
                 } 
                 } catch (Exception e) {
@@ -629,8 +633,10 @@ public with sharing class UserRegistrationService{
         
         if (data.email!= null) {
             searchEmail = data.email;
+        } else if (data.attributeMap.containsKey('pidp_email')) {
+            searchEmail = data.attributeMap.get('pidp_email');
         } else {
-            searchEmail = data.username;
+            searchEmail = data.userName;
         }
 
         String qryString = '';

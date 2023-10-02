@@ -4,7 +4,7 @@
         <name>Apply_Permissions</name>
         <label>Apply Permissions</label>
         <locationX>176</locationX>
-        <locationY>350</locationY>
+        <locationY>242</locationY>
         <actionName>UserRegistrationService</actionName>
         <actionType>apex</actionType>
         <flowTransactionModel>NewTransaction</flowTransactionModel>
@@ -45,7 +45,7 @@
         <name>getUsers</name>
         <label>getUsers</label>
         <locationX>176</locationX>
-        <locationY>242</locationY>
+        <locationY>134</locationY>
         <assignNullValuesIfNoRecordsFound>false</assignNullValuesIfNoRecordsFound>
         <connector>
             <targetReference>Apply_Permissions</targetReference>
@@ -62,40 +62,13 @@
         <object>User</object>
         <storeOutputAutomatically>true</storeOutputAutomatically>
     </recordLookups>
-    <screens>
-        <name>User_Provisioning_Role</name>
-        <label>User Provisioning Role</label>
-        <locationX>176</locationX>
-        <locationY>134</locationY>
-        <allowBack>true</allowBack>
-        <allowFinish>true</allowFinish>
-        <allowPause>true</allowPause>
-        <connector>
-            <targetReference>getUsers</targetReference>
-        </connector>
-        <fields>
-            <fieldType>ObjectProvided</fieldType>
-            <inputsOnNextNavToAssocScrn>UseStoredValues</inputsOnNextNavToAssocScrn>
-            <isRequired>false</isRequired>
-            <objectFieldReference>AssignPermission.User_Provisioning_Role__c</objectFieldReference>
-        </fields>
-        <showFooter>true</showFooter>
-        <showHeader>true</showHeader>
-    </screens>
+    <runInMode>DefaultMode</runInMode>
     <start>
         <locationX>50</locationX>
         <locationY>0</locationY>
         <connector>
-            <targetReference>User_Provisioning_Role</targetReference>
+            <targetReference>getUsers</targetReference>
         </connector>
     </start>
-    <status>Draft</status>
-    <variables>
-        <name>AssignPermission</name>
-        <dataType>SObject</dataType>
-        <isCollection>false</isCollection>
-        <isInput>true</isInput>
-        <isOutput>false</isOutput>
-        <objectType>User</objectType>
-    </variables>
+    <status>Active</status>
 </Flow>
