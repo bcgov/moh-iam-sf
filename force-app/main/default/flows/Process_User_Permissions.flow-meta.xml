@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Flow xmlns="http://soap.sforce.com/2006/04/metadata">
     <actionCalls>
-        <name>Apply_Permissions</name>
-        <label>Apply Permissions</label>
+        <name>Process_Permissions</name>
+        <label>Process Permissions</label>
         <locationX>176</locationX>
         <locationY>431</locationY>
-        <actionName>UserRegistrationService</actionName>
+        <actionName>UserRegistrationPermission</actionName>
         <actionType>apex</actionType>
         <flowTransactionModel>CurrentTransaction</flowTransactionModel>
         <inputParameters>
@@ -14,7 +14,7 @@
                 <elementReference>getUser</elementReference>
             </value>
         </inputParameters>
-        <nameSegment>UserRegistrationService</nameSegment>
+        <nameSegment>UserRegistrationPermission</nameSegment>
         <storeOutputAutomatically>true</storeOutputAutomatically>
         <versionSegment>1</versionSegment>
     </actionCalls>
@@ -48,7 +48,7 @@
         <locationY>323</locationY>
         <assignNullValuesIfNoRecordsFound>false</assignNullValuesIfNoRecordsFound>
         <connector>
-            <targetReference>Apply_Permissions</targetReference>
+            <targetReference>Process_Permissions</targetReference>
         </connector>
         <filterLogic>and</filterLogic>
         <filters>
@@ -77,8 +77,8 @@
             </value>
         </filters>
         <object>User</object>
-        <recordTriggerType>Update</recordTriggerType>
+        <recordTriggerType>CreateAndUpdate</recordTriggerType>
         <triggerType>RecordAfterSave</triggerType>
     </start>
-    <status>Obsolete</status>
+    <status>Active</status>
 </Flow>

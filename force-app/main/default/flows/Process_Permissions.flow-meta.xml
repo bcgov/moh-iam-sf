@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Flow xmlns="http://soap.sforce.com/2006/04/metadata">
     <actionCalls>
-        <name>Apply_Permissions</name>
-        <label>Apply Permissions</label>
-        <locationX>176</locationX>
-        <locationY>242</locationY>
-        <actionName>UserRegistrationService</actionName>
+        <name>Retry_Process_Permission</name>
+        <label>Retry Process Permission</label>
+        <locationX>440</locationX>
+        <locationY>350</locationY>
+        <actionName>UserRegistrationPermission</actionName>
         <actionType>apex</actionType>
         <flowTransactionModel>NewTransaction</flowTransactionModel>
         <inputParameters>
@@ -14,7 +14,28 @@
                 <elementReference>getUsers</elementReference>
             </value>
         </inputParameters>
-        <nameSegment>UserRegistrationService</nameSegment>
+        <nameSegment>UserRegistrationPermission</nameSegment>
+        <storeOutputAutomatically>true</storeOutputAutomatically>
+        <versionSegment>1</versionSegment>
+    </actionCalls>
+    <actionCalls>
+        <name>User_Permissions</name>
+        <label>User Permissions</label>
+        <locationX>176</locationX>
+        <locationY>242</locationY>
+        <actionName>UserRegistrationPermission</actionName>
+        <actionType>apex</actionType>
+        <faultConnector>
+            <targetReference>Retry_Process_Permission</targetReference>
+        </faultConnector>
+        <flowTransactionModel>NewTransaction</flowTransactionModel>
+        <inputParameters>
+            <name>userPerms</name>
+            <value>
+                <elementReference>getUsers</elementReference>
+            </value>
+        </inputParameters>
+        <nameSegment>UserRegistrationPermission</nameSegment>
         <storeOutputAutomatically>true</storeOutputAutomatically>
         <versionSegment>1</versionSegment>
     </actionCalls>
@@ -48,7 +69,7 @@
         <locationY>134</locationY>
         <assignNullValuesIfNoRecordsFound>false</assignNullValuesIfNoRecordsFound>
         <connector>
-            <targetReference>Apply_Permissions</targetReference>
+            <targetReference>User_Permissions</targetReference>
         </connector>
         <filterLogic>and</filterLogic>
         <filters>
@@ -56,6 +77,13 @@
             <operator>NotEqualTo</operator>
             <value>
                 <stringValue></stringValue>
+            </value>
+        </filters>
+        <filters>
+            <field>Id</field>
+            <operator>EqualTo</operator>
+            <value>
+                <elementReference>$User.Id</elementReference>
             </value>
         </filters>
         <getFirstRecordOnly>false</getFirstRecordOnly>

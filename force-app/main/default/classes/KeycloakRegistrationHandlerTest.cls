@@ -154,6 +154,12 @@ public class KeycloakRegistrationHandlerTest {
 
     Map<String,String> attribmap = new Map<String,String>();
     attribmap.put('roles', 'BCSC_TESTONLY');
+    attribmap.put('pidp_email', 'moa11@phsa.ca');
+    attribmap.put('given_name', 'testFirst');
+    attribmap.put('family_name', 'testLast');
+    attribmap.put('email', 'pidp.eleven9@bcprovinderstaging.onmicrosoft.com');
+    attribmap.put('preferred_username', 'pidp.eleven9@bcproviderstaging.onmicrosoft.com@bcp');
+    attribmap.put('name', 'testFirst testLast');
 
     Auth.UserData sampleData = new Auth.UserData(
         'testId',
@@ -184,6 +190,22 @@ public class KeycloakRegistrationHandlerTest {
             users.add(sampleData);
             handler.updateUser(u.Id, null, sampleData);
             String uid = u.id;
+            List<User> processUserList = [SELECT Id, Name, FirstName, LastName, User_Provisioning_Role__c FROM USER WHERE Id =: u.id Limit 1];
+            // Test Permission callout
+            List<User> processUser = new List<User>();
+            processUser.add(processUserList[0]);
+            //UserRegistrationPermission.InputVariables = processUser;
+             try {
+                List<UserRegistrationPermission.InputVariables> processInput = new List<UserRegistrationPermission.InputVariables>();
+                processInput[0].userPerms.set(0,processUserList[0]);
+                //processInput[0].userPerms = processUserList;
+                System.debug('processInput[0].userPerms: ' + processInput[0].userPerms);
+                UserRegistrationPermission.applyPermissions(processInput);
+                
+            } catch (Exception e) {
+                System.debug('applyPermissions: ' + e.getMessage());
+            } 
+            
         }
   
   }
@@ -201,6 +223,12 @@ public class KeycloakRegistrationHandlerTest {
 
     Map<String,String> attribmap = new Map<String,String>();
     attribmap.put('roles', 'BCSC_TESTONLY');
+    attribmap.put('pidp_email', 'moa12@phsa.ca');
+    attribmap.put('given_name', 'testFirstacct');
+    attribmap.put('family_name', 'testLastacct');
+    attribmap.put('email', 'pidp.twelve9@bcprovinderstaging.onmicrosoft.com');
+    attribmap.put('preferred_username', 'pidp.twelve9@bcproviderstaging.onmicrosoft.com@bcp');
+    attribmap.put('name', 'testFirstacct testLastacct');
 
     Auth.UserData sampleData = new Auth.UserData(
         'testIdacct',
@@ -442,6 +470,7 @@ public class KeycloakRegistrationHandlerTest {
         attribmap.put('family_name', 'TestOnlyLast');
         attribmap.put('given_name', 'TestOnlyGiven');
         attribmap.put('endorser_data','CPN.TSTP00016.CPSID.GS');
+        attribmap.put('common_provider_number', '');
         attribmap.put('preferred_username', 'pidp.fifteen@bcprovidertest.onmicrosoft.com@bcp');
         attribmap.put('name', 'TestOnlyGiven TestOnlyLast');
 
@@ -472,6 +501,63 @@ public class KeycloakRegistrationHandlerTest {
         }
 
   }
+
+  @isTest
+  public static void testCreateMOAEndorsereUser_emptyEndorser() {
+      String uniqueUserName = 
+          'standarduser' +
+          DateTime.now().getTime() +
+          '@testorg.com';
+      Profile p = [SELECT Id FROM Profile WHERE Name = 'System Administrator'];
+      List<UserRole> userRole = [SELECT Id FROM UserRole];
+      String userRoleId = userRole[0].Id;
+      KeycloakRegistrationHandler handler = new KeycloakRegistrationHandler();
+    
+      Map<String,String> attribmap = new Map<String,String>();
+      attribmap.put('roles', 'BCSC_TESTONLY');
+      attribmap.put('pidp_email', 'testusername3@me.com');
+      attribmap.put('family_name', 'TestOnlyLast');
+      attribmap.put('given_name', 'TestOnlyGiven');
+      attribmap.put('endorser_data','[]');
+      attribmap.put('common_provider_number', '');
+      attribmap.put('preferred_username', 'pidp.fifteen@bcprovidertest.onmicrosoft.com@bcp');
+      attribmap.put('name', 'TestOnlyGiven TestOnlyLast');
+
+      Auth.UserData sampleData = new Auth.UserData(
+          'testIdComm',
+          'testFirst',
+          'testLast',
+          'testFirst testLast',
+          'testusername3@me.com',
+          null,
+          'testusername3@me.com',
+          'en_US',
+          'Open ID Connect',
+          null,
+          attribmap
+      );
+      System.debug('sampleData:' + sampleData);
+
+      test.startTest();
+          verifyTestUser();
+      test.stopTest();
+
+      User runtimeUser = [SELECT Id FROM User WHERE Email = 'systemuser@testorg.com' LIMIT 1];
+      System.runAs(runtimeUser) {
+        try {
+            User u = handler.createUser(null, sampleData);
+            System.assertEquals('TestOnlyLast', u.lastName);
+            System.assertEquals('TestOnlyGiven', u.firstName);
+
+        } catch (Auth.AuthProviderPluginException ae) {
+            System.assertEquals('No Match found for Endorser Supplied Data', ae.getMessage());
+        } catch (Exception e) {
+            System.debug('Error Thrown: ' + e.getMessage());
+        }
+
+      }
+
+}
 
 
     @isTest
