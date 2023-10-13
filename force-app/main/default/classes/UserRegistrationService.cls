@@ -100,7 +100,7 @@ public with sharing class UserRegistrationService{
                     } else {
                         newUser.firstName = data.firstName;
                     }
-                    if (data.attributeMap.containsKey('roles') && processRoles.isFieldExisting('User_Provisioning_Role__c', 'User')) {
+                    if ((data.attributeMap.containsKey('roles') || data.attributeMap.containsKey('idp')) && processRoles.isFieldExisting('User_Provisioning_Role__c', 'User')) {
                         //keycloakRole = data.attributeMap.get('roles'); 
                         List<IDP_User_Registration_User_Mapping__mdt>  matchingRole_list = new List<IDP_User_Registration_User_Mapping__mdt>();
                         
@@ -396,7 +396,7 @@ public with sharing class UserRegistrationService{
         User existingPortalUser = new User();
         UserRegistrationCustomMetadataUtility processFieldcheck = new UserRegistrationCustomMetadataUtility();
 
-        if (data.attributeMap.containsKey('roles') && processFieldcheck.isFieldExisting('User_Provisioning_Role__c', 'User')) {
+        if ((data.attributeMap.containsKey('roles') || data.attributeMap.containsKey('idp')) && processFieldcheck.isFieldExisting('User_Provisioning_Role__c', 'User')) {
             //keycloakRole = data.attributeMap.get('roles'); 
             List<IDP_User_Registration_User_Mapping__mdt>  matchingRole_list = new List<IDP_User_Registration_User_Mapping__mdt>();
             
