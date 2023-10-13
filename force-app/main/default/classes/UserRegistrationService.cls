@@ -130,6 +130,7 @@ public with sharing class UserRegistrationService{
         matchingRole_list.add(manageUserRole(data)); 
 
         String activeUserId = '';
+        //Savepoint sp_user = Database.setSavepoint();
         try {
             /****************************************************************** */
 
@@ -307,6 +308,7 @@ public with sharing class UserRegistrationService{
         }
         catch (Exception e) {
             system.debug(e.getMessage());
+            //Database.rollback(sp_user);
             throw e;
             //throw new Auth.LoginDiscoveryException(e.getMessage());
         }
@@ -450,7 +452,6 @@ public with sharing class UserRegistrationService{
         //UserRegistrationCustomMetadataUtility processRoles = new UserRegistrationCustomMetadataUtility();
 
         // add/update any new permission sets
-        //managePermissionSet(existingUser.Id, data);
         
         // add/update user role
         List<IDP_User_Registration_User_Mapping__mdt>  matchingRole_list = new List<IDP_User_Registration_User_Mapping__mdt>();
@@ -484,7 +485,7 @@ public with sharing class UserRegistrationService{
             {
                 if (matchingRole_rec.Salesforce_Public_Group__c != Null)
                 {
-                    //managePublicGroups(existingUser.Id, matchingRole_rec.Salesforce_Public_Group__c);
+                    managePublicGroups(existingUser.Id, matchingRole_rec.Salesforce_Public_Group__c);
                 }     
             }         
         try {
@@ -498,41 +499,6 @@ public with sharing class UserRegistrationService{
 
         return existingUser;
         
-    }
-    public static void processPermissions(List<User> userList)
-    {
-        Savepoint sp_perm = Database.setSavepoint();
-        System.debug('userList: ' + userList);
-        //UserRegistrationCustomMetadataUtility processRoles = new UserRegistrationCustomMetadataUtility();
-        List<IDP_User_Registration_User_Mapping__mdt>  matchingRole_list = new List<IDP_User_Registration_User_Mapping__mdt>();
-        IDP_User_Registration_User_Mapping__mdt  matchingRole = new IDP_User_Registration_User_Mapping__mdt();
-                
-        for (User processUser: userList) {
-            if (processUser.User_Provisioning_Role__c != null) {
-                try {
-                    UserRegistrationCustomMetadataUtility processRoles = new UserRegistrationCustomMetadataUtility(processUser.User_Provisioning_Role__c);
-
-                    matchingRole = processRoles.ReadMapping(processUser.User_Provisioning_Role__c);  
-                    matchingRole_list.add(matchingRole);                 
-                    // add/update any new permission sets
-                   managePermissionSet(processUser.Id, processUser.User_Provisioning_Role__c);
-                   
-                   // add user to Public Group
-                   for (IDP_User_Registration_User_Mapping__mdt matchingRole_rec : matchingRole_list)
-                   {
-                       if (matchingRole_rec.Salesforce_Public_Group__c != Null)
-                       {
-                           managePublicGroups(processUser.Id, matchingRole_rec.Salesforce_Public_Group__c);
-                       }     
-                   } 
-                } catch (Exception e) {
-                    Database.rollback( sp_perm );
-                    throw e;
-                }
-            }
-
-        }
-
     }
 
     private static List<Account> fetchPersonAccount(List<String> keyLookup) 
@@ -567,8 +533,10 @@ public with sharing class UserRegistrationService{
         
         if (data.email!= null) {
             searchEmail = data.email;
+        } else if (data.attributeMap.containsKey('pidp_email')) {
+            searchEmail = data.attributeMap.get('pidp_email');
         } else {
-            searchEmail = data.username;
+            searchEmail = data.userName;
         }
 
         String qryString = '';
@@ -636,144 +604,12 @@ public with sharing class UserRegistrationService{
             } else {
                 existingAccount[0].isActive = false;
             }
-            update(existingAccount);
+            //update(existingAccount);
         }
         return newCommUser ;
     }
 
-    private static void managePermissionSet(Id userId, String keycloakRole)
-    {
-        /*
-        * Description: Manage user permissionset(s)
-        * Parameters:
-        *     Id userId: Id of the user logging into the system via provider
-        *     Auth.UserData data: UserData id token payload, including attributeMap representing the id token equivalent
-        * Returns:
-        *     None
-        * 
-        */            
-        Set<Id> userIds = new Set<Id>();
-        Set<Id> roleIds = new Set<Id>();
-        Set<Id> PermIds = new Set<Id>();
-        Set<String> availableRoles = new Set<String>();
-        
-        //String keyLookup = UserRegistrationService.fetchUserMappingKey(data);
-        //Get user mapping record based on source IDP
-        //String UserRoleAssign = data.attributeMap.get(keyLookup);
-        
-        //UserRegistrationCustomMetadataUtility processPermissions = new UserRegistrationCustomMetadataUtility();
-        UserRegistrationCustomMetadataUtility processRoles = new UserRegistrationCustomMetadataUtility(keycloakRole);
-       
-        IDP_User_Registration_User_Mapping__mdt userRole = new IDP_User_Registration_User_Mapping__mdt();
-        // get role metadata
-        for (IDP_User_Registration_User_Mapping__mdt userMapping : processRoles.userMapping)
-        {
-            availableRoles.add(userMapping.DeveloperName);
-            
-            if (userMapping.External_Provider_Role__c == keycloakRole)
-            {
-                roleIds.add(userMapping.Id);
-                userRole = userMapping;
-            }
-        }
-        
-        List<PermissionSetAssignment> removeOtherPerms = new List<PermissionSetAssignment>();
-        for(PermissionSetAssignment existingPSAByUser_rec : [SELECT AssigneeId,Id,PermissionSetId,PermissionSet.Name 
-                                                                FROM PermissionSetAssignment 
-                                                                WHERE AssigneeId =: userId
-                                                                AND PermissionSet.ProfileId = null  
-                                                                ORDER BY AssigneeId ASC])
-        {
-            if(userRole.DeveloperName != existingPSAByUser_rec.PermissionSet.Name)
-            {
-                removeOtherPerms.add(existingPSAByUser_rec);
-            }
-        }        
-
-        // get permission metadata
-        Set<String> associatedPermset = new Set<String>();
-        Set<String> associatedPermsetGroup= new Set<String>();
-
-
-
-        for (IDP_User_Registration_Permission_Set__mdt userPerms : processRoles.userPermissionSet)
-        {
-            System.debug('userRole.DeveloperName:' + userRole.DeveloperName);
-            System.debug('userPerms.QualifiedApiName' + userPerms.QualifiedApiName);
-
-            if (userPerms.Assignment_Type__c == USER_ASSIGNMENT_TYPE_PERMISSIONSET)
-            {
-                if (userRole.DeveloperName == userPerms.QualifiedApiName)
-                {
-                    associatedPermset.add(userPerms.Salesforce_Permission_Set__c);
-                }
-            } else if (userPerms.Assignment_Type__c == USER_ASSIGNMENT_TYPE_PERMISSIONSETGROUP)
-            {
-                if (userRole.DeveloperName == userPerms.QualifiedApiName)
-                {
-    
-                    associatedPermsetGroup.add(userPerms.Salesforce_Permission_Set_Group__c);
-                } 
-            }
-
-        }
-        //fetch current Assignments
-        List<PermissionSetAssignment> existingPermSetAssign = [Select Id, PermissionSetGroupId, PermissionSetId, IsActive from PermissionSetAssignment where AssigneeId =: userId];
-        
-        List<PermissionSetAssignment> permissionSetAssignList = new List<PermissionSetAssignment>();
-        List<PermissionSetAssignment> permissionSetRemoveList = new List<PermissionSetAssignment>();
-        Set<Id> genPSAset = new Set<Id>();
-        List<PermissionSet> permissionSetList = new List<PermissionSet>();
-        // PermissionSet's
-        for (PermissionSet perm : [SELECT ID FROM PermissionSet  WHERE  Name IN: associatedPermset])
-        { 
-            for(PermissionSetAssignment genPSArec : existingPermSetAssign)
-            {
-                if (genPSArec.PermissionSetGroupId == null)
-                {
-                    genPSAset.add(genPSArec.Id);
-                    PermissionSetAssignment psaRemoverec = new PermissionSetAssignment (Id = genPSArec.Id);
-                    permissionSetRemoveList.add(psaRemoverec);  
-                }
-          
-            }
-            PermissionSetAssignment psa = new PermissionSetAssignment (PermissionSetId = perm.Id, AssigneeId = userId);
-            permissionSetAssignList.add(psa);
-        }
-        System.debug('associatedPermsetGroup:' + associatedPermsetGroup);
-        // PermissionSetGroup's
-        for (PermissionSetGroup perm : [SELECT ID FROM PermissionSetGroup  WHERE  DeveloperName IN: associatedPermsetGroup])
-        { 
-            for(PermissionSetAssignment genPSArec : existingPermSetAssign)
-            {
-                if (genPSArec.PermissionSetGroupId != null)
-                {
-                    genPSAset.add(genPSArec.Id);
-                    PermissionSetAssignment psaRemoverec = new PermissionSetAssignment (Id = genPSArec.Id);
-                    permissionSetRemoveList.add(psaRemoverec);     
-                }
-            }
-            PermissionSetAssignment psa = new PermissionSetAssignment (PermissionSetGroupId = perm.Id, AssigneeId = userId);
-            permissionSetAssignList.add(psa);
-        }
-        System.debug('removeOtherPerms: ' + removeOtherPerms);
-
-        try {
-            if(removeOtherPerms.size() > 0)
-            {
-                delete removeOtherPerms;
-            } 
-            if(permissionSetAssignList.size() > 0) {
-                String json_PermissionSetAssign = JSON.serialize(permissionSetAssignList, true);
-                //insert permissionSetAssignList;
-                insertPermissionSetAssignment(json_PermissionSetAssign,userId);
-            }
-        }catch(exception e){
-            system.debug('exception caught:' + e);
-        }   
-    
-    }
-
+    @Future
     public static void managePublicGroups(Id userId, String userPublicGroup)
     {
 

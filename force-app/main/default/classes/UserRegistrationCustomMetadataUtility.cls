@@ -52,7 +52,7 @@ public class UserRegistrationCustomMetadataUtility{
                                     QualifiedApiName,Salesforce_User_License__c,Salesforce_User_Profile__c, Salesforce_Public_Group__c,
                                     Salesforce_User_Role__c,Sequence__c, Default_Domain__c, Payload_Includes_PIdP_Data__c, 
                                     Username_Type__c, Non_Regulated_User_Record_Type__c, Account_Record_Type__c, Flow_User__c, 
-                                    isAccountSetActive__c  
+                                    isAccountSetActive__c, Requires_Login_Flow__c
                               FROM IDP_User_Registration_User_Mapping__mdt
                               ORDER BY Sequence__c ASC
                               ];
