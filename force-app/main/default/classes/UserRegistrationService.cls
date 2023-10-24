@@ -112,6 +112,22 @@ public with sharing class UserRegistrationService{
                             }
                         }
                     }
+                    if ((data.attributeMap.containsKey('roles') || data.attributeMap.containsKey('idp')) && processRoles.isFieldExisting('CPSID__c', 'User')) {
+                        //keycloakRole = data.attributeMap.get('roles'); 
+                        List<IDP_User_Registration_User_Mapping__mdt>  matchingRole_list = new List<IDP_User_Registration_User_Mapping__mdt>();
+                        
+                        matchingRole_list.add(manageUserRole(data)); 
+
+                        for (IDP_User_Registration_User_Mapping__mdt matchingRole_rec : matchingRole_list) {
+                            String roleFilter = matchingRole_rec.External_Provider_Role__c;
+                            roleFilter = roleFilter.remove('[').remove(']');
+                            if (matchingRole_rec.Populate_Role_Filter__c) {
+                                if (newUser.get('CPSID__c') != roleFilter) {
+                                    newUser.put('CPSID__c', roleFilter);
+                                }
+                            }
+                        }
+                    }                    
                     newUser.FederationIdentifier = data.username;
                     newUser.alias = UserRegistrationService.generateUserAlias(data);
                     
@@ -337,10 +353,26 @@ public with sharing class UserRegistrationService{
 
         system.debug('data:'+ json.serializePretty(data));
         //Fetch Salesforce Id
-        User existingUser = [SELECT Id, username, email,lastname,firstname,alias,
-                                emailEncodingKey,timeZoneSidKey,languagelocaleKey,localesidkey, 
-                                IsPortalEnabled, User_Provisioning_Role__c
-                             FROM User WHERE Id =: userId];
+        UserRegistrationCustomMetadataUtility processFieldcheck = new UserRegistrationCustomMetadataUtility();
+        List<User> retrieveUser = new List<User>();
+        User existingUser = new User();
+        String qryUserString = 'SELECT Id, username, email, lastname, firstname, alias,';
+        qryUserString += 'emailEncodingKey, timeZoneSidKey, languagelocaleKey, localesidkey, IsPortalEnabled';
+
+        if (processFieldcheck.isFieldExisting('User_Provisioning_Role__c', 'User')) {
+            qryUserString += ', User_Provisioning_Role__c';
+        }
+
+        if (processFieldcheck.isFieldExisting('CPSID__c', 'User') ) {
+            qryUserString += ', CPSID__c';
+        }
+
+        qryUserString += ' FROM User WHERE Id = \'' + userId + '\'';
+
+        retrieveUser = Database.query(qryUserString);
+        if (retrieveUser.size() == 1) {
+            existingUser = retrieveUser[0];
+        }
         
         System.debug('existingUser: ' + existingUser);              
 
@@ -394,7 +426,6 @@ public with sharing class UserRegistrationService{
             }
         }
         User existingPortalUser = new User();
-        UserRegistrationCustomMetadataUtility processFieldcheck = new UserRegistrationCustomMetadataUtility();
 
         if ((data.attributeMap.containsKey('roles') || data.attributeMap.containsKey('idp')) && processFieldcheck.isFieldExisting('User_Provisioning_Role__c', 'User')) {
             //keycloakRole = data.attributeMap.get('roles'); 
@@ -403,23 +434,41 @@ public with sharing class UserRegistrationService{
             matchingRole_list.add(manageUserRole(data)); 
 
             for (IDP_User_Registration_User_Mapping__mdt matchingRole_rec : matchingRole_list) {
-                if (existingUser.User_Provisioning_Role__c != matchingRole_rec.External_Provider_Role__c) {
-                    existingUser.User_Provisioning_Role__c = matchingRole_rec.External_Provider_Role__c;
+                if (existingUser.get('User_Provisioning_Role__c') != matchingRole_rec.External_Provider_Role__c) {
+                    existingUser.put('User_Provisioning_Role__c', matchingRole_rec.External_Provider_Role__c);
                 }
             }
         }
+        if ((data.attributeMap.containsKey('roles') || data.attributeMap.containsKey('idp')) && processFieldcheck.isFieldExisting('CPSID__c', 'User')) {
+            //keycloakRole = data.attributeMap.get('roles'); 
+            List<IDP_User_Registration_User_Mapping__mdt>  matchingRole_list = new List<IDP_User_Registration_User_Mapping__mdt>();
+            
+            matchingRole_list.add(manageUserRole(data)); 
+
+            for (IDP_User_Registration_User_Mapping__mdt matchingRole_rec : matchingRole_list) {
+                String roleFilter = matchingRole_rec.External_Provider_Role__c;
+                roleFilter = roleFilter.remove('[').remove(']');
+                if (matchingRole_rec.Populate_Role_Filter__c) {
+                    if (existingUser.get('CPSID__c') != roleFilter) {
+                        existingUser.put('CPSID__c', roleFilter);
+                    }
+                }
+
+            }
+        }        
 
         if (existingUser.IsPortalEnabled == true) {
             
             String qryString = '';
+            qryString = 'SELECT Id, username, email,lastname,firstname,alias,emailEncodingKey,';
+            qryString += ' timeZoneSidKey, languagelocaleKey, localesidkey, IsPortalEnabled, AccountId, ContactId ';
+
             if (processFieldcheck.isFieldExisting('OneHealthID_Name__c','Contact')) {
-                qryString = 'SELECT Id, username, email,lastname,firstname,alias,emailEncodingKey,timeZoneSidKey,languagelocaleKey,localesidkey,IsPortalEnabled,AccountId,Contact.OneHealthID_Name__c,ContactId FROM User WHERE Id = \'' + userId + '\'';
-            } else {
-                qryString = 'SELECT Id, username, email,lastname,firstname,alias,emailEncodingKey,timeZoneSidKey,languagelocaleKey,localesidkey,IsPortalEnabled,AccountId,ContactId FROM User WHERE Id = \'' + userId + '\'';
+                qryString += ', Contact.OneHealthID_Name__c ';
             }
+            qryString += 'FROM User WHERE Id = \'' + userId + '\'';
 
             existingPortalUser = Database.query(qryString);
-            //[SELECT Id, username, email,lastname,firstname,alias,emailEncodingKey,timeZoneSidKey,languagelocaleKey,localesidkey,IsPortalEnabled,AccountId,Contact.OneHealthID_Name__c,ContactId FROM User WHERE Id =: userId];
         }
 
 

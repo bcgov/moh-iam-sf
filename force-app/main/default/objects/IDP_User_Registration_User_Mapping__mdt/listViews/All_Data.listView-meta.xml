@@ -3,6 +3,7 @@
     <fullName>All_Data</fullName>
     <columns>MasterLabel</columns>
     <columns>DeveloperName</columns>
+    <columns>Populate_Role_Filter__c</columns>
     <columns>NamespacePrefix</columns>
     <columns>IsProtected</columns>
     <columns>Assurance_Level__c</columns>

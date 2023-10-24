@@ -66,6 +66,10 @@
                 <behavior>Edit</behavior>
                 <field>Requires_Login_Flow__c</field>
             </layoutItems>
+            <layoutItems>
+                <behavior>Edit</behavior>
+                <field>Populate_Role_Filter__c</field>
+            </layoutItems>
         </layoutColumns>
         <layoutColumns>
             <layoutItems>
