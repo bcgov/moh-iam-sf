@@ -192,14 +192,13 @@ public class KeycloakRegistrationHandlerTest {
             String uid = u.id;
             List<User> processUserList = [SELECT Id, Name, FirstName, LastName, User_Provisioning_Role__c FROM USER WHERE Id =: u.id Limit 1];
             // Test Permission callout
-            List<User> processUser = new List<User>();
-            processUser.add(processUserList[0]);
-            //UserRegistrationPermission.InputVariables = processUser;
              try {
                 List<UserRegistrationPermission.InputVariables> processInput = new List<UserRegistrationPermission.InputVariables>();
-                processInput[0].userPerms.set(0,processUserList[0]);
-                //processInput[0].userPerms = processUserList;
-                System.debug('processInput[0].userPerms: ' + processInput[0].userPerms);
+                UserRegistrationPermission.InputVariables userInput = new UserRegistrationPermission.InputVariables();
+
+                userInput.userPerms = processUserList;
+                processInput.add(userInput);
+                System.debug('processInput.size: ' + processInput.size());
                 UserRegistrationPermission.applyPermissions(processInput);
                 
             } catch (Exception e) {
@@ -479,8 +478,8 @@ public class KeycloakRegistrationHandlerTest {
             'testFirst',
             'testLast',
             'testFirst testLast',
-            'testusername3@me.com',
             null,
+            '',
             'testusername3@me.com',
             'en_US',
             'Open ID Connect',
@@ -604,7 +603,7 @@ public class KeycloakRegistrationHandlerTest {
       
         Map<String,String> attribmap = new Map<String,String>();
         attribmap.put('roles', 'BCSC_TESTONLY');
-        attribmap.put('pidp_email', 'testusername3@me.com');
+        //attribmap.put('pidp_email', 'testusername3@me.com');
         attribmap.put('family_name', 'TestOnlyLast');
         attribmap.put('given_name', 'TestOnlyGiven');
         attribmap.put('endorser_data','[]');
@@ -616,7 +615,7 @@ public class KeycloakRegistrationHandlerTest {
             'testFirst',
             'testLast',
             'testFirst testLast',
-            'testusername3@me.com',
+            null,
             null,
             'testusername3@me.com',
             'en_US',
@@ -789,6 +788,8 @@ public class KeycloakRegistrationHandlerTest {
     static void testUpdateUserExcep() {
         Map<String,String> attribmap = new Map<String,String>();
         attribmap.put('roles', 'SALESFORCE_TESTONLY');
+        attribmap.put('endorser_data', '[]');
+        attribmap.put('pidp_email', 'testuser@example.org');
     
         Auth.UserData sampleData = new Auth.UserData(
             'testId',

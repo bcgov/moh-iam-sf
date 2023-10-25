@@ -683,27 +683,6 @@ public with sharing class UserRegistrationService{
             
     }
     
-    //@Future
-    public static void insertPermissionSetAssignment(String permissionsets, Id userId) {
-
-        List<PermissionSetAssignment> permissionSetAssignList = (List<PermissionSetAssignment>)JSON.deserialize(permissionsets, List<PermissionSetAssignment>.class);
-        List<PermissionSetAssignment> removeOtherPerms = new List<PermissionSetAssignment>();
-
-        for(PermissionSetAssignment existingPSAByUser_rec : [SELECT AssigneeId,Id,PermissionSetId,PermissionSet.Name 
-                FROM PermissionSetAssignment 
-                WHERE AssigneeId =: userId
-                AND PermissionSet.ProfileId = null  
-                ORDER BY AssigneeId ASC])
-        {
-            removeOtherPerms.add(existingPSAByUser_rec);
-        }   
-        if (removeOtherPerms.size() > 0) {
-            delete removeOtherPerms;
-        }     
-        insert permissionSetAssignList;
-
-    }
-    
     private static IDP_User_Registration_User_Mapping__mdt manageUserRole(Auth.UserData data)
     {
          /*
