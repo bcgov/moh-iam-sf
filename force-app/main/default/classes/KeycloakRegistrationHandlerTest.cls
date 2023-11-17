@@ -101,7 +101,7 @@ public class KeycloakRegistrationHandlerTest {
       List<Id> ids = new List<Id>(); 
       ids.add(u.Id);
       users.add(sampleData);
-      UserRegistrationService.UpdateUser(ids, ids, users);
+      UserRegistrationService.UpdateUsers(ids, ids, users);
       //insert (u);
       String uid = u.id;
     //}
@@ -238,8 +238,6 @@ public class KeycloakRegistrationHandlerTest {
         attribmap
         );
 
-        Id existingUser = [SELECT Id FROM User WHERE ] 
-
         KeycloakRegistrationHandler handler = new KeycloakRegistrationHandler();
         handler.updateUser(UserInfo.getUserId(), null, sampleData);
         
@@ -317,6 +315,6 @@ public class KeycloakRegistrationHandlerTest {
 
         String currentLicense = UserRegistrationService.fetchLicenseType(sampleData);
         
-        system.assert(currentLicense == null);
+        system.assert(!String.isEmpty(currentLicense));
     }
 }

@@ -14,3 +14,5 @@ package.xml
 # force-app/main/default/customMetadata
 force-app\main\default\classes\KeycloakSchedulerService.cls
 force-app\main\default\classes\KeycloakScheduler.cls
+force-app\main\default\classes\KeycloakScheduler.cls-meta.xml
+force-app\main\default\classes\KeycloakSchedulerService.cls-meta.xml
