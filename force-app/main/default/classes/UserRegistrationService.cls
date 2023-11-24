@@ -590,9 +590,19 @@ public with sharing class UserRegistrationService{
 
         String qryString = '';
         if (processRoles.isFieldExisting('OneHealthID_Name__c','Contact')) {
-            qryString = 'SELECT Id, PersonContactId, FirstName, LastName, PersonEmail, RecordTypeId, isActive, OneHealthID_Name__pc  from Account where PersonEmail = \'' + searchEmail + '\'';
+            qryString = 'SELECT Id, PersonContactId, FirstName, LastName, PersonEmail, RecordTypeId, ';
+            qryString += 'isActive, OneHealthID_Name__pc  from Account ';
+            qryString += 'where PersonEmail = \'' + searchEmail + '\'';
+            if (optionalRecordType != '') {
+                qryString += ' AND RecordType.DeveloperName = \'' + optionalRecordType + '\'';
+            }
         } else {
-            qryString = 'SELECT Id, PersonContactId, FirstName, LastName, PersonEmail, RecordTypeId, isActive from Account where PersonEmail = \'' + searchEmail + '\'';
+            qryString = 'SELECT Id, PersonContactId, FirstName, LastName, PersonEmail, RecordTypeId, ';
+            qryString += 'isActive from Account ';
+            qryString += 'where PersonEmail = \'' + searchEmail + '\'';
+            if (optionalRecordType != '') {
+                qryString += ' AND RecordType.DeveloperName = \'' + optionalRecordType + '\'';
+            }            
         }
 
         List<Account> existingAccount = Database.query(qryString);
