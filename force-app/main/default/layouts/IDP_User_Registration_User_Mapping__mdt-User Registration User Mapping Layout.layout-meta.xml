@@ -70,6 +70,14 @@
                 <behavior>Edit</behavior>
                 <field>Populate_Role_Filter__c</field>
             </layoutItems>
+            <layoutItems>
+                <behavior>Edit</behavior>
+                <field>is_Ignore_License_Attribute__c</field>
+            </layoutItems>
+            <layoutItems>
+                <behavior>Edit</behavior>
+                <field>is_Ignore_Endorser_Data__c</field>
+            </layoutItems>
         </layoutColumns>
         <layoutColumns>
             <layoutItems>
