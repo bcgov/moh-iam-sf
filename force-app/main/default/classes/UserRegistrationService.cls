@@ -189,7 +189,8 @@ public with sharing class UserRegistrationService{
                     //lookup up when endorser_data is available
                     if (data.attributeMap.containsKey('endorser_data') 
                             && (data.attributeMap.containsKey('common_provider_number')
-                            && data.attributeMap.get('common_provider_number') == '')) {
+                            && data.attributeMap.get('common_provider_number') == '') 
+                            && !matchingRole_rec.is_Ignore_License_Attribute__c) {
                         isEndorserData = true;
                         List<String> keyValue = new List<String>();
 
@@ -205,7 +206,9 @@ public with sharing class UserRegistrationService{
                         }
                     }
                     //lookup up when common_provider_number is available
-                    if (data.attributeMap.containsKey('common_provider_number') && data.attributeMap.get('common_provider_number') != '') {
+                    if (data.attributeMap.containsKey('common_provider_number') 
+                            && data.attributeMap.get('common_provider_number') != ''
+                            && !matchingRole_rec.is_Ignore_License_Attribute__c) {
                         isCpnData = true;
                         List<String> keyValue = new List<String>();
                         keyValue.addAll(data.attributeMap.get('common_provider_number').split(','));
