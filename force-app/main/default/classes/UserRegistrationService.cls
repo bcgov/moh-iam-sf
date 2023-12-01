@@ -259,7 +259,9 @@ public with sharing class UserRegistrationService{
                         String emptyEndorser = data.attributeMap.get('endorser_data');
                         if (emptyEndorser == '[]' 
                                 && data.attributeMap.containsKey('pidp_email')
-                                && !data.attributeMap.containsKey('roles')) {
+                                && ((!data.attributeMap.containsKey('roles') && !matchingRole_rec.is_Ignore_License_Attribute__c)
+                                || (data.attributeMap.containsKey('roles') && matchingRole_rec.is_Ignore_License_Attribute__c)
+                            )) {
                             throw new Auth.AuthProviderPluginException('No Match found, Endorser Data Not Provided');
                         }
                     }    
