@@ -28,7 +28,7 @@
     </values>
     <values>
         <field>Salesforce_User_Role__c</field>
-        <value xsi:type="xsd:string">TPL_Manager</value>
+        <value xsi:nil="true"/>
     </values>
     <values>
         <field>Sequence__c</field>

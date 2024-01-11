@@ -40,6 +40,10 @@
                 <behavior>Edit</behavior>
                 <field>Salesforce_Permission_Set_Group__c</field>
             </layoutItems>
+            <layoutItems>
+                <behavior>Edit</behavior>
+                <field>Salesforce_Public_Group__c</field>
+            </layoutItems>
         </layoutColumns>
         <style>TwoColumnsTopToBottom</style>
     </layoutSections>

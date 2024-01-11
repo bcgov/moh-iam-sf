@@ -3,7 +3,7 @@
     <fullName>External_Provider_Role__c</fullName>
     <caseSensitive>false</caseSensitive>
     <deprecated>false</deprecated>
-    <description>External Provider role</description>
+    <description>External Provider role, source: token data.attributes.roles</description>
     <externalId>false</externalId>
     <fieldManageability>SubscriberControlled</fieldManageability>
     <label>External Provider Role</label>

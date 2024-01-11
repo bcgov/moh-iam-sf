@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<PermissionSetGroup xmlns="http://soap.sforce.com/2006/04/metadata">
+    <description>Used for Provisioning Test class</description>
+    <hasActivationRequired>false</hasActivationRequired>
+    <label>TESTONLY_DONOTREMOVE</label>
+    <permissionSets>TESTONLY_Permissionset</permissionSets>
+    <status>Updated</status>
+</PermissionSetGroup>

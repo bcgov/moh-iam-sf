@@ -2,10 +2,11 @@
 <CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
     <fullName>Salesforce_Permission_Set_Group__c</fullName>
     <deprecated>false</deprecated>
+    <description>Salesforce Permission Set Group, source: PermissionSetGroup.DeveloperName</description>
     <externalId>false</externalId>
     <fieldManageability>DeveloperControlled</fieldManageability>
     <label>Salesforce Permission Set Group</label>
-    <length>40</length>
+    <length>100</length>
     <required>false</required>
     <type>Text</type>
     <unique>false</unique>

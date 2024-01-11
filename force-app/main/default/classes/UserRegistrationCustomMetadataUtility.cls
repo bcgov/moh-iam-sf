@@ -32,6 +32,8 @@ public class UserRegistrationCustomMetadataUtility{
     public Map<String,IDP_User_Registration_User_Mapping__mdt> userMappingByRole_map;
         
     public Map<String,IDP_User_Registration_Permission_Set__mdt> userPermissionSet_map;
+
+    public Map<String,IDP_User_Registration_Permission_Set__mdt> userPermissionSetByName_map;
     
     public String userExternalProvider;
     
@@ -47,11 +49,12 @@ public class UserRegistrationCustomMetadataUtility{
         // Assign inbound ExternalProvider to object instance
         userExternalProvider = ExternalProvider;
         //Fetch metadata for Role mapping
-        userMapping = [SELECT Assurance_Level__c,DeveloperName,External_Provider_Role__c,Id,
+        userMapping = [SELECT Id, Assurance_Level__c,DeveloperName,External_Provider_Role__c,
                                     Identity_Provider__c,Label,Language,MasterLabel,MFA_Flag__c,NamespacePrefix,
                                     QualifiedApiName,Salesforce_User_License__c,Salesforce_User_Profile__c,
                                     Salesforce_User_Role__c,Sequence__c 
-                              FROM IDP_User_Registration_User_Mapping__mdt];
+                              FROM IDP_User_Registration_User_Mapping__mdt
+                              WHERE External_Provider_Role__c =: ExternalProvider];
         
         // Load Map object for searching values
         userMappingByRole_map = new Map<String,IDP_User_Registration_User_Mapping__mdt>();                     
@@ -63,14 +66,20 @@ public class UserRegistrationCustomMetadataUtility{
         //Fetch metadata for PermissionSet mapping
         userPermissionSet = [SELECT DeveloperName,External_Provider_User_Mapping__c,Id,Label,Language,MasterLabel,
                                     NamespacePrefix,QualifiedApiName,Salesforce_Permission_Set_Group__c,
-                                    Salesforce_Permission_Set__c, Assignment_Type__c 
-                              FROM IDP_User_Registration_Permission_Set__mdt];
+                                    Salesforce_Permission_Set__c, Salesforce_Public_Group__c, Assignment_Type__c 
+                              FROM IDP_User_Registration_Permission_Set__mdt
+                              WHERE External_Provider_User_Mapping__c IN: userMapping];
                               
         // Load Map object for searching values   
-        userPermissionSet_map = new Map<String,IDP_User_Registration_Permission_Set__mdt>();                   
+        userPermissionSet_map = new Map<String,IDP_User_Registration_Permission_Set__mdt>(); 
+        userPermissionSetByName_map = new Map<String,IDP_User_Registration_Permission_Set__mdt>();                   
         for(IDP_User_Registration_Permission_Set__mdt userPermissionSet_rec : userPermissionSet )
         {
             userPermissionSet_map.put(userPermissionSet_rec.External_Provider_User_Mapping__c, userPermissionSet_rec);
+            if (userPermissionSet_rec.Salesforce_Permission_Set__c != null)
+            {
+                userPermissionSetByName_map.put(userPermissionSet_rec.Salesforce_Permission_Set__c, userPermissionSet_rec);
+            }
         }
     }
     

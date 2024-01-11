@@ -55,6 +55,9 @@ public class KeycloakRegistrationHandlerTest {
       UserName = uniqueUserName,
       Override_Auto_Permission_Assignment__c = true
     );
+    Group testGroup = new Group();
+    testGroup.Name = 'Test_Group';
+    insert testGroup;    
 
   }
 
@@ -88,22 +91,33 @@ public class KeycloakRegistrationHandlerTest {
       System.debug('sampleData:' + sampleData);
 
       test.startTest();
-      Contact c = new Contact();
-      c.Birthdate = Date.newInstance(2001, 12, 9);
-      c.FirstName = 'testFirst';
-      c.LastName = 'testLast';
-      //insert c;
-      User u = handler.createUser(null, sampleData);
-      System.assertEquals('testLast', u.lastName);
-      System.assertEquals('testFirst', u.firstName);
-      User uExists = handler.createUser(null, sampleData);
-      List<Auth.UserData> users = new List<Auth.UserData>();
-      List<Id> ids = new List<Id>(); 
-      ids.add(u.Id);
-      users.add(sampleData);
-      UserRegistrationService.UpdateUsers(ids, ids, users);
-      //insert (u);
-      String uid = u.id;
+        Contact c = new Contact();
+        c.Birthdate = Date.newInstance(2001, 12, 9);
+        c.FirstName = 'testFirst';
+        c.LastName = 'testLast';
+        //insert c;
+        User u = handler.createUser(null, sampleData);
+        System.assertEquals('testLast', u.lastName);
+        System.assertEquals('testFirst', u.firstName);
+        User uExists = handler.createUser(null, sampleData);
+        List<PermissionSetAssignment> listPermissionSets = [
+          SELECT ID from PermissionSetAssignment 
+          WHERE AssigneeId =: u.Id 
+          //AND PermissionSet.IsOwnedByProfile = False
+          ];
+        System.assert(listPermissionSets.size() > 0);
+        List<GroupMember> listGroupsAssigned = [SELECT Id from GroupMember Where UserOrGroupId =: u.Id ];
+        System.assert(listGroupsAssigned.size() == 1);
+
+        List<Auth.UserData> users = new List<Auth.UserData>();
+        List<Id> ids = new List<Id>(); 
+        ids.add(u.Id);
+        users.add(sampleData);
+        UserRegistrationService.UpdateUsers(ids, ids, users);
+        //insert (u);
+        String uid = u.id;
+
+      test.stopTest();
     //}
 
   }
