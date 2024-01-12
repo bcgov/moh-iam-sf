@@ -24,6 +24,7 @@ public with sharing class UserRegistrationService{
     public static String USER_ASSIGNMENT_TYPE_PERMISSIONSET = 'Permission Set';
     public static String USER_ASSIGNMENT_TYPE_PERMISSIONSETGROUP = 'Permission Set Group';
     public static String USER_ASSIGNMENT_TYPE_PUBLICGROUP = 'Public Group';
+    public static String USER_ASSIGNMENT_TYPE_QUEUE = 'Queue';
     public static String SALESFORCE_USER_LICENSE_COMMUNITY = 'Community';
     public static String EMAIL_ASPERAND_SIGN = '@';
     public static String ACCOUNT_PERSONACCOUNT_RECORDTYPE = 'PersonAccount';
@@ -151,7 +152,7 @@ public with sharing class UserRegistrationService{
              // add/update any new permission sets
             managePermissionSet(newUser.Id, data);       
             // add any new public groups
-            managePublicGroups(newUser.Id, data);    
+            manageGroups(newUser.Id, data);    
             
         }
         catch (Exception e) {
@@ -215,7 +216,7 @@ public with sharing class UserRegistrationService{
         // add/update any new permission sets
         managePermissionSet(existingUser.Id, data);
         // add any new public groups
-        managePublicGroups(existingUser.Id, data); 
+        manageGroups(existingUser.Id, data); 
         
         // add/update user role
         List<IDP_User_Registration_User_Mapping__mdt>  matchingRole_list = new List<IDP_User_Registration_User_Mapping__mdt>();
@@ -223,11 +224,13 @@ public with sharing class UserRegistrationService{
         matchingRole_list.add(manageUserRole(data));
         for (IDP_User_Registration_User_Mapping__mdt matchingRole_rec : matchingRole_list)
         {
+            Profile p = [SELECT Id FROM profile WHERE name=:matchingRole_rec.Salesforce_User_Profile__c];
             for (UserRole userRole_rec: [SELECT DeveloperName,Id,Name FROM UserRole Where Name =: matchingRole_rec.Salesforce_User_Role__c])
             {
                 existingUser.UserRoleId = userRole_rec.Id;
                 existingUser.isActive = true;
             }
+            existingUser.ProfileId = p.Id;
         }
         try {
             update(existingUser);
@@ -243,9 +246,9 @@ public with sharing class UserRegistrationService{
     }
 
     //@Future
-    public static void managePublicGroups(Id userId, Auth.UserData data)
+    public static void manageGroups(Id userId, Auth.UserData data)
     {
-        List<String> userPublicGroup = new List<String>();
+        List<String> userGroup = new List<String>();
         String UserRoleAssign = data.attributeMap.get('roles');
         
         UserRegistrationCustomMetadataUtility processRoles = new UserRegistrationCustomMetadataUtility(UserRoleAssign);
@@ -254,14 +257,20 @@ public with sharing class UserRegistrationService{
         {
             if (userPerms.Assignment_Type__c == USER_ASSIGNMENT_TYPE_PUBLICGROUP)
             {
-                userPublicGroup.add(userPerms.Salesforce_Public_Group__c);
+                userGroup.add(userPerms.Salesforce_Public_Group__c);
+            } else 
+            {
+                if (userPerms.Assignment_Type__c == USER_ASSIGNMENT_TYPE_QUEUE)
+                {
+                    userGroup.add(userPerms.Salesforce_Queue__c);
+                }
             }
             
         }
-        if (userPublicGroup.size() > 0)
+        if (userGroup.size() > 0)
         {
             list<groupMember> groupList = new list<groupMember>();
-            list<Group> grp = [select id from Group where DeveloperName in : userPublicGroup];
+            list<Group> grp = [select id from Group where DeveloperName in : userGroup];
             
             for(group g : grp){
                 groupMember gp = new groupMember(groupId = g.Id);

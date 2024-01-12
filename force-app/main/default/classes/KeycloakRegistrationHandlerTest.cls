@@ -55,10 +55,15 @@ public class KeycloakRegistrationHandlerTest {
       UserName = uniqueUserName,
       Override_Auto_Permission_Assignment__c = true
     );
-    Group testGroup = new Group();
-    testGroup.Name = 'Test_Group';
-    insert testGroup;    
+    Group testGroupItem = new Group(Type='Queue', Name='Test_Queue');
+    // Add Queue
+    Insert testGroupItem;
+    QueueSObject qObj = new QueueSObject(SobjectType='Lead', QueueId= testGroupItem.Id);
 
+    // Add Public
+    testGroupItem = new Group();
+    testGroupItem.Name = 'Test_Group';
+    Insert testGroupItem;
   }
 
   @isTest
@@ -107,7 +112,7 @@ public class KeycloakRegistrationHandlerTest {
           ];
         System.assert(listPermissionSets.size() > 0);
         List<GroupMember> listGroupsAssigned = [SELECT Id from GroupMember Where UserOrGroupId =: u.Id ];
-        System.assert(listGroupsAssigned.size() == 1);
+        System.assert(listGroupsAssigned.size() == 2);
 
         List<Auth.UserData> users = new List<Auth.UserData>();
         List<Id> ids = new List<Id>(); 
