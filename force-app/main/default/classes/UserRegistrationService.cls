@@ -534,14 +534,14 @@ public with sharing class UserRegistrationService{
             }
         }
         
-            // add user to Public Group
-            for (IDP_User_Registration_User_Mapping__mdt matchingRole_rec : matchingRole_list)
+        // add user to Public Group
+        for (IDP_User_Registration_User_Mapping__mdt matchingRole_rec : matchingRole_list)
+        {
+            if (matchingRole_rec.Salesforce_Public_Group__c != Null)
             {
-                if (matchingRole_rec.Salesforce_Public_Group__c != Null)
-                {
-                    managePublicGroups(existingUser.Id, matchingRole_rec.Salesforce_Public_Group__c);
-                }     
-            }         
+                managePublicGroups(existingUser.Id, matchingRole_rec.Salesforce_Public_Group__c);
+            }     
+        }         
         try {
             update(existingUser);
         } 
