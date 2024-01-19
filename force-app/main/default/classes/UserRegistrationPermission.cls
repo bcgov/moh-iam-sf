@@ -161,13 +161,13 @@ public with sharing class UserRegistrationPermission {
     
                 if (userPerms.Assignment_Type__c == USER_ASSIGNMENT_TYPE_PERMISSIONSET)
                 {
-                    if (userRole.DeveloperName == userPerms.QualifiedApiName)
+                    if (userRole.Id == userPerms.External_Provider_User_Mapping__c)
                     {
                         associatedPermset.add(userPerms.Salesforce_Permission_Set__c);
                     }
                 } else if (userPerms.Assignment_Type__c == USER_ASSIGNMENT_TYPE_PERMISSIONSETGROUP)
                 {
-                    if (userRole.DeveloperName == userPerms.QualifiedApiName)
+                    if (userRole.Id == userPerms.External_Provider_User_Mapping__c)
                     {
         
                         associatedPermsetGroup.add(userPerms.Salesforce_Permission_Set_Group__c);

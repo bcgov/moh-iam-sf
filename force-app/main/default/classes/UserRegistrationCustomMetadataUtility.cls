@@ -32,6 +32,8 @@ public class UserRegistrationCustomMetadataUtility{
     public Map<String,IDP_User_Registration_User_Mapping__mdt> userMappingByRole_map;
         
     public Map<String,IDP_User_Registration_Permission_Set__mdt> userPermissionSet_map;
+
+    public Map<String,IDP_User_Registration_Permission_Set__mdt> userPermissionSetByName_map;
     
     public String userExternalProvider;
     
@@ -56,6 +58,7 @@ public class UserRegistrationCustomMetadataUtility{
                                     is_Ignore_License_Attribute__c
                               FROM IDP_User_Registration_User_Mapping__mdt
                               ORDER BY Sequence__c ASC
+                              LIMIT 1
                               ];
         
         // Load Map object for searching values
@@ -69,13 +72,20 @@ public class UserRegistrationCustomMetadataUtility{
         userPermissionSet = [SELECT DeveloperName,External_Provider_User_Mapping__c,Id,Label,Language,MasterLabel,
                                     NamespacePrefix,QualifiedApiName,Salesforce_Permission_Set_Group__c,
                                     Salesforce_Permission_Set__c, Assignment_Type__c 
-                              FROM IDP_User_Registration_Permission_Set__mdt];
+                              FROM IDP_User_Registration_Permission_Set__mdt
+                              WHERE External_Provider_User_Mapping__c IN: userMapping];
                               
         // Load Map object for searching values   
-        userPermissionSet_map = new Map<String,IDP_User_Registration_Permission_Set__mdt>();                   
+        userPermissionSet_map = new Map<String,IDP_User_Registration_Permission_Set__mdt>();
+        userPermissionSetByName_map = new Map<String,IDP_User_Registration_Permission_Set__mdt>(); 
+
         for(IDP_User_Registration_Permission_Set__mdt userPermissionSet_rec : userPermissionSet )
         {
             userPermissionSet_map.put(userPermissionSet_rec.External_Provider_User_Mapping__c, userPermissionSet_rec);
+            if (userPermissionSet_rec.Salesforce_Permission_Set__c != null)
+            {
+                userPermissionSetByName_map.put(userPermissionSet_rec.Salesforce_Permission_Set__c, userPermissionSet_rec);
+            }            
         }
     }
     
