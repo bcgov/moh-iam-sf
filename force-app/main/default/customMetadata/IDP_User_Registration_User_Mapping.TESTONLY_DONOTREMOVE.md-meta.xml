@@ -7,6 +7,10 @@
         <value xsi:type="xsd:string">3</value>
     </values>
     <values>
+        <field>Default_Domain__c</field>
+        <value xsi:type="xsd:string">testonly</value>
+    </values>    
+    <values>
         <field>External_Provider_Role__c</field>
         <value xsi:type="xsd:string">TESTONLY</value>
     </values>

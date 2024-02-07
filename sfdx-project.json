@@ -4,8 +4,8 @@
       "path": "force-app",
       "default": true,
       "package": "Keycloak",
-      "versionName": "ver 1.1",
-      "versionNumber": "1.1.0.NEXT"
+      "versionName": "ver 1.2",
+      "versionNumber": "1.2.0.NEXT"
     }
   ],
   "namespace": "",
@@ -33,6 +33,10 @@
     "Keycloak@1.1.0-2": "04tMm0000000Jc9IAE",
     "Keycloak@1.1.0-3": "04tMm0000000JdlIAE",
     "Keycloak@1.1.0-4": "04tMm0000000JfNIAU",
-    "Keycloak@1.1.0-5": "04tMm0000000JgzIAE"
+    "Keycloak@1.1.0-5": "04tMm0000000JgzIAE",
+    "Keycloak@1.1.0-6": "04tMm0000000JnRIAU",
+    "Keycloak@1.1.0-7": "04tMm0000000Jp3IAE",
+    "Keycloak@1.1.0-8": "04tMm0000000JqfIAE",
+    "Keycloak@1.2.0-1": "04tMm0000000NXhIAM"
   }
 }

@@ -56,6 +56,10 @@
                 <behavior>Edit</behavior>
                 <field>MFA_Flag__c</field>
             </layoutItems>
+            <layoutItems>
+                <behavior>Edit</behavior>
+                <field>Default_Domain__c</field>
+            </layoutItems>            
         </layoutColumns>
         <style>TwoColumnsTopToBottom</style>
     </layoutSections>

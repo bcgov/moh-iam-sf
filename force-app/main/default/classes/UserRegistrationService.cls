@@ -78,9 +78,6 @@ public with sharing class UserRegistrationService{
         String userdata = JSON.serialize(data.attributeMap);
         Boolean createUser = true;
 
-        //Create user
-        String l_username = UserRegistrationService.generateUserName(data);
-        
         UserRegistrationCustomMetadataUtility fetchRoles = new UserRegistrationCustomMetadataUtility(data.attributeMap.get('roles'));
         list<IDP_User_Registration_User_Mapping__mdt> userRole_list = new list<IDP_User_Registration_User_Mapping__mdt>();
         userRole_list.add(fetchRoles.ReadMapping(data.attributeMap.get('roles')));
@@ -91,6 +88,9 @@ public with sharing class UserRegistrationService{
             for (IDP_User_Registration_User_Mapping__mdt userRole_rec : userRole_list)
             {
             system.debug('userRole_rec:' + userRole_rec );
+
+                //Create user
+                String l_username = UserRegistrationService.generateUserName(data, userRole_rec.Default_Domain__c);
                 Profile p = [SELECT Id FROM profile WHERE name=:userRole_rec.Salesforce_User_Profile__c];
         
                 newUser.username = l_username;
@@ -183,12 +183,7 @@ public with sharing class UserRegistrationService{
          //Verify user data - to be removed prior to completion
 
         String l_userdata = JSON.serialize(data.attributeMap);
-        String l_username = UserRegistrationService.generateUserName(data);    
 
-        if (existingUser.username != l_username)
-        {
-            existingUser.username = l_username;
-        }
         if (existingUser.email != data.email)
         {
             existingUser.email = data.email;
@@ -202,13 +197,6 @@ public with sharing class UserRegistrationService{
             existingUser.firstName = data.firstName;
         }
         existingUser.FederationIdentifier = data.username;
-        
-        //existingUser.alias = UserRegistrationService.generateUserAlias(data);
-        
-        //existingUser.languagelocalekey = UserInfo.getLanguage();
-        //existingUser.localesidkey = UserInfo.getLocale();
-        //existingUser.emailEncodingKey = 'UTF-8';
-        //existingUser.timeZoneSidKey = 'America/Vancouver';
         
         // Update user role & permissionset based on latest payload
         UserRegistrationCustomMetadataUtility processRoles = new UserRegistrationCustomMetadataUtility();
@@ -461,7 +449,7 @@ public with sharing class UserRegistrationService{
         Return licenseType;
     }
     
-    public static string generateUserName(Auth.UserData data)
+    public static string generateUserName(Auth.UserData data, String domainName)
     {
         /*
         * Description: Generate User name used in user creation/matching
@@ -471,18 +459,30 @@ public with sharing class UserRegistrationService{
         *     String: Username
         * 
         */
+        String finalUserName = '';
         String suffixName = '';
+        String directoryName = '';
+        directoryName = domainName;
         String customDomain = URL.getSalesforceBaseUrl()
                         .toExternalForm()
                         .substringAfter('https://')
                         .substringBefore('.');
-        suffixName = CustomDomain.substringAfter('--');
+        suffixName = customDomain.substringAfter('--');
+
+        if (data.email != null && data.email.contains(EMAIL_ASPERAND_SIGN)) {
+            directoryName = data.email.substringAfter(EMAIL_ASPERAND_SIGN);
+        }
         if (String.isEmpty(suffixName)) {
             suffixName = customDomain;
+        }        
+        if (domainName == null)
+        {
+            finalUserName = data.identifier + EMAIL_ASPERAND_SIGN + directoryName + '.' + suffixName;
+        } else {
+            finalUserName = data.identifier + EMAIL_ASPERAND_SIGN + directoryName + '.' + domainName;
         }
-        String directoryName = data.email.substringAfter(EMAIL_ASPERAND_SIGN);
         
-        return data.identifier + EMAIL_ASPERAND_SIGN + directoryName + '.' + suffixName;
+        return finalUserName;
     }
     
     public static string generateUserAlias(Auth.UserData data)

@@ -52,7 +52,7 @@ public class UserRegistrationCustomMetadataUtility{
         userMapping = [SELECT Id, Assurance_Level__c,DeveloperName,External_Provider_Role__c,
                                     Identity_Provider__c,Label,Language,MasterLabel,MFA_Flag__c,NamespacePrefix,
                                     QualifiedApiName,Salesforce_User_License__c,Salesforce_User_Profile__c,
-                                    Salesforce_User_Role__c,Sequence__c 
+                                    Salesforce_User_Role__c,Sequence__c, Default_Domain__c 
                               FROM IDP_User_Registration_User_Mapping__mdt
                               WHERE External_Provider_Role__c =: ExternalProvider];
         
