@@ -105,8 +105,9 @@ public with sharing class UserRegistrationService{
                         List<IDP_User_Registration_User_Mapping__mdt>  matchingRole_list = new List<IDP_User_Registration_User_Mapping__mdt>();
                         
                         matchingRole_list.add(manageUserRole(data)); 
-
+                        System.debug('matchingRole_list::' + matchingRole_list);
                         for (IDP_User_Registration_User_Mapping__mdt matchingRole_rec : matchingRole_list) {
+                            System.debug('matchingRole_rec::' + matchingRole_rec);
                             if (newUser.User_Provisioning_Role__c != matchingRole_rec.External_Provider_Role__c) {
                                 newUser.User_Provisioning_Role__c = matchingRole_rec.External_Provider_Role__c;
                             }
@@ -526,6 +527,9 @@ public with sharing class UserRegistrationService{
             {
                 existingUser.username = userName;
             }
+            Profile p = [SELECT Id FROM profile WHERE name=:matchingRoleRec.Salesforce_User_Profile__c];
+            existingUser.ProfileId = p.Id;
+
             for (UserRole userRoleRec : [SELECT DeveloperName,Id,Name FROM UserRole Where Name =: matchingRoleRec.Salesforce_User_Role__c])
             {
                 existingUser.UserRoleId = userRoleRec.Id;

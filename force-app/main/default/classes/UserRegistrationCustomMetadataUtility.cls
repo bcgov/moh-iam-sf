@@ -35,7 +35,7 @@ public class UserRegistrationCustomMetadataUtility{
 
     public Map<String,IDP_User_Registration_Permission_Set__mdt> userPermissionSetByName_map;
     
-    public String userExternalProvider;
+    public List<String> userExternalProvider = new List<String>();
     
     public UserRegistrationCustomMetadataUtility(String ExternalProvider){
         /*
@@ -47,7 +47,22 @@ public class UserRegistrationCustomMetadataUtility{
         * 
         */
         // Assign inbound ExternalProvider to object instance
-        userExternalProvider = ExternalProvider;
+        system.debug('ExternalProvider:' + ExternalProvider);
+        if (ExternalProvider != null)
+        {
+            userExternalProvider.addAll(ExternalProvider.remove('[').remove(']').split(','));
+        }
+        List<String> userRoleFilter = new List<String>();
+        for (String userRoleFilterRec: userExternalProvider)
+        {
+            if (ExternalProvider.contains('[')) {
+                userRoleFilter.add('[' + userRoleFilterRec.trim() + ']');
+            } else {
+                userRoleFilter.add(userRoleFilterRec.trim());
+            }
+            
+        }
+        System.debug('userRoleFilter:' + userRoleFilter);
         //Fetch metadata for Role mapping
         userMapping = [SELECT Assurance_Level__c,DeveloperName,External_Provider_Role__c,Id,
                                     Identity_Provider__c,Label,Language,MasterLabel,MFA_Flag__c,NamespacePrefix,
@@ -57,6 +72,7 @@ public class UserRegistrationCustomMetadataUtility{
                                     isAccountSetActive__c, Requires_Login_Flow__c, Populate_Role_Filter__c, is_Ignore_Endorser_Data__c,
                                     is_Ignore_License_Attribute__c
                               FROM IDP_User_Registration_User_Mapping__mdt
+                              WHERE External_Provider_Role__c IN: userRoleFilter
                               ORDER BY Sequence__c ASC
                               LIMIT 1
                               ];
@@ -101,11 +117,39 @@ public class UserRegistrationCustomMetadataUtility{
         //Create single instance of Metadata
         IDP_User_Registration_User_Mapping__mdt foundUserMapping_md = new IDP_User_Registration_User_Mapping__mdt();
         //Find keycloakRole in userMapping
-        if (userMappingByRole_map.containsKey(keycloakRole))
-        {
-            foundUserMapping_md = userMappingByRole_map.get(keycloakRole);
+        String searchForRoleRec = keycloakRole;
+        List<String> searchForRole = new List<String>();
+        List<String> userRoleFilter = new List<String>();
+        System.debug('keycloakRole: ' + keycloakRole);
+        if (keycloakRole != null && keycloakRole.contains('[')) { 
+            searchForRole.addAll(keycloakRole.remove('[').remove(']').split(','));
+
+            for (String userRoleFilterRec: searchForRole)
+            {
+                userRoleFilter.add('[' + userRoleFilterRec.trim() + ']');
+            }           
+        } else {
+            if (keycloakRole != null )
+            {
+                searchForRole.addAll(keycloakRole.remove('[').remove(']').split(','));
+
+                for (String userRoleFilterRec: searchForRole)
+                {
+                    userRoleFilter.add(userRoleFilterRec.trim());
+                }  
+            }
+
         }
-        
+        System.debug('userRoleFilter: ' + userRoleFilter);
+        for (String searchKey: userRoleFilter)
+        {
+    
+            if (userMappingByRole_map.containsKey(searchKey))
+            {
+                foundUserMapping_md = userMappingByRole_map.get(searchKey);
+            }
+        }
+
         return foundUserMapping_md;
         
     }
