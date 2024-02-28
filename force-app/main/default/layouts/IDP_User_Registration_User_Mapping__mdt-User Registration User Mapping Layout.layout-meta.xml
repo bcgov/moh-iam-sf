@@ -78,6 +78,10 @@
                 <behavior>Edit</behavior>
                 <field>is_Ignore_Endorser_Data__c</field>
             </layoutItems>
+            <layoutItems>
+                <behavior>Edit</behavior>
+                <field>is_Ignore_Public_Group_Reset__c</field>
+            </layoutItems>
         </layoutColumns>
         <layoutColumns>
             <layoutItems>

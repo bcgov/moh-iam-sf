@@ -48,7 +48,7 @@
     </values>
     <values>
         <field>Salesforce_Public_Group__c</field>
-        <value xsi:type="xsd:string">PCN_Attachment_Coordinators</value>
+        <value xsi:type="xsd:string">MOHBC_PRV_All_Provider_Portal_User</value>
     </values>
     <values>
         <field>Salesforce_User_License__c</field>
@@ -72,6 +72,18 @@
     </values>
     <values>
         <field>isAccountSetActive__c</field>
+        <value xsi:type="xsd:boolean">false</value>
+    </values>
+    <values>
+        <field>is_Ignore_Endorser_Data__c</field>
+        <value xsi:type="xsd:boolean">false</value>
+    </values>
+    <values>
+        <field>is_Ignore_License_Attribute__c</field>
+        <value xsi:type="xsd:boolean">false</value>
+    </values>
+    <values>
+        <field>is_Ignore_Public_Group_Reset__c</field>
         <value xsi:type="xsd:boolean">false</value>
     </values>
 </CustomMetadata>

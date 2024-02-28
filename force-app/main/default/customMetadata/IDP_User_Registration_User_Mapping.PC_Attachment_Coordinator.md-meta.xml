@@ -74,4 +74,16 @@
         <field>isAccountSetActive__c</field>
         <value xsi:type="xsd:boolean">false</value>
     </values>
+    <values>
+        <field>is_Ignore_Endorser_Data__c</field>
+        <value xsi:type="xsd:boolean">false</value>
+    </values>
+    <values>
+        <field>is_Ignore_License_Attribute__c</field>
+        <value xsi:type="xsd:boolean">false</value>
+    </values>
+    <values>
+        <field>is_Ignore_Public_Group_Reset__c</field>
+        <value xsi:type="xsd:boolean">true</value>
+    </values>
 </CustomMetadata>

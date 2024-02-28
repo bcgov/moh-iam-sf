@@ -21,6 +21,7 @@
 public with sharing class UserRegistrationService{
     public static final String USER_ASSIGNMENT_TYPE_PERMISSIONSET = 'Permission Set';
     public static final String USER_ASSIGNMENT_TYPE_PERMISSIONSETGROUP = 'Permission Set Group';
+    public static final String USER_ASSIGNMENT_TYPE_PUBLICGROUP = 'Public Group';
     public static final String SALESFORCE_USER_LICENSE_COMMUNITY = 'Community';
     public static final String SALESFORCE_USER_LICENSE_STANDARD = 'Salesforce';
     public static final String EMAIL_ASPERAND_SIGN = '@';
@@ -316,6 +317,7 @@ public with sharing class UserRegistrationService{
                     }
                 }       
             }
+               
 
             if(checkUser.size() > 0) {
                 createUser = false;
@@ -326,6 +328,16 @@ public with sharing class UserRegistrationService{
             } else {
                 update newUser;
             } 
+
+            // add user to Public Group
+            for (IDP_User_Registration_User_Mapping__mdt matchingRole_rec : matchingRole_list)
+            {
+                if (matchingRole_rec.Requires_Login_Flow__c)
+                {
+                    //UserRegistrationPermission.manageGroups(newUser.Id, matchingRole_rec.);
+                    managePublicGroups(newUser.Id, matchingRole_rec.External_Provider_Role__c);
+                }     
+            }               
             activeUserId = newUser.Id;  
         }
         catch (Exception e) {
@@ -538,16 +550,19 @@ public with sharing class UserRegistrationService{
             }
         }
         
-        // add user to Public Group
-        for (IDP_User_Registration_User_Mapping__mdt matchingRole_rec : matchingRole_list)
-        {
-            if (matchingRole_rec.Salesforce_Public_Group__c != Null)
-            {
-                managePublicGroups(existingUser.Id, matchingRole_rec.Salesforce_Public_Group__c);
-            }     
-        }         
+         //  add user to Public Group
+         for (IDP_User_Registration_User_Mapping__mdt matchingRole_rec : matchingRole_list)
+         {
+             if (matchingRole_rec.Salesforce_Public_Group__c != Null)
+             {
+                 //managePublicGroups(existingUser.Id, matchingRole_rec.External_Provider_Role__c);
+             }     
+         }      
         try {
             update(existingUser);
+            //List<User> UserstoProcess = new List<User>();
+            //userstoProcess.add(existingUser);
+            //UserRegistrationPermission.processPermissions(userstoProcess);
         } 
         catch (Exception e) {
             System.debug(e.getMessage());
@@ -678,22 +693,49 @@ public with sharing class UserRegistrationService{
     }
 
     @Future
-    public static void managePublicGroups(Id userId, String userPublicGroup)
+    public static void managePublicGroups(Id userId, String userProvisioningRole)
     {
-
-        list<groupMember> groupList = new list<groupMember>();
-        list<Group> grp = [select id from Group where DeveloperName in : userPublicGroup.split(',')];
+        List<String> userGroups = new List<String>();
+        System.debug('userId: ' + userId);
+        System.debug('userProvisioningRole: ' + userProvisioningRole);
         
-        for(group g : grp){
-            groupMember gp = new groupMember(groupId = g.Id);
-            gp.UserOrGroupId = userId;
-            groupList.add(gp);
-        }
+        UserRegistrationCustomMetadataUtility processRoles = new UserRegistrationCustomMetadataUtility(userProvisioningRole);
+
+        for (IDP_User_Registration_Permission_Set__mdt userGroupRec : processRoles.userPermissionSet)
+        {
+            if (userGroupRec.Assignment_Type__c == USER_ASSIGNMENT_TYPE_PUBLICGROUP)
+            {
+                userGroups.add(userGroupRec.Salesforce_Public_Group__c);
+            } 
+/*                 else 
+            {
+                if (userPerms.Assignment_Type__c == USER_ASSIGNMENT_TYPE_QUEUE)
+                {
+                    userGroup.add(userPerms.Salesforce_Queue__c);
+                }
+            } */
             
-        if(groupList.size() > 0)
-        insert groupList;
-        System.debug('GroupList: ' + groupList);
-    }
+        }
+        if (userGroups.size() > 0)
+        {
+            list<groupMember> groupList = new list<groupMember>();
+            list<Group> grp = [select id from Group where DeveloperName in : userGroups];
+            
+            for(group g : grp){
+                groupMember gp = new groupMember(groupId = g.Id);
+                gp.UserOrGroupId = userId;
+                groupList.add(gp);
+            }
+                
+            if(groupList.size() > 0)
+            {
+                insert groupList;
+            }
+
+            System.debug('GroupList: ' + groupList);
+        }
+ 
+    } 
 
     @Future
     public static void updateContactDetails(String contactDetails) {
@@ -713,7 +755,6 @@ public with sharing class UserRegistrationService{
         * 
         */ 
 
-        UserRegistrationCustomMetadataUtility processPermissions = new UserRegistrationCustomMetadataUtility();
         IDP_User_Registration_User_Mapping__mdt roles = new IDP_User_Registration_User_Mapping__mdt();
         UserRegistrationCustomMetadataUtility processRoles = new UserRegistrationCustomMetadataUtility();
 
