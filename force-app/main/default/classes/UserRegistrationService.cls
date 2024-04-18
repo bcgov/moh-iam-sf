@@ -313,7 +313,7 @@ public with sharing class UserRegistrationService{
                 {
                     for (UserRole userRole_rec: [SELECT DeveloperName,Id,Name FROM UserRole Where Name =: matchingRole_rec.Salesforce_User_Role__c])
                     {
-                        newUser.UserRoleId = matchingRole_rec.Id;
+                        newUser.UserRoleId = userRole_rec.Id;
                     }
                 }       
             }
@@ -542,7 +542,9 @@ public with sharing class UserRegistrationService{
             Profile p = [SELECT Id FROM profile WHERE name=:matchingRoleRec.Salesforce_User_Profile__c];
             existingUser.ProfileId = p.Id;
 
-            for (UserRole userRoleRec : [SELECT DeveloperName,Id,Name FROM UserRole Where Name =: matchingRoleRec.Salesforce_User_Role__c])
+            List<UserRole> userRoles = [SELECT DeveloperName,Id,Name FROM UserRole Where Name =: matchingRoleRec.Salesforce_User_Role__c];
+
+            for (UserRole userRoleRec : userRoles)
             {
                 existingUser.UserRoleId = userRoleRec.Id;
                 existingUser.isActive = false;
