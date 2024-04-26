@@ -233,12 +233,26 @@ public with sharing class UserRegistrationPermission {
         //is_Ignore_Public_Group_Reset__c
         // 
         List<String> filterPublicGroupByRoleId = new List<String>();
+        List<HealthcareFacilityNetwork> hcfn = new List<HealthcareFacilityNetwork>();
+        Id accountIdMatch = [SELECT AccountId FROM User WHERE Id =: userId].AccountId;
+        Boolean hcfnFieldExisting;
+        hcfnFieldExisting = processRoles.isFieldExisting('Clinic_Panel_Group_ID__c','HealthcareFacilityNetwork');
 
         for (IDP_User_Registration_User_Mapping__mdt userRegistrationRec: processRoles.userMapping)
         {
             if (userRegistrationRec.is_Ignore_Public_Group_Reset__c)
             {
                 isPublicGroupIgnoreReset = true;
+            }
+            if (userRegistrationRec.is_Process_HCFN_Groups__c && hcfnFieldExisting) 
+            {
+                if (userRegistrationRec.Salesforce_User_License__c == SALESFORCE_USER_LICENSE_COMMUNITY)
+                {
+                    String qryString = '';
+                    qryString = 'select Id, Clinic_Panel_Group_ID__c, Practitioner.Account.Id from HealthcareFacilityNetwork WHERE Clinic_Panel_Group_ID__c <> null And Practitioner.Account.Id = \'' + accountIdMatch + '\'';
+                    hcfn = Database.query(qryString);
+                }
+
             }
         }
         List<groupMember> existingGroupList = new List<groupMember>();
@@ -268,6 +282,7 @@ public with sharing class UserRegistrationPermission {
             } */
             
         }
+        //Add Groups for is_Process_HCFN_Groups__c flag set to true
         if (userGroups.size() > 0)
         {
             list<groupMember> groupList = new list<groupMember>();
@@ -277,6 +292,14 @@ public with sharing class UserRegistrationPermission {
                 groupMember gp = new groupMember(groupId = g.Id);
                 gp.UserOrGroupId = userId;
                 groupList.add(gp);
+            }
+            if (hcfnFieldExisting) 
+            {
+                for(HealthcareFacilityNetwork hcfn_rec : hcfn) {
+                    groupMember gp = new groupMember(groupId = (String)hcfn_rec.get('Clinic_Panel_Group_ID__c'));
+                    gp.UserOrGroupId = userId;
+                    groupList.add(gp);                
+                }
             }
                 
             if(groupList.size() > 0)
