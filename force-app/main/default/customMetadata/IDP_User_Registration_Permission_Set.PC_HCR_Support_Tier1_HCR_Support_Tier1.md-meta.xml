@@ -22,4 +22,8 @@
         <field>Salesforce_Public_Group__c</field>
         <value xsi:type="xsd:string">PC_HCR_Support_Tier_1</value>
     </values>
+    <values>
+        <field>is_Beta_Only_User__c</field>
+        <value xsi:type="xsd:boolean">false</value>
+    </values>
 </CustomMetadata>

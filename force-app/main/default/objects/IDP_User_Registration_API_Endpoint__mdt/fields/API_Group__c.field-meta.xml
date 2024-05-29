@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>API_Group__c</fullName>
+    <description>When adding records group by same function to limit the records in scope</description>
+    <externalId>false</externalId>
+    <fieldManageability>SubscriberControlled</fieldManageability>
+    <label>API Group</label>
+    <required>false</required>
+    <type>Picklist</type>
+    <valueSet>
+        <restricted>true</restricted>
+        <valueSetDefinition>
+            <sorted>false</sorted>
+            <value>
+                <fullName>GATEWAY_PROFILE</fullName>
+                <default>true</default>
+                <label>GATEWAY_PROFILE</label>
+            </value>
+            <value>
+                <fullName>KEYCLOAK_USERINFO</fullName>
+                <default>false</default>
+                <label>KEYCLOAK_USERINFO</label>
+            </value>
+        </valueSetDefinition>
+    </valueSet>
+</CustomField>

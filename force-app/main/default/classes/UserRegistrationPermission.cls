@@ -46,7 +46,7 @@ public with sharing class UserRegistrationPermission {
 
         }
     }
-    
+
     public class InputVariables {
         @InvocableVariable
         public  List<User> userPerms;
@@ -143,7 +143,7 @@ public with sharing class UserRegistrationPermission {
         Set<String> associatedPermset = new Set<String>();
         Set<String> associatedPermsetGroup= new Set<String>();
 
-
+        //Boolean isCheckBetauser = checkIsBetaUser(List<User> userId);
 
         for (IDP_User_Registration_Permission_Set__mdt userPerms : processRoles.userPermissionSet)
         {
@@ -154,14 +154,27 @@ public with sharing class UserRegistrationPermission {
             {
                 if (userRole.Id == userPerms.External_Provider_User_Mapping__c)
                 {
-                    associatedPermset.add(userPerms.Salesforce_Permission_Set__c);
+                    if (!userPerms.is_Beta_Only_User__c) 
+                    {
+                        associatedPermset.add(userPerms.Salesforce_Permission_Set__c);
+                    }
+                    if (userPerms.is_Beta_Only_User__c ) //&& isCheckBetauser
+                    {
+                        associatedPermsetGroup.add(userPerms.Salesforce_Permission_Set_Group__c);
+                    }                    
                 }
             } else if (userPerms.Assignment_Type__c == USER_ASSIGNMENT_TYPE_PERMISSIONSETGROUP)
             {
                 if (userRole.Id == userPerms.External_Provider_User_Mapping__c)
                 {
-    
-                    associatedPermsetGroup.add(userPerms.Salesforce_Permission_Set_Group__c);
+                    if (!userPerms.is_Beta_Only_User__c)
+                    {
+                        associatedPermsetGroup.add(userPerms.Salesforce_Permission_Set_Group__c);
+                    }
+                    if (userPerms.is_Beta_Only_User__c) // && isCheckBetauser
+                    {
+                        associatedPermsetGroup.add(userPerms.Salesforce_Permission_Set_Group__c);
+                    }
                 } 
             }
 
@@ -334,4 +347,98 @@ public with sharing class UserRegistrationPermission {
         }
 
     }    
+    public static Boolean checkIsBetaUser(List<User> userList) 
+    {
+         /*
+        * Description: look for available licenses based the value being passed in.
+        * Parameters:
+        *     NA
+        * Returns:
+        *     Boolean: Boolean
+        * 
+        */           
+        Boolean isBetaUser = false;
+
+        isBetaUser = isSalesforceBetaEnabled(userList);
+        System.debug('isBetaUser: ' + isBetaUser);
+        return isBetaUser;
+        
+    }
+    public static Boolean isSalesforceBetaEnabled(List<User> userList){
+        String responseString = '';
+        for (User users: userList)
+        {
+            if (!Test.isRunningTest())
+            {
+                responseString =  getPatientInfoFromGatewayApiService(getUserHdId(users.Id));
+            } else
+            {
+                responseString = KeycloakConstants.TEST_HDID_RESPONSE;
+            }
+            
+        }
+
+        System.debug('responseString: ' + responseString);
+        
+        Map<String, Object> responseMap = (Map<String, Object>) JSON.deserializeUntyped(responseString);
+        // Extract the 'resourcePayload' map
+        Map<String, Object> resourcePayload = (Map<String, Object>) responseMap.get('resourcePayload');
+        // Extract the 'betaFeatures' list
+        List<Object> betaFeatures = (List<Object>) resourcePayload.get('betaFeatures');
+        //System.debug('betaFeatures: ' + betaFeatures);
+        Boolean isSalesforceBetaEnabled = false;
+        // Check if 'Salesforce' is present in 'betaFeatures'
+         if (betaFeatures != null && !betaFeatures.isEmpty()) {
+            for (Object feature : betaFeatures) {
+                if (String.valueOf(feature) == KeycloakConstants.HG_SALESFORCE) {
+                    isSalesforceBetaEnabled = true;
+                    break;
+                }
+            }
+        } 
+        System.debug('isSalesforceBetaEnabled: ' + isSalesforceBetaEnabled);
+        return isSalesforceBetaEnabled;
+    }  
+    public static string getUserHdId(String userId){
+        String hdId = '';
+        Boolean accountHDIDExists = false;
+        String hdidField = '';
+        String qryString = '';
+
+        UserRegistrationCustomMetadataUtility utilityChecks = new UserRegistrationCustomMetadataUtility();
+        if (utilityChecks.isFieldExisting('HDID__c', 'Account'))
+        {
+            accountHDIDExists = true;
+            hdidField = 'HDID__c';
+        } else {
+            hdidField = 'AccountNumber';
+        }
+        // if (!Test.isRunningTest())
+        // {
+            qryString = 'SELECT Id, Account.' + hdidField + ' FROM USER WHERE Id = \'' + userId + '\'';
+        // }
+        System.debug('qryString: ' + qryString);
+        List<User> userList = Database.query(qryString);
+        // [SELECT Id, Account.HDID__c FROM USER WHERE Id =: userId];
+        //HG_UserSelector.newInstance().getUserById(UserInfo.getUserId());
+        String hdidValue = (String)userList[0].Account.get(hdidField);
+        System.debug('userList[0].Account.' + qryString + ': ' + hdidValue);
+        if(!userList.isEmpty() && String.isNotBlank(hdidValue) ){
+          hdId = (String)userList[0].Account.get(hdidField);
+        }
+  
+        return hdId;
+    } 
+    public static String getPatientInfoFromGatewayApiService(String hdId){
+        KeycloakAPIGatewayService gatewayService = new KeycloakAPIGatewayService();
+        String requestEndpoint = KeycloakCommonService.getEndpointURL(KeycloakConstants.SERVICE_NAME_GATEWAY_SERVICE);
+          requestEndpoint = KeycloakCommonService.replacePlaceholder(requestEndpoint, KeycloakConstants.HDID_PLACEHOLDER, hdId);
+          String requestMethod = KeycloakConstants.CALLOUT_TYPE_GET;
+          return gatewayService.doCallout(
+              requestEndpoint,
+              requestMethod,
+              null,
+              null
+          );
+      }             
 }

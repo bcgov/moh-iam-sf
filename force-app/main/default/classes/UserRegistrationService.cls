@@ -565,6 +565,7 @@ public with sharing class UserRegistrationService{
             //List<User> UserstoProcess = new List<User>();
             //userstoProcess.add(existingUser);
             //UserRegistrationPermission.processPermissions(userstoProcess);
+
         } 
         catch (Exception e) {
             System.debug(e.getMessage());

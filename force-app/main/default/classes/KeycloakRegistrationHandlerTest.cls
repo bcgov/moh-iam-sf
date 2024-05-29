@@ -20,6 +20,7 @@ public class KeycloakRegistrationHandlerTest {
   private static final String AUTH_URL = 'http://www.dummy.com/authurl';
   private static final String API_USER_URL = 'www.concursolutions.com/user/api';
   private static User RUN_TIME_USER = new User();
+  private static Boolean ACCOUNT_HDID_EXISTS = false;
 
   private static Map<String, String> setupAuthProviderConfig() {
       Map<String, String> authProviderConfiguration = new Map<String, String>();
@@ -49,6 +50,11 @@ public class KeycloakRegistrationHandlerTest {
     if (psg.Status != 'Updated') {
       Test.calculatePermissionSetGroup(psg.Id);
     }
+    UserRegistrationCustomMetadataUtility utilityChecks = new UserRegistrationCustomMetadataUtility();
+    if (utilityChecks.isFieldExisting('HDID__c', 'Account'))
+    {
+        ACCOUNT_HDID_EXISTS = true;
+    } 
 
     User runtimeUser = [SELECT Id FROM User WHERE Email = 'systemuser@testorg.com' LIMIT 1];
     System.runAs(runtimeUser) {   
@@ -72,6 +78,12 @@ public class KeycloakRegistrationHandlerTest {
         newPersonAccount0.SourceSystemIdentifier = 'CPN.TSTP00000.CPSID.GS';
         newPersonAccount0.HealthCloudGA__SourceSystemId__pc = 'CPN.TSTP00000.CPSID.GS';
         //setIdentifier = (String)newPersonAccount0.put('HealthCloudGA__SourceSystemId__pc', 'CPN.TSTP00000.CPSID.GS');
+        if (ACCOUNT_HDID_EXISTS)
+        {
+            newPersonAccount0.put('HDID__c', 'newPersonAccount0');
+        } else {
+            newPersonAccount0.put('AccountNumber', 'newPersonAccount0');
+        }
         
         newPersonAccounts.Add(newPersonAccount0);
         
@@ -82,6 +94,12 @@ public class KeycloakRegistrationHandlerTest {
         newPersonAccount.SourceSystemIdentifier = 'CPN.TSTP00015.CPSID.GS';
         newPersonAccount.HealthCloudGA__SourceSystemId__pc = 'CPN.TSTP00015.CPSID.GS';
         //setIdentifier = (String)newPersonAccount.put('HealthCloudGA__SourceSystemId__pc', 'CPN.TSTP00015.CPSID.GS');
+        if (ACCOUNT_HDID_EXISTS)
+        {
+            newPersonAccount.put('HDID__c', 'newPersonAccount');
+        } else {
+            newPersonAccount.put('AccountNumber', 'newPersonAccount');
+        }
 
         newPersonAccounts.Add(newPersonAccount);
         
@@ -93,6 +111,12 @@ public class KeycloakRegistrationHandlerTest {
         newPersonAccount3.SourceSystemIdentifier = 'CPN.TSTP00016.CPSID.GS';
         newPersonAccount3.HealthCloudGA__SourceSystemId__pc = 'CPN.TSTP00016.CPSID.GS';
         //setIdentifier = (String)newPersonAccount3.put('HealthCloudGA__SourceSystemId__pc', 'CPN.TSTP00016.CPSID.GS');
+        if (ACCOUNT_HDID_EXISTS)
+        {
+            newPersonAccount3.put('HDID__c', 'newPersonAccount3');
+        } else {
+            newPersonAccount3.put('AccountNumber', 'newPersonAccount3');
+        }
         
         newPersonAccounts.Add(newPersonAccount3);
 
@@ -104,6 +128,12 @@ public class KeycloakRegistrationHandlerTest {
         newPersonAccount2.SourceSystemIdentifier = 'GUID01';
         newPersonAccount2.HealthCloudGA__SourceSystemId__pc = 'GUID01';
         //setIdentifier = (String)newPersonAccount2.put('HealthCloudGA__SourceSystemId__pc', 'GUID01');
+        if (ACCOUNT_HDID_EXISTS)
+        {
+            newPersonAccount2.put('HDID__c', 'newPersonAccount2');
+        } else {
+            newPersonAccount2.put('AccountNumber', 'newPersonAccount2');
+        }
 
         newPersonAccounts.Add(newPersonAccount2);        
 
@@ -112,9 +142,15 @@ public class KeycloakRegistrationHandlerTest {
         newPersonAccount4.FirstName = 'TESTONLYBCSC4_FIRST';
         newPersonAccount4.LastName = 'TESTONLYBCSC4_LAST';
         newPersonAccount4.PersonEmail = 'TESTONLYBCSC4@EMAIL.com';
-        newPersonAccount4.SourceSystemIdentifier = 'GUID02';
-        newPersonAccount4.HealthCloudGA__SourceSystemId__pc = 'GUID02';
+        newPersonAccount4.SourceSystemIdentifier = 'newPersonAccount4';
+        newPersonAccount4.HealthCloudGA__SourceSystemId__pc = 'newPersonAccount4';
         //setIdentifier = (String)newPersonAccount4.put('HealthCloudGA__SourceSystemId__pc', 'GUID02');
+        if (ACCOUNT_HDID_EXISTS)
+        {
+            newPersonAccount4.put('HDID__c', 'newPersonAccount4');
+        } else {
+            newPersonAccount4.put('AccountNumber', 'newPersonAccount4');
+        }
 
         newPersonAccounts.Add(newPersonAccount4);  
 
@@ -123,8 +159,14 @@ public class KeycloakRegistrationHandlerTest {
         newPersonAccount5.FirstName = 'TESTONLYBCSC5_FIRST';
         newPersonAccount5.LastName = 'TESTONLYBCSC5_LAST';
         newPersonAccount5.PersonEmail = 'TESTONLYBCSC5@EMAIL.com';
-        newPersonAccount5.SourceSystemIdentifier = 'BCSC01';
+        newPersonAccount5.SourceSystemIdentifier = 'newPersonAccount5';
         //setIdentifier = (String)newPersonAccount4.put('HealthCloudGA__SourceSystemId__pc', 'GUID02');
+        if (ACCOUNT_HDID_EXISTS)
+        {
+            newPersonAccount5.put('HDID__c', 'newPersonAccount5');
+        } else {
+            newPersonAccount5.put('AccountNumber', 'newPersonAccount5');
+        }
 
         newPersonAccounts.Add(newPersonAccount5);      
 
@@ -200,6 +242,7 @@ public class KeycloakRegistrationHandlerTest {
                 processInput.add(userInput);
                 System.debug('processInput.size: ' + processInput.size());
                 UserRegistrationPermission.applyPermissions(processInput);
+
                 
             } catch (Exception e) {
                 System.debug('applyPermissions: ' + e.getMessage());
@@ -208,6 +251,91 @@ public class KeycloakRegistrationHandlerTest {
         }
   
   }
+
+  @isTest
+    public static void testUpdateBetaUser() {
+    String uniqueUserName =
+        'standarduser' +
+        DateTime.now().getTime() +
+        '@testorg.com';
+
+    List<UserRole> userRole = [SELECT Id FROM UserRole];
+    String userRoleId = userRole[0].Id;
+    KeycloakRegistrationHandler handler = new KeycloakRegistrationHandler();
+
+    Map<String,String> attribmap = new Map<String,String>();
+    attribmap.put('roles', 'BCSC_TESTONLY');
+    attribmap.put('pidp_email', 'moa11@phsa.ca');
+    attribmap.put('given_name', 'testFirst');
+    attribmap.put('family_name', 'testLast');
+    attribmap.put('email', 'TESTONLYBCSC5@EMAIL.com');
+    attribmap.put('personemail', 'TESTONLYBCSC5@EMAIL.com');
+    attribmap.put('preferred_username', 'pidp.eleven9@bcproviderstaging.onmicrosoft.com@bcp');
+    attribmap.put('name', 'testFirst testLast');
+    attribmap.put('hdid', 'newPersonAccount5');
+    attribmap.put('idp', 'BCSC_TESTONLY');
+
+    Auth.UserData sampleData = new Auth.UserData(
+        'testId',
+        'testFirst',
+        'testLast',
+        'testFirst testLast',
+        'testuser@example.org',
+        null,
+        'testuserlong',
+        'en_US',
+        'facebook',
+        null,
+        attribmap
+    );
+    System.debug('sampleData:' + sampleData);
+        //test.startTest();
+            verifyTestUser();
+        //test.stopTest();
+        User runtimeUser = [SELECT Id FROM User WHERE Email = 'systemuser@testorg.com' LIMIT 1];
+        System.runAs(runtimeUser) {
+
+            User u = handler.createUser(null, sampleData);
+            System.assertEquals('testLast', u.lastName);
+            System.assertEquals('testFirst', u.firstName);
+            List<Auth.UserData> users = new List<Auth.UserData>();
+            List<Id> ids = new List<Id>(); 
+            ids.add(u.Id);
+            users.add(sampleData);
+            handler.updateUser(u.Id, null, sampleData);
+            String uid = u.id;
+            List<User> processUserList = [SELECT Id, Name, FirstName, LastName, User_Provisioning_Role__c FROM USER WHERE Id =: u.id Limit 1];
+            // Test Permission callout
+             try {
+                String requestEndpoint = KeycloakCommonService.getEndpointURL(KeycloakConstants.SERVICE_NAME_GATEWAY_SERVICE);
+                
+                List<UserRegistrationBetaUser.UserVariables> processInput = new List<UserRegistrationBetaUser.UserVariables>();
+                UserRegistrationBetaUser.UserVariables userInput = new UserRegistrationBetaUser.UserVariables();
+
+                userInput.userIdentifiers = processUserList;
+                processInput.add(userInput);
+                System.debug('processInput.size: ' + processInput.size());
+                UserRegistrationBetaUser.applyBetaUsers(processInput);
+
+                Test.startTest();
+                // When
+                // Call the getUserHdId method to get the current user's HDID
+                String userHdId = UserRegistrationPermission.getUserHdId(uid);
+                String requestPlaceHolder = KeycloakCommonService.replacePlaceholder(requestEndpoint, KeycloakConstants.HDID_PLACEHOLDER, userHdId);
+                Test.stopTest();
+        
+                // Then
+                // Verify the userHdId returned by the method is the same as the one stored in the Account record.
+                System.assertEquals('newPersonAccount5', userHdId);                
+                
+            } catch (Exception e) {
+                System.debug('applyPermissions: ' + e.getMessage());
+            } 
+            
+        }
+  
+  }
+
 
   @isTest
     public static void testUpdateCommunityNewAccountUser() {
@@ -376,7 +504,7 @@ public class KeycloakRegistrationHandlerTest {
         attribmap.put('pidp_email', 'testonly@bcsc.ca');
         attribmap.put('family_name', 'TestOnlyLast');
         attribmap.put('given_name', 'TestOnlyGiven');
-        attribmap.put('hdid','BCSC01');
+        attribmap.put('hdid','newPersonAccount4');
         attribmap.put('idp','BCSC_TESTONLY');
 
         Auth.UserData sampleData = new Auth.UserData(
@@ -422,7 +550,7 @@ public class KeycloakRegistrationHandlerTest {
         attribmap.put('pidp_email', 'TESTONLYBCSC4@EMAIL.com');
         attribmap.put('family_name', 'TestOnlyLast');
         attribmap.put('given_name', 'TestOnlyGiven');
-        attribmap.put('bcsc_guid','GUID02');
+        attribmap.put('bcsc_guid','newPersonAccount4');
         attribmap.put('idp','BCSC_TESTONLY');
 
         Auth.UserData sampleData = new Auth.UserData(

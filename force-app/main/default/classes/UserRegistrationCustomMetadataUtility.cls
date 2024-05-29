@@ -69,17 +69,17 @@ public class UserRegistrationCustomMetadataUtility{
         System.debug('userRoleFilter:' + userRoleFilter);
         //Fetch metadata for Role mapping
         userMapping = [SELECT Assurance_Level__c,DeveloperName,External_Provider_Role__c,Id,
-                                    Identity_Provider__c,Label,Language,MasterLabel,MFA_Flag__c,NamespacePrefix,
-                                    QualifiedApiName,Salesforce_User_License__c,Salesforce_User_Profile__c, Salesforce_Public_Group__c,
-                                    Salesforce_User_Role__c,Sequence__c, Default_Domain__c, Payload_Includes_PIdP_Data__c, 
-                                    Username_Type__c, Non_Regulated_User_Record_Type__c, Account_Record_Type__c, Flow_User__c, 
-                                    isAccountSetActive__c, Requires_Login_Flow__c, Populate_Role_Filter__c, is_Ignore_Endorser_Data__c,
-                                    is_Ignore_License_Attribute__c, is_Ignore_Public_Group_Reset__c, is_Process_HCFN_Groups__c
-                              FROM IDP_User_Registration_User_Mapping__mdt
-                              WHERE External_Provider_Role__c IN: userRoleFilter
-                              ORDER BY Sequence__c ASC
-                              LIMIT 1
-                              ];
+                            Identity_Provider__c,Label,Language,MasterLabel,MFA_Flag__c,NamespacePrefix,
+                            QualifiedApiName,Salesforce_User_License__c,Salesforce_User_Profile__c, Salesforce_Public_Group__c,
+                            Salesforce_User_Role__c,Sequence__c, Default_Domain__c, Payload_Includes_PIdP_Data__c, 
+                            Username_Type__c, Non_Regulated_User_Record_Type__c, Account_Record_Type__c, Flow_User__c, 
+                            isAccountSetActive__c, Requires_Login_Flow__c, Populate_Role_Filter__c, is_Ignore_Endorser_Data__c,
+                            is_Ignore_License_Attribute__c, is_Ignore_Public_Group_Reset__c, is_Process_HCFN_Groups__c
+                        FROM IDP_User_Registration_User_Mapping__mdt
+                        WHERE External_Provider_Role__c IN: userRoleFilter
+                        ORDER BY Sequence__c ASC
+                        LIMIT 1
+                        ];
         
         // Load Map object for searching values
         userMappingByRole_map = new Map<String,IDP_User_Registration_User_Mapping__mdt>();                     
@@ -92,7 +92,7 @@ public class UserRegistrationCustomMetadataUtility{
         userPermissionSet = [SELECT DeveloperName,External_Provider_User_Mapping__c,Id,Label,Language,MasterLabel,
                                     NamespacePrefix,QualifiedApiName,Salesforce_Permission_Set_Group__c,
                                     Salesforce_Public_Group__c, Salesforce_Permission_Set__c, Assignment_Type__c,
-                                    External_Provider_User_Mapping__r.is_Ignore_Public_Group_Reset__c
+                                    is_Beta_Only_User__c, External_Provider_User_Mapping__r.is_Ignore_Public_Group_Reset__c
                               FROM IDP_User_Registration_Permission_Set__mdt
                               WHERE External_Provider_User_Mapping__c IN: userMapping];
                               
