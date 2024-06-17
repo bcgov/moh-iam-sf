@@ -14,24 +14,54 @@ public with sharing class UserRegistrationBetaUser {
     {
         List<User> userList =  userVariables.get(0).userIdentifiers;
         List<User> updateUserList = new List<User>();
-        
-        //Savepoint sp_perm = Database.setSavepoint();
+        Boolean isEnforceBetauser = false;
+
+        List<ResultVariables> results = new List<ResultVariables>();
+        ResultVariables result = new ResultVariables();
+        result.BetaUsers = new List<String>();
+        // check if beta user restriction is in place
+        for (User checkUser: userList)
+        {
+            if (String.isNotEmpty(checkUser.User_Provisioning_Role__c))
+            {
+
+                UserRegistrationCustomMetadataUtility processRoles = new UserRegistrationCustomMetadataUtility(checkUser.User_Provisioning_Role__c);
+                String assignedRole = checkUser.User_Provisioning_Role__c;
+                List<IDP_User_Registration_User_Mapping__mdt>  userRoleList = new List<IDP_User_Registration_User_Mapping__mdt>();
+                userRoleList.add(processRoles.ReadMapping(checkUser.User_Provisioning_Role__c));
+                for (IDP_User_Registration_User_Mapping__mdt  userBeta: userRoleList)
+                {
+                    if (userBeta.is_Restrict_Beta_User_Only__c == true)
+                    {
+                        isEnforceBetauser = true;
+                    }           
+                }
+            }
+        }
         System.debug('userList: ' + userList);
         System.debug('getAuthority(): ' + URL.getCurrentRequestUrl().getHost());
         String currentHost = URL.getCurrentRequestUrl().getHost();
-        if (currentHost.toLowerCase().contains('healthgateway') || Test.isRunningTest())
+        if ((currentHost.toLowerCase().contains('healthgateway') && isEnforceBetauser) || Test.isRunningTest())
         {
-            Boolean checkBetaUser = UserRegistrationPermission.checkIsBetaUser(userList);
-            if (checkBetaUser)
-            {
-                for (User updateUserToBeta: userList)
+            try {
+                Boolean checkBetaUser = UserRegistrationPermission.checkIsBetaUser(userList);
+                if (checkBetaUser)
                 {
-                    User userUpdate = new User();
-                    userUpdate.Id = updateUserToBeta.Id;
-                    userUpdate.User_Provisioning_Role__c = 'BETA';
-                    updateUserList.add(userUpdate);
+                    for (User updateUserToBeta: userList)
+                    {
+                        User userUpdate = new User();
+                        userUpdate.Id = updateUserToBeta.Id;
+                        userUpdate.User_Provisioning_Role__c = 'BETA';
+                        updateUserList.add(userUpdate);
+                    }
+                    update updateUserList;
+                } else {
+                    UnexpectedException e = new UnexpectedException();
+                    e.setMessage('You are not a Beta User.');
+                    throw e;
                 }
-                update updateUserList;
+            } catch (Exception e) {
+                System.debug('applyBetaUsers: ' + e.getMessage());
             }
         }
 

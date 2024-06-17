@@ -90,4 +90,8 @@
         <field>is_Process_HCFN_Groups__c</field>
         <value xsi:type="xsd:boolean">true</value>
     </values>
+    <values>
+        <field>is_Restrict_Beta_User_Only__c</field>
+        <value xsi:type="xsd:boolean">false</value>
+    </values>
 </CustomMetadata>

@@ -86,6 +86,10 @@
                 <behavior>Edit</behavior>
                 <field>is_Process_HCFN_Groups__c</field>
             </layoutItems>
+            <layoutItems>
+                <behavior>Edit</behavior>
+                <field>is_Restrict_Beta_User_Only__c</field>
+            </layoutItems>
         </layoutColumns>
         <layoutColumns>
             <layoutItems>

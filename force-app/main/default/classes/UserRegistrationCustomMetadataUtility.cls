@@ -74,7 +74,8 @@ public class UserRegistrationCustomMetadataUtility{
                             Salesforce_User_Role__c,Sequence__c, Default_Domain__c, Payload_Includes_PIdP_Data__c, 
                             Username_Type__c, Non_Regulated_User_Record_Type__c, Account_Record_Type__c, Flow_User__c, 
                             isAccountSetActive__c, Requires_Login_Flow__c, Populate_Role_Filter__c, is_Ignore_Endorser_Data__c,
-                            is_Ignore_License_Attribute__c, is_Ignore_Public_Group_Reset__c, is_Process_HCFN_Groups__c
+                            is_Ignore_License_Attribute__c, is_Ignore_Public_Group_Reset__c, is_Process_HCFN_Groups__c,
+                            is_Restrict_Beta_User_Only__c
                         FROM IDP_User_Registration_User_Mapping__mdt
                         WHERE External_Provider_Role__c IN: userRoleFilter
                         ORDER BY Sequence__c ASC
