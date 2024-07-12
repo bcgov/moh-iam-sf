@@ -102,7 +102,7 @@ public with sharing class UserRegistrationService{
                         newUser.firstName = data.firstName;
                     }
                     if ((data.attributeMap.containsKey('roles') || data.attributeMap.containsKey('idp')) && processRoles.isFieldExisting('User_Provisioning_Role__c', 'User')) {
-                        //keycloakRole = data.attributeMap.get('roles'); 
+                        
                         List<IDP_User_Registration_User_Mapping__mdt>  matchingRole_list = new List<IDP_User_Registration_User_Mapping__mdt>();
                         
                         matchingRole_list.add(manageUserRole(data)); 
@@ -115,7 +115,6 @@ public with sharing class UserRegistrationService{
                         }
                     }
                     if ((data.attributeMap.containsKey('roles') || data.attributeMap.containsKey('idp')) && processRoles.isFieldExisting('CPSID__c', 'User')) {
-                        //keycloakRole = data.attributeMap.get('roles'); 
                         List<IDP_User_Registration_User_Mapping__mdt>  matchingRole_list = new List<IDP_User_Registration_User_Mapping__mdt>();
                         
                         matchingRole_list.add(manageUserRole(data)); 
@@ -148,7 +147,6 @@ public with sharing class UserRegistrationService{
         matchingRole_list.add(manageUserRole(data)); 
 
         String activeUserId = '';
-        //Savepoint sp_user = Database.setSavepoint();
         try {
             /****************************************************************** */
 
@@ -512,11 +510,6 @@ public with sharing class UserRegistrationService{
                 }
             }
         }       
-        
-
-        
-        // Update user role & permissionset based on latest payload
-        //UserRegistrationCustomMetadataUtility processRoles = new UserRegistrationCustomMetadataUtility();
 
         // add/update any new permission sets
         
@@ -535,10 +528,6 @@ public with sharing class UserRegistrationService{
                 existingUser.UserPermissionsInteractionUser = false;
             }
 
-            if (existingUser.username != userName)
-            {
-                existingUser.username = userName;
-            }
             Profile p = [SELECT Id FROM profile WHERE name=:matchingRoleRec.Salesforce_User_Profile__c];
             existingUser.ProfileId = p.Id;
 
@@ -551,26 +540,14 @@ public with sharing class UserRegistrationService{
                 
             }
         }
-        
-         //  add user to Public Group
-         for (IDP_User_Registration_User_Mapping__mdt matchingRole_rec : matchingRole_list)
-         {
-             if (matchingRole_rec.Salesforce_Public_Group__c != Null)
-             {
-                 //managePublicGroups(existingUser.Id, matchingRole_rec.External_Provider_Role__c);
-             }     
-         }      
+          
         try {
             update(existingUser);
-            //List<User> UserstoProcess = new List<User>();
-            //userstoProcess.add(existingUser);
-            //UserRegistrationPermission.processPermissions(userstoProcess);
 
         } 
         catch (Exception e) {
             System.debug(e.getMessage());
             throw e;
-            //throw new Auth.LoginDiscoveryException(e.getMessage());
         }
 
         return existingUser;
@@ -674,7 +651,6 @@ public with sharing class UserRegistrationService{
 
             if (processRoles.isFieldExisting('OneHealthID_Name__c','Contact')) {
                 newPersonAccount.put('OneHealthID_Name__pc', preferredName);
-//                newPersonAccount.OneHealthID_Name__pc = preferredName;
             }
 
             insert newPersonAccount;
@@ -690,7 +666,6 @@ public with sharing class UserRegistrationService{
             } else {
                 existingAccount[0].isActive = false;
             }
-            //update(existingAccount);
         }
         return newCommUser ;
     }
@@ -710,13 +685,13 @@ public with sharing class UserRegistrationService{
             {
                 userGroups.add(userGroupRec.Salesforce_Public_Group__c);
             } 
-/*                 else 
+            else 
             {
                 if (userPerms.Assignment_Type__c == USER_ASSIGNMENT_TYPE_QUEUE)
                 {
                     userGroup.add(userPerms.Salesforce_Queue__c);
                 }
-            } */
+            }
             
         }
         if (userGroups.size() > 0)

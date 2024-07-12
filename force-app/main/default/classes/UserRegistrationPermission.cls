@@ -11,6 +11,7 @@ public with sharing class UserRegistrationPermission {
     public static final String USER_USERNAME_REFERENCE = 'data.username';
     public static final String EMAIL_ENCODING_KEY = 'UTF-8';
     public static final String TIME_ZONE_SID_KEY = 'America/Vancouver';
+    public static final String USER_ASSIGNMENT_TYPE_QUEUE = 'Queue';
     
     public static void processPermissions(List<User> userList )
     {

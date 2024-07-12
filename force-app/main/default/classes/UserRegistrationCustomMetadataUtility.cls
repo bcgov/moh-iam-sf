@@ -93,7 +93,8 @@ public class UserRegistrationCustomMetadataUtility{
         userPermissionSet = [SELECT DeveloperName,External_Provider_User_Mapping__c,Id,Label,Language,MasterLabel,
                                     NamespacePrefix,QualifiedApiName,Salesforce_Permission_Set_Group__c,
                                     Salesforce_Public_Group__c, Salesforce_Permission_Set__c, Assignment_Type__c,
-                                    is_Beta_Only_User__c, External_Provider_User_Mapping__r.is_Ignore_Public_Group_Reset__c
+                                    is_Beta_Only_User__c, External_Provider_User_Mapping__r.is_Ignore_Public_Group_Reset__c,
+                                    Salesforce_Queue__c
                               FROM IDP_User_Registration_Permission_Set__mdt
                               WHERE External_Provider_User_Mapping__c IN: userMapping];
                               
