@@ -44,7 +44,7 @@
     </values>
     <values>
         <field>Requires_Login_Flow__c</field>
-        <value xsi:type="xsd:boolean">true</value>
+        <value xsi:type="xsd:boolean">false</value>
     </values>
     <values>
         <field>Salesforce_Public_Group__c</field>

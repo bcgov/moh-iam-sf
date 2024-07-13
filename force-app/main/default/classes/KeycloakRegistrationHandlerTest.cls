@@ -253,7 +253,7 @@ public class KeycloakRegistrationHandlerTest {
   }
 
   @isTest
-    public static void testUpdateBetaUser() {
+    public static void testUpdateCommunityUser() {
     String uniqueUserName =
         'standarduser' +
         DateTime.now().getTime() +
@@ -309,13 +309,13 @@ public class KeycloakRegistrationHandlerTest {
              try {
                 String requestEndpoint = KeycloakCommonService.getEndpointURL(KeycloakConstants.SERVICE_NAME_GATEWAY_SERVICE);
                 
-                List<UserRegistrationBetaUser.UserVariables> processInput = new List<UserRegistrationBetaUser.UserVariables>();
-                UserRegistrationBetaUser.UserVariables userInput = new UserRegistrationBetaUser.UserVariables();
+                List<UserRegistrationCommunityUser.UserVariables> processInput = new List<UserRegistrationCommunityUser.UserVariables>();
+                UserRegistrationCommunityUser.UserVariables userInput = new UserRegistrationCommunityUser.UserVariables();
 
                 userInput.userIdentifiers = processUserList;
                 processInput.add(userInput);
                 System.debug('processInput.size: ' + processInput.size());
-                UserRegistrationBetaUser.applyBetaUsers(processInput);
+                UserRegistrationCommunityUser.fetchURL(processInput);
 
                 Test.startTest();
                 // When
@@ -335,7 +335,89 @@ public class KeycloakRegistrationHandlerTest {
         }
   
   }
+  @isTest
+  public static void testUpdateBetaUser() {
+  String uniqueUserName =
+      'standarduser' +
+      DateTime.now().getTime() +
+      '@testorg.com';
 
+  List<UserRole> userRole = [SELECT Id FROM UserRole];
+  String userRoleId = userRole[0].Id;
+  KeycloakRegistrationHandler handler = new KeycloakRegistrationHandler();
+
+  Map<String,String> attribmap = new Map<String,String>();
+  attribmap.put('roles', 'BCSC_TESTONLY');
+  attribmap.put('pidp_email', 'moa11@phsa.ca');
+  attribmap.put('given_name', 'testFirst');
+  attribmap.put('family_name', 'testLast');
+  attribmap.put('email', 'TESTONLYBCSC5@EMAIL.com');
+  attribmap.put('personemail', 'TESTONLYBCSC5@EMAIL.com');
+  attribmap.put('preferred_username', 'pidp.eleven9@bcproviderstaging.onmicrosoft.com@bcp');
+  attribmap.put('name', 'testFirst testLast');
+  attribmap.put('hdid', 'newPersonAccount5');
+  attribmap.put('idp', 'BCSC_TESTONLY');
+
+  Auth.UserData sampleData = new Auth.UserData(
+      'testId',
+      'testFirst',
+      'testLast',
+      'testFirst testLast',
+      'testuser@example.org',
+      null,
+      'testuserlong',
+      'en_US',
+      'facebook',
+      null,
+      attribmap
+  );
+  System.debug('sampleData:' + sampleData);
+      //test.startTest();
+          verifyTestUser();
+      //test.stopTest();
+      User runtimeUser = [SELECT Id FROM User WHERE Email = 'systemuser@testorg.com' LIMIT 1];
+      System.runAs(runtimeUser) {
+
+          User u = handler.createUser(null, sampleData);
+          System.assertEquals('testLast', u.lastName);
+          System.assertEquals('testFirst', u.firstName);
+          List<Auth.UserData> users = new List<Auth.UserData>();
+          List<Id> ids = new List<Id>(); 
+          ids.add(u.Id);
+          users.add(sampleData);
+          handler.updateUser(u.Id, null, sampleData);
+          String uid = u.id;
+          List<User> processUserList = [SELECT Id, Name, FirstName, LastName, User_Provisioning_Role__c FROM USER WHERE Id =: u.id Limit 1];
+          // Test Permission callout
+           try {
+              String requestEndpoint = KeycloakCommonService.getEndpointURL(KeycloakConstants.SERVICE_NAME_GATEWAY_SERVICE);
+              
+              List<UserRegistrationBetaUser.UserVariables> processInput = new List<UserRegistrationBetaUser.UserVariables>();
+              UserRegistrationBetaUser.UserVariables userInput = new UserRegistrationBetaUser.UserVariables();
+
+              userInput.userIdentifiers = processUserList;
+              processInput.add(userInput);
+              System.debug('processInput.size: ' + processInput.size());
+              UserRegistrationBetaUser.applyBetaUsers(processInput);
+
+              Test.startTest();
+              // When
+              // Call the getUserHdId method to get the current user's HDID
+              String userHdId = UserRegistrationPermission.getUserHdId(uid);
+              String requestPlaceHolder = KeycloakCommonService.replacePlaceholder(requestEndpoint, KeycloakConstants.HDID_PLACEHOLDER, userHdId);
+              Test.stopTest();
+      
+              // Then
+              // Verify the userHdId returned by the method is the same as the one stored in the Account record.
+              System.assertEquals('newPersonAccount5', userHdId);                
+              
+          } catch (Exception e) {
+              System.debug('applyPermissions: ' + e.getMessage());
+          } 
+          
+      }
+
+}
 
   @isTest
     public static void testUpdateCommunityNewAccountUser() {

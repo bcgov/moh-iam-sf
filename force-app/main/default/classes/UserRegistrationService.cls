@@ -22,6 +22,8 @@ public with sharing class UserRegistrationService{
     public static final String USER_ASSIGNMENT_TYPE_PERMISSIONSET = 'Permission Set';
     public static final String USER_ASSIGNMENT_TYPE_PERMISSIONSETGROUP = 'Permission Set Group';
     public static final String USER_ASSIGNMENT_TYPE_PUBLICGROUP = 'Public Group';
+    public static final String USER_ASSIGNMENT_TYPE_QUEUE = 'QUEUE';
+    public static final String USER_PROVISIONING_ROLE_BETA = 'BETA';
     public static final String SALESFORCE_USER_LICENSE_COMMUNITY = 'Community';
     public static final String SALESFORCE_USER_LICENSE_STANDARD = 'Salesforce';
     public static final String EMAIL_ASPERAND_SIGN = '@';
@@ -73,6 +75,7 @@ public with sharing class UserRegistrationService{
             {
                 system.debug('userRole_rec:' + userRoleRec );
                 String keycloakRole = '';
+                Boolean isHealthGatewayUser = false;
                 String userName = UserRegistrationService.generateUserName(data, userRoleRec.Username_Type__c, userRoleRec.Default_Domain__c);
                 String emailAddress = UserRegistrationService.generateEmailAddress(data, userName);
                 List<Profile> profileId = [SELECT Id FROM profile WHERE name=:userRoleRec.Salesforce_User_Profile__c LIMIT 1];
@@ -107,11 +110,19 @@ public with sharing class UserRegistrationService{
                         
                         matchingRole_list.add(manageUserRole(data)); 
                         System.debug('matchingRole_list::' + matchingRole_list);
+                        String currentHost = URL.getCurrentRequestUrl().getHost();
+                        if(currentHost.toLowerCase().contains('healthgateway')) {
+                            isHealthGatewayUser = true;
+                        }
                         for (IDP_User_Registration_User_Mapping__mdt matchingRole_rec : matchingRole_list) {
-                            System.debug('matchingRole_rec::' + matchingRole_rec);
-                            if (newUser.User_Provisioning_Role__c != matchingRole_rec.External_Provider_Role__c) {
-                                newUser.User_Provisioning_Role__c = matchingRole_rec.External_Provider_Role__c;
+                            if (isHealthGatewayUser) {
+                                newUser.User_Provisioning_Role__c = USER_PROVISIONING_ROLE_BETA;
+                            } else {
+                                if (newUser.User_Provisioning_Role__c != matchingRole_rec.External_Provider_Role__c) {
+                                    newUser.User_Provisioning_Role__c = matchingRole_rec.External_Provider_Role__c;
+                                }
                             }
+
                         }
                     }
                     if ((data.attributeMap.containsKey('roles') || data.attributeMap.containsKey('idp')) && processRoles.isFieldExisting('CPSID__c', 'User')) {
@@ -364,6 +375,7 @@ public with sharing class UserRegistrationService{
         Boolean isHdidMatch = false;
         Boolean isEndorserFound = false;
         String emptyEndorser = '';
+        Boolean isHealthGatewayUser = false;
 
         List<Account> endorserData = new List<Account>();
 
@@ -445,13 +457,21 @@ public with sharing class UserRegistrationService{
 
         if ((data.attributeMap.containsKey('roles') || data.attributeMap.containsKey('idp')) && processFieldcheck.isFieldExisting('User_Provisioning_Role__c', 'User')) {
             //keycloakRole = data.attributeMap.get('roles'); 
+            String currentHost = URL.getCurrentRequestUrl().getHost();
             List<IDP_User_Registration_User_Mapping__mdt>  matchingRole_list = new List<IDP_User_Registration_User_Mapping__mdt>();
             
             matchingRole_list.add(manageUserRole(data)); 
 
+            if(currentHost.toLowerCase().contains('healthgateway')) {
+                isHealthGatewayUser = true;
+            }          
             for (IDP_User_Registration_User_Mapping__mdt matchingRole_rec : matchingRole_list) {
-                if (existingUser.get('User_Provisioning_Role__c') != matchingRole_rec.External_Provider_Role__c) {
-                    existingUser.put('User_Provisioning_Role__c', matchingRole_rec.External_Provider_Role__c);
+                if (isHealthGatewayUser) {
+                    existingUser.User_Provisioning_Role__c = USER_PROVISIONING_ROLE_BETA;
+                } else {
+                    if (existingUser.get('User_Provisioning_Role__c') != matchingRole_rec.External_Provider_Role__c) {
+                        existingUser.put('User_Provisioning_Role__c', matchingRole_rec.External_Provider_Role__c);
+                    }
                 }
             }
         }
@@ -687,9 +707,9 @@ public with sharing class UserRegistrationService{
             } 
             else 
             {
-                if (userPerms.Assignment_Type__c == USER_ASSIGNMENT_TYPE_QUEUE)
+                if (userGroupRec.Assignment_Type__c == USER_ASSIGNMENT_TYPE_QUEUE)
                 {
-                    userGroup.add(userPerms.Salesforce_Queue__c);
+                    userGroups.add(userGroupRec.Salesforce_Queue__c);
                 }
             }
             

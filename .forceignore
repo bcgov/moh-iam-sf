@@ -24,3 +24,5 @@ force-app/main/default/flowDefinitions
 force-app/main/default/flows/Process_User_Permissions.flow-meta.xml
 force-app/main/default/classes/KeycloakCommonServiceTest.cls
 force-app/main/default/classes/KeycloakCommonServiceTest.cls-meta.xml
+#force-app/main/default/flows/Process_Community_User.flow-meta.xml
+force-app/main/default/classes/UserRegistrationCallSubflow.cls
