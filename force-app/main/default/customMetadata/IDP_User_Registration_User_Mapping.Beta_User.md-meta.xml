@@ -51,6 +51,10 @@
         <value xsi:nil="true"/>
     </values>
     <values>
+        <field>Salesforce_Queue__c</field>
+        <value xsi:nil="true"/>
+    </values>
+    <values>
         <field>Salesforce_User_License__c</field>
         <value xsi:type="xsd:string">Community</value>
     </values>
@@ -92,6 +96,6 @@
     </values>
     <values>
         <field>is_Restrict_Beta_User_Only__c</field>
-        <value xsi:type="xsd:boolean">true</value>
+        <value xsi:type="xsd:boolean">false</value>
     </values>
 </CustomMetadata>
