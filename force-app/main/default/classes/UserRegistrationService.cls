@@ -77,6 +77,10 @@ public with sharing class UserRegistrationService{
                 String keycloakRole = '';
                 Boolean isHealthGatewayUser = false;
                 String userName = UserRegistrationService.generateUserName(data, userRoleRec.Username_Type__c, userRoleRec.Default_Domain__c);
+                if (userName.length() > 80) {
+                    userName = userName.substring(1,80);
+                }
+                
                 String emailAddress = UserRegistrationService.generateEmailAddress(data, userName);
                 List<Profile> profileId = [SELECT Id FROM profile WHERE name=:userRoleRec.Salesforce_User_Profile__c LIMIT 1];
                 if (profileId.size() > 0) {
@@ -540,6 +544,7 @@ public with sharing class UserRegistrationService{
         for (IDP_User_Registration_User_Mapping__mdt matchingRoleRec : matchingRole_list)
         {
             String userName = UserRegistrationService.generateUserName(data, matchingRoleRec.Username_Type__c, matchingRoleRec.Default_Domain__c);
+            
             String emailAddress = UserRegistrationService.generateEmailAddress(data, userName);  
             
             if (matchingRoleRec.Flow_User__c) {
@@ -556,8 +561,6 @@ public with sharing class UserRegistrationService{
             for (UserRole userRoleRec : userRoles)
             {
                 existingUser.UserRoleId = userRoleRec.Id;
-                existingUser.isActive = false;
-                
             }
         }
           
