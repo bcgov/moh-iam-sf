@@ -39,6 +39,14 @@
         <value xsi:type="xsd:boolean">false</value>
     </values>
     <values>
+        <field>Populate_Role_Filter__c</field>
+        <value xsi:type="xsd:boolean">false</value>
+    </values>
+    <values>
+        <field>Requires_Login_Flow__c</field>
+        <value xsi:type="xsd:boolean">false</value>
+    </values>
+    <values>
         <field>Salesforce_Public_Group__c</field>
         <value xsi:type="xsd:string">PC_HCR_Support_Tier_1,HCR_Support_and_811,Provider_Tier_1_Support_Users</value>
     </values>
@@ -61,5 +69,29 @@
     <values>
         <field>Username_Type__c</field>
         <value xsi:type="xsd:string">data.username</value>
+    </values>
+    <values>
+        <field>isAccountSetActive__c</field>
+        <value xsi:type="xsd:boolean">false</value>
+    </values>
+    <values>
+        <field>is_Ignore_Endorser_Data__c</field>
+        <value xsi:type="xsd:boolean">false</value>
+    </values>
+    <values>
+        <field>is_Ignore_License_Attribute__c</field>
+        <value xsi:type="xsd:boolean">false</value>
+    </values>
+    <values>
+        <field>is_Ignore_Public_Group_Reset__c</field>
+        <value xsi:type="xsd:boolean">false</value>
+    </values>
+    <values>
+        <field>is_Process_HCFN_Groups__c</field>
+        <value xsi:type="xsd:boolean">false</value>
+    </values>
+    <values>
+        <field>is_Restrict_Beta_User_Only__c</field>
+        <value xsi:type="xsd:boolean">false</value>
     </values>
 </CustomMetadata>

@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <CustomMetadata xmlns="http://soap.sforce.com/2006/04/metadata" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
-    <label>PC_Practitioner RNP</label>
+    <label>PC_Practitioner_RNP</label>
     <protected>false</protected>
     <values>
         <field>Assignment_Type__c</field>
@@ -21,5 +21,9 @@
     <values>
         <field>Salesforce_Public_Group__c</field>
         <value xsi:nil="true"/>
+    </values>
+    <values>
+        <field>is_Beta_Only_User__c</field>
+        <value xsi:type="xsd:boolean">false</value>
     </values>
 </CustomMetadata>
