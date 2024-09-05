@@ -1,9 +1,6 @@
 {
     "orgName": "IAM Dev",
     "edition": "Enterprise",
-    "orgPreferences" : {
-      "enabled": ["PersonAccounts"]
-    },
     "hasSampleData": true,
     "features": [
       "RecordTypes",

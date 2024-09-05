@@ -1,20 +1,14 @@
 {
   "orgName": "IAM Dev",
   "edition": "Enterprise",
-  "orgPreferences" : {
-    "enabled": ["PersonAccounts"]
-  },
   "hasSampleData": false,
   "features": [
     "HealthCloudAddOn",
     "PersonAccounts",
-    "CustomerCommunityPlusLogin",
-    "ContactsToMultipleAccounts",
     "HealthCloudUser",
-    "ExternalIdentityLogin",
+    "CustomerCommunityPlusLogin",
+    "CustomerCommunityPlus",
+    "ContactsToMultipleAccounts",
     "SalesforceIdentityForCommunities"
-  ],
-  "communitiesSettings": {
-    "enableNetworksEnabled": true
-  }
+  ]
 }

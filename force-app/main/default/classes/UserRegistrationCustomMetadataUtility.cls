@@ -32,8 +32,14 @@ public class UserRegistrationCustomMetadataUtility{
     public Map<String,IDP_User_Registration_User_Mapping__mdt> userMappingByRole_map;
         
     public Map<String,IDP_User_Registration_Permission_Set__mdt> userPermissionSet_map;
+
+    public Map<String,IDP_User_Registration_Permission_Set__mdt> userPermissionSetByName_map;
+
+    public Map<String,IDP_User_Registration_Permission_Set__mdt> userPermissionSetGroupByName_map;
+
+    public Map<String,IDP_User_Registration_Permission_Set__mdt> userPublicGroupIgnoreByName_map;
     
-    public String userExternalProvider;
+    public List<String> userExternalProvider = new List<String>();
     
     public UserRegistrationCustomMetadataUtility(String ExternalProvider){
         /*
@@ -45,17 +51,36 @@ public class UserRegistrationCustomMetadataUtility{
         * 
         */
         // Assign inbound ExternalProvider to object instance
-        userExternalProvider = ExternalProvider;
+        system.debug('ExternalProvider:' + ExternalProvider);
+        if (ExternalProvider != null)
+        {
+            userExternalProvider.addAll(ExternalProvider.remove('[').remove(']').split(','));
+        }
+        List<String> userRoleFilter = new List<String>();
+        for (String userRoleFilterRec: userExternalProvider)
+        {
+            if (ExternalProvider.contains('[')) {
+                userRoleFilter.add('[' + userRoleFilterRec.trim() + ']');
+            } else {
+                userRoleFilter.add(userRoleFilterRec.trim());
+            }
+            
+        }
+        System.debug('userRoleFilter:' + userRoleFilter);
         //Fetch metadata for Role mapping
         userMapping = [SELECT Assurance_Level__c,DeveloperName,External_Provider_Role__c,Id,
-                                    Identity_Provider__c,Label,Language,MasterLabel,MFA_Flag__c,NamespacePrefix,
-                                    QualifiedApiName,Salesforce_User_License__c,Salesforce_User_Profile__c, Salesforce_Public_Group__c,
-                                    Salesforce_User_Role__c,Sequence__c, Default_Domain__c, Payload_Includes_PIdP_Data__c, 
-                                    Username_Type__c, Non_Regulated_User_Record_Type__c, Account_Record_Type__c, Flow_User__c, 
-                                    isAccountSetActive__c, Requires_Login_Flow__c
-                              FROM IDP_User_Registration_User_Mapping__mdt
-                              ORDER BY Sequence__c ASC
-                              ];
+                            Identity_Provider__c,Label,Language,MasterLabel,MFA_Flag__c,NamespacePrefix,
+                            QualifiedApiName,Salesforce_User_License__c,Salesforce_User_Profile__c, Salesforce_Public_Group__c,
+                            Salesforce_User_Role__c,Sequence__c, Default_Domain__c, Payload_Includes_PIdP_Data__c, 
+                            Username_Type__c, Non_Regulated_User_Record_Type__c, Account_Record_Type__c, Flow_User__c, 
+                            isAccountSetActive__c, Requires_Login_Flow__c, Populate_Role_Filter__c, is_Ignore_Endorser_Data__c,
+                            is_Ignore_License_Attribute__c, is_Ignore_Public_Group_Reset__c, is_Process_HCFN_Groups__c,
+                            is_Restrict_Beta_User_Only__c
+                        FROM IDP_User_Registration_User_Mapping__mdt
+                        WHERE External_Provider_Role__c IN: userRoleFilter
+                        ORDER BY Sequence__c ASC
+                        LIMIT 1
+                        ];
         
         // Load Map object for searching values
         userMappingByRole_map = new Map<String,IDP_User_Registration_User_Mapping__mdt>();                     
@@ -67,14 +92,37 @@ public class UserRegistrationCustomMetadataUtility{
         //Fetch metadata for PermissionSet mapping
         userPermissionSet = [SELECT DeveloperName,External_Provider_User_Mapping__c,Id,Label,Language,MasterLabel,
                                     NamespacePrefix,QualifiedApiName,Salesforce_Permission_Set_Group__c,
-                                    Salesforce_Permission_Set__c, Assignment_Type__c 
-                              FROM IDP_User_Registration_Permission_Set__mdt];
+                                    Salesforce_Public_Group__c, Salesforce_Permission_Set__c, Assignment_Type__c,
+                                    is_Beta_Only_User__c, External_Provider_User_Mapping__r.is_Ignore_Public_Group_Reset__c,
+                                    Salesforce_Queue__c
+                              FROM IDP_User_Registration_Permission_Set__mdt
+                              WHERE External_Provider_User_Mapping__c IN: userMapping];
                               
         // Load Map object for searching values   
-        userPermissionSet_map = new Map<String,IDP_User_Registration_Permission_Set__mdt>();                   
+        userPermissionSet_map = new Map<String,IDP_User_Registration_Permission_Set__mdt>();
+        userPermissionSetByName_map = new Map<String,IDP_User_Registration_Permission_Set__mdt>(); 
+        userPermissionSetGroupByName_map = new Map<String,IDP_User_Registration_Permission_Set__mdt>(); 
+        userPublicGroupIgnoreByName_map = new Map<String,IDP_User_Registration_Permission_Set__mdt>(); 
+
         for(IDP_User_Registration_Permission_Set__mdt userPermissionSet_rec : userPermissionSet )
         {
             userPermissionSet_map.put(userPermissionSet_rec.External_Provider_User_Mapping__c, userPermissionSet_rec);
+            if (userPermissionSet_rec.Salesforce_Permission_Set__c != null)
+            {
+                userPermissionSetByName_map.put(userPermissionSet_rec.Salesforce_Permission_Set__c, userPermissionSet_rec);
+            }      
+            if (userPermissionSet_rec.Salesforce_Permission_Set_Group__c != null)
+            {
+                userPermissionSetGroupByName_map.put(userPermissionSet_rec.Salesforce_Permission_Set_Group__c, userPermissionSet_rec);
+            }   
+            if (userPermissionSet_rec.Salesforce_Public_Group__c != null)
+            {
+                if (userPermissionSet_rec.External_Provider_User_Mapping__r.is_Ignore_Public_Group_Reset__c)
+                {
+                    userPublicGroupIgnoreByName_map.put(userPermissionSet_rec.Salesforce_Public_Group__c, userPermissionSet_rec);
+
+                }
+            }                    
         }
     }
     
@@ -90,11 +138,39 @@ public class UserRegistrationCustomMetadataUtility{
         //Create single instance of Metadata
         IDP_User_Registration_User_Mapping__mdt foundUserMapping_md = new IDP_User_Registration_User_Mapping__mdt();
         //Find keycloakRole in userMapping
-        if (userMappingByRole_map.containsKey(keycloakRole))
-        {
-            foundUserMapping_md = userMappingByRole_map.get(keycloakRole);
+        String searchForRoleRec = keycloakRole;
+        List<String> searchForRole = new List<String>();
+        List<String> userRoleFilter = new List<String>();
+        System.debug('keycloakRole: ' + keycloakRole);
+        if (keycloakRole != null && keycloakRole.contains('[')) { 
+            searchForRole.addAll(keycloakRole.remove('[').remove(']').split(','));
+
+            for (String userRoleFilterRec: searchForRole)
+            {
+                userRoleFilter.add('[' + userRoleFilterRec.trim() + ']');
+            }           
+        } else {
+            if (keycloakRole != null )
+            {
+                searchForRole.addAll(keycloakRole.split(','));
+
+                for (String userRoleFilterRec: searchForRole)
+                {
+                    userRoleFilter.add(userRoleFilterRec.trim());
+                }  
+            }
+
         }
-        
+        System.debug('userRoleFilter: ' + userRoleFilter);
+        for (String searchKey: userRoleFilter)
+        {
+    
+            if (userMappingByRole_map.containsKey(searchKey))
+            {
+                foundUserMapping_md = userMappingByRole_map.get(searchKey);
+            }
+        }
+
         return foundUserMapping_md;
         
     }

@@ -21,6 +21,9 @@
 public with sharing class UserRegistrationService{
     public static final String USER_ASSIGNMENT_TYPE_PERMISSIONSET = 'Permission Set';
     public static final String USER_ASSIGNMENT_TYPE_PERMISSIONSETGROUP = 'Permission Set Group';
+    public static final String USER_ASSIGNMENT_TYPE_PUBLICGROUP = 'Public Group';
+    public static final String USER_ASSIGNMENT_TYPE_QUEUE = 'QUEUE';
+    public static final String USER_PROVISIONING_ROLE_BETA = 'BETA';
     public static final String SALESFORCE_USER_LICENSE_COMMUNITY = 'Community';
     public static final String SALESFORCE_USER_LICENSE_STANDARD = 'Salesforce';
     public static final String EMAIL_ASPERAND_SIGN = '@';
@@ -72,6 +75,7 @@ public with sharing class UserRegistrationService{
             {
                 system.debug('userRole_rec:' + userRoleRec );
                 String keycloakRole = '';
+                Boolean isHealthGatewayUser = false;
                 String userName = UserRegistrationService.generateUserName(data, userRoleRec.Username_Type__c, userRoleRec.Default_Domain__c);
                 String emailAddress = UserRegistrationService.generateEmailAddress(data, userName);
                 List<Profile> profileId = [SELECT Id FROM profile WHERE name=:userRoleRec.Salesforce_User_Profile__c LIMIT 1];
@@ -100,18 +104,42 @@ public with sharing class UserRegistrationService{
                     } else {
                         newUser.firstName = data.firstName;
                     }
-                    if (data.attributeMap.containsKey('roles') && processRoles.isFieldExisting('User_Provisioning_Role__c', 'User')) {
-                        //keycloakRole = data.attributeMap.get('roles'); 
+                    if ((data.attributeMap.containsKey('roles') || data.attributeMap.containsKey('idp')) && processRoles.isFieldExisting('User_Provisioning_Role__c', 'User')) {
+                        
+                        List<IDP_User_Registration_User_Mapping__mdt>  matchingRole_list = new List<IDP_User_Registration_User_Mapping__mdt>();
+                        
+                        matchingRole_list.add(manageUserRole(data)); 
+                        System.debug('matchingRole_list::' + matchingRole_list);
+                        String currentHost = URL.getCurrentRequestUrl().getHost();
+                        if(currentHost.toLowerCase().contains('healthgateway')) {
+                            isHealthGatewayUser = true;
+                        }
+                        for (IDP_User_Registration_User_Mapping__mdt matchingRole_rec : matchingRole_list) {
+                            if (isHealthGatewayUser) {
+                                newUser.User_Provisioning_Role__c = USER_PROVISIONING_ROLE_BETA;
+                            } else {
+                                if (newUser.User_Provisioning_Role__c != matchingRole_rec.External_Provider_Role__c) {
+                                    newUser.User_Provisioning_Role__c = matchingRole_rec.External_Provider_Role__c;
+                                }
+                            }
+
+                        }
+                    }
+                    if ((data.attributeMap.containsKey('roles') || data.attributeMap.containsKey('idp')) && processRoles.isFieldExisting('CPSID__c', 'User')) {
                         List<IDP_User_Registration_User_Mapping__mdt>  matchingRole_list = new List<IDP_User_Registration_User_Mapping__mdt>();
                         
                         matchingRole_list.add(manageUserRole(data)); 
 
                         for (IDP_User_Registration_User_Mapping__mdt matchingRole_rec : matchingRole_list) {
-                            if (newUser.User_Provisioning_Role__c != matchingRole_rec.External_Provider_Role__c) {
-                                newUser.User_Provisioning_Role__c = matchingRole_rec.External_Provider_Role__c;
+                            String roleFilter = matchingRole_rec.External_Provider_Role__c;
+                            roleFilter = roleFilter.remove('[').remove(']');
+                            if (matchingRole_rec.Populate_Role_Filter__c) {
+                                if (newUser.get('CPSID__c') != roleFilter) {
+                                    newUser.put('CPSID__c', roleFilter);
+                                }
                             }
                         }
-                    }
+                    }                    
                     newUser.FederationIdentifier = data.username;
                     newUser.alias = UserRegistrationService.generateUserAlias(data);
                     
@@ -130,7 +158,6 @@ public with sharing class UserRegistrationService{
         matchingRole_list.add(manageUserRole(data)); 
 
         String activeUserId = '';
-        //Savepoint sp_user = Database.setSavepoint();
         try {
             /****************************************************************** */
 
@@ -173,7 +200,8 @@ public with sharing class UserRegistrationService{
                     //lookup up when endorser_data is available
                     if (data.attributeMap.containsKey('endorser_data') 
                             && (data.attributeMap.containsKey('common_provider_number')
-                            && data.attributeMap.get('common_provider_number') == '')) {
+                            && data.attributeMap.get('common_provider_number') == '') 
+                            && !matchingRole_rec.is_Ignore_License_Attribute__c) {
                         isEndorserData = true;
                         List<String> keyValue = new List<String>();
 
@@ -189,7 +217,9 @@ public with sharing class UserRegistrationService{
                         }
                     }
                     //lookup up when common_provider_number is available
-                    if (data.attributeMap.containsKey('common_provider_number') && data.attributeMap.get('common_provider_number') != '') {
+                    if (data.attributeMap.containsKey('common_provider_number') 
+                            && data.attributeMap.get('common_provider_number') != ''
+                            && !matchingRole_rec.is_Ignore_License_Attribute__c) {
                         isCpnData = true;
                         List<String> keyValue = new List<String>();
                         keyValue.addAll(data.attributeMap.get('common_provider_number').split(','));
@@ -240,7 +270,9 @@ public with sharing class UserRegistrationService{
                         String emptyEndorser = data.attributeMap.get('endorser_data');
                         if (emptyEndorser == '[]' 
                                 && data.attributeMap.containsKey('pidp_email')
-                                && !data.attributeMap.containsKey('roles')) {
+                                && ((!data.attributeMap.containsKey('roles') && !matchingRole_rec.is_Ignore_License_Attribute__c)
+                                || (data.attributeMap.containsKey('roles') && matchingRole_rec.is_Ignore_License_Attribute__c)
+                            )) {
                             throw new Auth.AuthProviderPluginException('No Match found, Endorser Data Not Provided');
                         }
                     }    
@@ -290,10 +322,11 @@ public with sharing class UserRegistrationService{
                 {
                     for (UserRole userRole_rec: [SELECT DeveloperName,Id,Name FROM UserRole Where Name =: matchingRole_rec.Salesforce_User_Role__c])
                     {
-                        newUser.UserRoleId = matchingRole_rec.Id;
+                        newUser.UserRoleId = userRole_rec.Id;
                     }
                 }       
             }
+               
 
             if(checkUser.size() > 0) {
                 createUser = false;
@@ -304,6 +337,16 @@ public with sharing class UserRegistrationService{
             } else {
                 update newUser;
             } 
+
+            // add user to Public Group
+            for (IDP_User_Registration_User_Mapping__mdt matchingRole_rec : matchingRole_list)
+            {
+                if (matchingRole_rec.Requires_Login_Flow__c)
+                {
+                    //UserRegistrationPermission.manageGroups(newUser.Id, matchingRole_rec.);
+                    managePublicGroups(newUser.Id, matchingRole_rec.External_Provider_Role__c);
+                }     
+            }               
             activeUserId = newUser.Id;  
         }
         catch (Exception e) {
@@ -332,15 +375,32 @@ public with sharing class UserRegistrationService{
         Boolean isHdidMatch = false;
         Boolean isEndorserFound = false;
         String emptyEndorser = '';
+        Boolean isHealthGatewayUser = false;
 
         List<Account> endorserData = new List<Account>();
 
         system.debug('data:'+ json.serializePretty(data));
         //Fetch Salesforce Id
-        User existingUser = [SELECT Id, username, email,lastname,firstname,alias,
-                                emailEncodingKey,timeZoneSidKey,languagelocaleKey,localesidkey, 
-                                IsPortalEnabled, User_Provisioning_Role__c
-                             FROM User WHERE Id =: userId];
+        UserRegistrationCustomMetadataUtility processFieldcheck = new UserRegistrationCustomMetadataUtility();
+        List<User> retrieveUser = new List<User>();
+        User existingUser = new User();
+        String qryUserString = 'SELECT Id, username, email, lastname, firstname, alias,';
+        qryUserString += 'emailEncodingKey, timeZoneSidKey, languagelocaleKey, localesidkey, IsPortalEnabled';
+
+        if (processFieldcheck.isFieldExisting('User_Provisioning_Role__c', 'User')) {
+            qryUserString += ', User_Provisioning_Role__c';
+        }
+
+        if (processFieldcheck.isFieldExisting('CPSID__c', 'User') ) {
+            qryUserString += ', CPSID__c';
+        }
+
+        qryUserString += ' FROM User WHERE Id = \'' + userId + '\'';
+
+        retrieveUser = Database.query(qryUserString);
+        if (retrieveUser.size() == 1) {
+            existingUser = retrieveUser[0];
+        }
         
         System.debug('existingUser: ' + existingUser);              
 
@@ -394,32 +454,57 @@ public with sharing class UserRegistrationService{
             }
         }
         User existingPortalUser = new User();
-        UserRegistrationCustomMetadataUtility processFieldcheck = new UserRegistrationCustomMetadataUtility();
 
-        if (data.attributeMap.containsKey('roles') && processFieldcheck.isFieldExisting('User_Provisioning_Role__c', 'User')) {
+        if ((data.attributeMap.containsKey('roles') || data.attributeMap.containsKey('idp')) && processFieldcheck.isFieldExisting('User_Provisioning_Role__c', 'User')) {
+            //keycloakRole = data.attributeMap.get('roles'); 
+            String currentHost = URL.getCurrentRequestUrl().getHost();
+            List<IDP_User_Registration_User_Mapping__mdt>  matchingRole_list = new List<IDP_User_Registration_User_Mapping__mdt>();
+            
+            matchingRole_list.add(manageUserRole(data)); 
+
+            if(currentHost.toLowerCase().contains('healthgateway')) {
+                isHealthGatewayUser = true;
+            }          
+            for (IDP_User_Registration_User_Mapping__mdt matchingRole_rec : matchingRole_list) {
+                if (isHealthGatewayUser) {
+                    existingUser.User_Provisioning_Role__c = USER_PROVISIONING_ROLE_BETA;
+                } else {
+                    if (existingUser.get('User_Provisioning_Role__c') != matchingRole_rec.External_Provider_Role__c) {
+                        existingUser.put('User_Provisioning_Role__c', matchingRole_rec.External_Provider_Role__c);
+                    }
+                }
+            }
+        }
+        if ((data.attributeMap.containsKey('roles') || data.attributeMap.containsKey('idp')) && processFieldcheck.isFieldExisting('CPSID__c', 'User')) {
             //keycloakRole = data.attributeMap.get('roles'); 
             List<IDP_User_Registration_User_Mapping__mdt>  matchingRole_list = new List<IDP_User_Registration_User_Mapping__mdt>();
             
             matchingRole_list.add(manageUserRole(data)); 
 
             for (IDP_User_Registration_User_Mapping__mdt matchingRole_rec : matchingRole_list) {
-                if (existingUser.User_Provisioning_Role__c != matchingRole_rec.External_Provider_Role__c) {
-                    existingUser.User_Provisioning_Role__c = matchingRole_rec.External_Provider_Role__c;
+                String roleFilter = matchingRole_rec.External_Provider_Role__c;
+                roleFilter = roleFilter.remove('[').remove(']');
+                if (matchingRole_rec.Populate_Role_Filter__c) {
+                    if (existingUser.get('CPSID__c') != roleFilter) {
+                        existingUser.put('CPSID__c', roleFilter);
+                    }
                 }
+
             }
-        }
+        }        
 
         if (existingUser.IsPortalEnabled == true) {
             
             String qryString = '';
+            qryString = 'SELECT Id, username, email,lastname,firstname,alias,emailEncodingKey,';
+            qryString += ' timeZoneSidKey, languagelocaleKey, localesidkey, IsPortalEnabled, AccountId, ContactId ';
+
             if (processFieldcheck.isFieldExisting('OneHealthID_Name__c','Contact')) {
-                qryString = 'SELECT Id, username, email,lastname,firstname,alias,emailEncodingKey,timeZoneSidKey,languagelocaleKey,localesidkey,IsPortalEnabled,AccountId,Contact.OneHealthID_Name__c,ContactId FROM User WHERE Id = \'' + userId + '\'';
-            } else {
-                qryString = 'SELECT Id, username, email,lastname,firstname,alias,emailEncodingKey,timeZoneSidKey,languagelocaleKey,localesidkey,IsPortalEnabled,AccountId,ContactId FROM User WHERE Id = \'' + userId + '\'';
+                qryString += ', Contact.OneHealthID_Name__c ';
             }
+            qryString += 'FROM User WHERE Id = \'' + userId + '\'';
 
             existingPortalUser = Database.query(qryString);
-            //[SELECT Id, username, email,lastname,firstname,alias,emailEncodingKey,timeZoneSidKey,languagelocaleKey,localesidkey,IsPortalEnabled,AccountId,Contact.OneHealthID_Name__c,ContactId FROM User WHERE Id =: userId];
         }
 
 
@@ -445,11 +530,6 @@ public with sharing class UserRegistrationService{
                 }
             }
         }       
-        
-
-        
-        // Update user role & permissionset based on latest payload
-        //UserRegistrationCustomMetadataUtility processRoles = new UserRegistrationCustomMetadataUtility();
 
         // add/update any new permission sets
         
@@ -468,33 +548,26 @@ public with sharing class UserRegistrationService{
                 existingUser.UserPermissionsInteractionUser = false;
             }
 
-            if (existingUser.username != userName)
-            {
-                existingUser.username = userName;
-            }
-            for (UserRole userRoleRec : [SELECT DeveloperName,Id,Name FROM UserRole Where Name =: matchingRoleRec.Salesforce_User_Role__c])
+            Profile p = [SELECT Id FROM profile WHERE name=:matchingRoleRec.Salesforce_User_Profile__c];
+            existingUser.ProfileId = p.Id;
+
+            List<UserRole> userRoles = [SELECT DeveloperName,Id,Name FROM UserRole Where Name =: matchingRoleRec.Salesforce_User_Role__c];
+
+            for (UserRole userRoleRec : userRoles)
             {
                 existingUser.UserRoleId = userRoleRec.Id;
                 existingUser.isActive = false;
                 
             }
         }
-        
-            // add user to Public Group
-            for (IDP_User_Registration_User_Mapping__mdt matchingRole_rec : matchingRole_list)
-            {
-                if (matchingRole_rec.Salesforce_Public_Group__c != Null)
-                {
-                    managePublicGroups(existingUser.Id, matchingRole_rec.Salesforce_Public_Group__c);
-                }     
-            }         
+          
         try {
             update(existingUser);
+
         } 
         catch (Exception e) {
             System.debug(e.getMessage());
             throw e;
-            //throw new Auth.LoginDiscoveryException(e.getMessage());
         }
 
         return existingUser;
@@ -541,9 +614,19 @@ public with sharing class UserRegistrationService{
 
         String qryString = '';
         if (processRoles.isFieldExisting('OneHealthID_Name__c','Contact')) {
-            qryString = 'SELECT Id, PersonContactId, FirstName, LastName, PersonEmail, RecordTypeId, isActive, OneHealthID_Name__pc  from Account where PersonEmail = \'' + searchEmail + '\'';
+            qryString = 'SELECT Id, PersonContactId, FirstName, LastName, PersonEmail, RecordTypeId, ';
+            qryString += 'isActive, OneHealthID_Name__pc  from Account ';
+            qryString += 'where PersonEmail = \'' + searchEmail + '\'';
+            if (optionalRecordType != '') {
+                qryString += ' AND RecordType.DeveloperName = \'' + optionalRecordType + '\'';
+            }
         } else {
-            qryString = 'SELECT Id, PersonContactId, FirstName, LastName, PersonEmail, RecordTypeId, isActive from Account where PersonEmail = \'' + searchEmail + '\'';
+            qryString = 'SELECT Id, PersonContactId, FirstName, LastName, PersonEmail, RecordTypeId, ';
+            qryString += 'isActive from Account ';
+            qryString += 'where PersonEmail = \'' + searchEmail + '\'';
+            if (optionalRecordType != '') {
+                qryString += ' AND RecordType.DeveloperName = \'' + optionalRecordType + '\'';
+            }            
         }
 
         List<Account> existingAccount = Database.query(qryString);
@@ -588,7 +671,6 @@ public with sharing class UserRegistrationService{
 
             if (processRoles.isFieldExisting('OneHealthID_Name__c','Contact')) {
                 newPersonAccount.put('OneHealthID_Name__pc', preferredName);
-//                newPersonAccount.OneHealthID_Name__pc = preferredName;
             }
 
             insert newPersonAccount;
@@ -604,55 +686,60 @@ public with sharing class UserRegistrationService{
             } else {
                 existingAccount[0].isActive = false;
             }
-            //update(existingAccount);
         }
         return newCommUser ;
     }
 
     @Future
-    public static void managePublicGroups(Id userId, String userPublicGroup)
+    public static void managePublicGroups(Id userId, String userProvisioningRole)
     {
-
-        list<groupMember> groupList = new list<groupMember>();
-        list<Group> grp = [select id from Group where DeveloperName in : userPublicGroup.split(',')];
+        List<String> userGroups = new List<String>();
+        System.debug('userId: ' + userId);
+        System.debug('userProvisioningRole: ' + userProvisioningRole);
         
-        for(group g : grp){
-            groupMember gp = new groupMember(groupId = g.Id);
-            gp.UserOrGroupId = userId;
-            groupList.add(gp);
-        }
+        UserRegistrationCustomMetadataUtility processRoles = new UserRegistrationCustomMetadataUtility(userProvisioningRole);
+
+        for (IDP_User_Registration_Permission_Set__mdt userGroupRec : processRoles.userPermissionSet)
+        {
+            if (userGroupRec.Assignment_Type__c == USER_ASSIGNMENT_TYPE_PUBLICGROUP)
+            {
+                userGroups.add(userGroupRec.Salesforce_Public_Group__c);
+            } 
+            else 
+            {
+                if (userGroupRec.Assignment_Type__c == USER_ASSIGNMENT_TYPE_QUEUE)
+                {
+                    userGroups.add(userGroupRec.Salesforce_Queue__c);
+                }
+            }
             
-        if(groupList.size() > 0)
-        insert groupList;
-        System.debug('GroupList: ' + groupList);
-    }
+        }
+        if (userGroups.size() > 0)
+        {
+            list<groupMember> groupList = new list<groupMember>();
+            list<Group> grp = [select id from Group where DeveloperName in : userGroups];
+            
+            for(group g : grp){
+                groupMember gp = new groupMember(groupId = g.Id);
+                gp.UserOrGroupId = userId;
+                groupList.add(gp);
+            }
+                
+            if(groupList.size() > 0)
+            {
+                insert groupList;
+            }
+
+            System.debug('GroupList: ' + groupList);
+        }
+ 
+    } 
 
     @Future
     public static void updateContactDetails(String contactDetails) {
         Contact contactDetail = (Contact)JSON.deserialize(contactDetails, Contact.class);
         update contactDetail;
             
-    }
-    
-    //@Future
-    public static void insertPermissionSetAssignment(String permissionsets, Id userId) {
-
-        List<PermissionSetAssignment> permissionSetAssignList = (List<PermissionSetAssignment>)JSON.deserialize(permissionsets, List<PermissionSetAssignment>.class);
-        List<PermissionSetAssignment> removeOtherPerms = new List<PermissionSetAssignment>();
-
-        for(PermissionSetAssignment existingPSAByUser_rec : [SELECT AssigneeId,Id,PermissionSetId,PermissionSet.Name 
-                FROM PermissionSetAssignment 
-                WHERE AssigneeId =: userId
-                AND PermissionSet.ProfileId = null  
-                ORDER BY AssigneeId ASC])
-        {
-            removeOtherPerms.add(existingPSAByUser_rec);
-        }   
-        if (removeOtherPerms.size() > 0) {
-            delete removeOtherPerms;
-        }     
-        insert permissionSetAssignList;
-
     }
     
     private static IDP_User_Registration_User_Mapping__mdt manageUserRole(Auth.UserData data)
@@ -666,7 +753,6 @@ public with sharing class UserRegistrationService{
         * 
         */ 
 
-        UserRegistrationCustomMetadataUtility processPermissions = new UserRegistrationCustomMetadataUtility();
         IDP_User_Registration_User_Mapping__mdt roles = new IDP_User_Registration_User_Mapping__mdt();
         UserRegistrationCustomMetadataUtility processRoles = new UserRegistrationCustomMetadataUtility();
 
