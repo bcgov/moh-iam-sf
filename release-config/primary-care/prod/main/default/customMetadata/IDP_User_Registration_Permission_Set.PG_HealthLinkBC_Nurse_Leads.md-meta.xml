@@ -1,18 +1,18 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <CustomMetadata xmlns="http://soap.sforce.com/2006/04/metadata" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
-    <label>PC_Navigator</label>
+    <label>PG_HealthLinkBC_Nurse_Leads</label>
     <protected>false</protected>
     <values>
         <field>Assignment_Type__c</field>
-        <value xsi:type="xsd:string">Permission Set Group</value>
+        <value xsi:type="xsd:string">Public Group</value>
     </values>
     <values>
         <field>External_Provider_User_Mapping__c</field>
-        <value xsi:type="xsd:string">PC_Navigator</value>
+        <value xsi:type="xsd:string">Health_Service_Nurse_Team_Lead</value>
     </values>
     <values>
         <field>Salesforce_Permission_Set_Group__c</field>
-        <value xsi:type="xsd:string">PC_HLBC_811_Permissions</value>
+        <value xsi:nil="true"/>
     </values>
     <values>
         <field>Salesforce_Permission_Set__c</field>
@@ -20,7 +20,7 @@
     </values>
     <values>
         <field>Salesforce_Public_Group__c</field>
-        <value xsi:nil="true"/>
+        <value xsi:type="xsd:string">HLBC_Health_Service_Nurses</value>
     </values>
     <values>
         <field>Salesforce_Queue__c</field>
