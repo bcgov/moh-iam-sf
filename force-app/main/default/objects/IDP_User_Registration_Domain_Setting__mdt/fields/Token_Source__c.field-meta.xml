@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
-    <fullName>Salesforce_Queue__c</fullName>
-    <deprecated>false</deprecated>
-    <description>If populated it will include assignment of user to target Queue, source: Group.DeveloperName</description>
+    <fullName>Token_Source__c</fullName>
+    <description>Use to verify IDP is the correct source IDP to permit login</description>
     <externalId>false</externalId>
     <fieldManageability>SubscriberControlled</fieldManageability>
-    <label>Salesforce Queue</label>
+    <inlineHelpText>Use to verify IDP is the correct source IDP to permit login</inlineHelpText>
+    <label>Token Source</label>
     <length>255</length>
     <required>false</required>
     <type>Text</type>

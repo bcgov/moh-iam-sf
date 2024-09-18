@@ -77,6 +77,7 @@ public class KeycloakRegistrationHandlerTest {
         newPersonAccount0.PersonEmail = 'TESTONLY0@EMAIL.com';
         newPersonAccount0.SourceSystemIdentifier = 'CPN.TSTP00000.CPSID.GS';
         newPersonAccount0.HealthCloudGA__SourceSystemId__pc = 'CPN.TSTP00000.CPSID.GS';
+        newPersonAccount0.isActive = true;
         //setIdentifier = (String)newPersonAccount0.put('HealthCloudGA__SourceSystemId__pc', 'CPN.TSTP00000.CPSID.GS');
         if (ACCOUNT_HDID_EXISTS)
         {
@@ -93,6 +94,7 @@ public class KeycloakRegistrationHandlerTest {
         newPersonAccount.PersonEmail = 'TESTONLY@EMAIL.com';
         newPersonAccount.SourceSystemIdentifier = 'CPN.TSTP00015.CPSID.GS';
         newPersonAccount.HealthCloudGA__SourceSystemId__pc = 'CPN.TSTP00015.CPSID.GS';
+        newPersonAccount.isActive = true;
         //setIdentifier = (String)newPersonAccount.put('HealthCloudGA__SourceSystemId__pc', 'CPN.TSTP00015.CPSID.GS');
         if (ACCOUNT_HDID_EXISTS)
         {
@@ -110,6 +112,7 @@ public class KeycloakRegistrationHandlerTest {
         newPersonAccount3.PersonEmail = 'testusername3@me.com';
         newPersonAccount3.SourceSystemIdentifier = 'CPN.TSTP00016.CPSID.GS';
         newPersonAccount3.HealthCloudGA__SourceSystemId__pc = 'CPN.TSTP00016.CPSID.GS';
+        newPersonAccount3.isActive = true;
         //setIdentifier = (String)newPersonAccount3.put('HealthCloudGA__SourceSystemId__pc', 'CPN.TSTP00016.CPSID.GS');
         if (ACCOUNT_HDID_EXISTS)
         {
@@ -127,6 +130,7 @@ public class KeycloakRegistrationHandlerTest {
         newPersonAccount2.PersonEmail = 'TESTONLYBCSC2@EMAIL.com';
         newPersonAccount2.SourceSystemIdentifier = 'GUID01';
         newPersonAccount2.HealthCloudGA__SourceSystemId__pc = 'GUID01';
+        newPersonAccount2.isActive = true;
         //setIdentifier = (String)newPersonAccount2.put('HealthCloudGA__SourceSystemId__pc', 'GUID01');
         if (ACCOUNT_HDID_EXISTS)
         {
@@ -144,6 +148,7 @@ public class KeycloakRegistrationHandlerTest {
         newPersonAccount4.PersonEmail = 'TESTONLYBCSC4@EMAIL.com';
         newPersonAccount4.SourceSystemIdentifier = 'newPersonAccount4';
         newPersonAccount4.HealthCloudGA__SourceSystemId__pc = 'newPersonAccount4';
+        newPersonAccount4.isActive = true;
         //setIdentifier = (String)newPersonAccount4.put('HealthCloudGA__SourceSystemId__pc', 'GUID02');
         if (ACCOUNT_HDID_EXISTS)
         {
@@ -160,6 +165,7 @@ public class KeycloakRegistrationHandlerTest {
         newPersonAccount5.LastName = 'TESTONLYBCSC5_LAST';
         newPersonAccount5.PersonEmail = 'TESTONLYBCSC5@EMAIL.com';
         newPersonAccount5.SourceSystemIdentifier = 'newPersonAccount5';
+        newPersonAccount5.isActive = true;
         //setIdentifier = (String)newPersonAccount4.put('HealthCloudGA__SourceSystemId__pc', 'GUID02');
         if (ACCOUNT_HDID_EXISTS)
         {

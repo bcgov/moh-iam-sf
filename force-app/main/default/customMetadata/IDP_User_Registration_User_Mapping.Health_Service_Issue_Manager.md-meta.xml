@@ -68,7 +68,7 @@
     </values>
     <values>
         <field>Sequence__c</field>
-        <value xsi:type="xsd:double">24000.0</value>
+        <value xsi:type="xsd:double">42000.0</value>
     </values>
     <values>
         <field>Username_Type__c</field>
@@ -76,6 +76,10 @@
     </values>
     <values>
         <field>isAccountSetActive__c</field>
+        <value xsi:type="xsd:boolean">false</value>
+    </values>
+    <values>
+        <field>is_Existing_Account_Active_Required__c</field>
         <value xsi:type="xsd:boolean">false</value>
     </values>
     <values>

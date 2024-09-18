@@ -13,9 +13,10 @@ public with sharing class UserRegistrationPermission {
     public static final String TIME_ZONE_SID_KEY = 'America/Vancouver';
     public static final String USER_ASSIGNMENT_TYPE_QUEUE = 'Queue';
     
-    public static void processPermissions(List<User> userList )
+    public static void processPermissions(List<User> userList, Map<Id, User> oldUserMap, Boolean isUpdate, Boolean isAfter)
     {
         System.debug('userList: ' + userList);
+
         List<User> processUserList = new List<User>();
         processUserList.addAll(userList);
 
@@ -26,6 +27,28 @@ public with sharing class UserRegistrationPermission {
 
             matchingRole = processRoles.ReadMapping(processUser.User_Provisioning_Role__c);  
             matchingRole_list.add(matchingRole);  
+
+            if (isUpdate == true && isAfter == true) {
+                if (oldUserMap.containsKey(processUser.Id)) {
+                    User oldUserMap_rec = oldUserMap.get(processUser.Id);
+
+                    if (oldUserMap_rec.IsActive == true && processUser.IsActive == false) {
+                        List<PermissionSetAssignment> removeOtherPerms = new List<PermissionSetAssignment>();
+                        for(PermissionSetAssignment existingPSAByUser_rec : [SELECT AssigneeId,Id,PermissionSetId,PermissionSet.Name 
+                                                                                FROM PermissionSetAssignment 
+                                                                                WHERE AssigneeId =: processUser.Id
+                                                                                AND PermissionSet.ProfileId = null  
+                                                                                ORDER BY AssigneeId ASC])
+                        {
+                            removeOtherPerms.add(existingPSAByUser_rec);
+                        } 
+                        
+                        if(removeOtherPerms.size() > 0) {
+                            delete removeOtherPerms;
+                        }
+                    }
+                }
+            }
 
             if (processUser.User_Provisioning_Role__c != null) {
                 if (!matchingRole.Requires_Login_Flow__c || 

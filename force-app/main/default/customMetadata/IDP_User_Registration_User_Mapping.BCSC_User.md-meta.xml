@@ -79,6 +79,10 @@
         <value xsi:type="xsd:boolean">false</value>
     </values>
     <values>
+        <field>is_Existing_Account_Active_Required__c</field>
+        <value xsi:type="xsd:boolean">true</value>
+    </values>
+    <values>
         <field>is_Ignore_Endorser_Data__c</field>
         <value xsi:type="xsd:boolean">false</value>
     </values>

@@ -23,7 +23,7 @@ public with sharing class UserRegistrationService{
     public static final String USER_ASSIGNMENT_TYPE_PERMISSIONSETGROUP = 'Permission Set Group';
     public static final String USER_ASSIGNMENT_TYPE_PUBLICGROUP = 'Public Group';
     public static final String USER_ASSIGNMENT_TYPE_QUEUE = 'QUEUE';
-    public static final String USER_PROVISIONING_ROLE_BETA = 'BETA';
+    public static final String USER_PROVISIONING_ROLE_HGW = 'BCSC';
     public static final String SALESFORCE_USER_LICENSE_COMMUNITY = 'Community';
     public static final String SALESFORCE_USER_LICENSE_STANDARD = 'Salesforce';
     public static final String EMAIL_ASPERAND_SIGN = '@';
@@ -33,6 +33,7 @@ public with sharing class UserRegistrationService{
     public static final String USER_USERNAME_REFERENCE = 'data.username';
     public static final String EMAIL_ENCODING_KEY = 'UTF-8';
     public static final String TIME_ZONE_SID_KEY = 'America/Vancouver';
+    public static final String IDP_VALUE_FOR_TOKEN = 'idp';
 
     public static User createUser(Id portalId, Auth.UserData data) {   
         /*
@@ -44,7 +45,12 @@ public with sharing class UserRegistrationService{
         *     User Object
         * 
         */
-        //Verify user data - to be removed prior to completion
+        //Verify user data
+        String returnCheck = checkValidIdp(data);
+        if (returnCheck == 'NO') {
+            throw new Auth.AuthProviderPluginException('Invalid login, please logout');
+        }            
+        
         String userdata = JSON.serialize(data.attributeMap);
         String nonRegulatedStaff = '';
         String personAccountType = '';
@@ -115,12 +121,13 @@ public with sharing class UserRegistrationService{
                         matchingRole_list.add(manageUserRole(data)); 
                         System.debug('matchingRole_list::' + matchingRole_list);
                         String currentHost = URL.getCurrentRequestUrl().getHost();
+                        system.debug('currentHost: ' + currentHost);
                         if(currentHost.toLowerCase().contains('healthgateway')) {
                             isHealthGatewayUser = true;
                         }
                         for (IDP_User_Registration_User_Mapping__mdt matchingRole_rec : matchingRole_list) {
                             if (isHealthGatewayUser) {
-                                newUser.User_Provisioning_Role__c = USER_PROVISIONING_ROLE_BETA;
+                                newUser.User_Provisioning_Role__c = USER_PROVISIONING_ROLE_HGW;
                             } else {
                                 if (newUser.User_Provisioning_Role__c != matchingRole_rec.External_Provider_Role__c) {
                                     newUser.User_Provisioning_Role__c = matchingRole_rec.External_Provider_Role__c;
@@ -185,19 +192,20 @@ public with sharing class UserRegistrationService{
                     Boolean isBCSCData = false;
                     Boolean isHdidMatch = false;
                     Boolean isCpnData = false;
+                    Boolean isExistingAccountRequiredActive = false;
                     String contactId = null;
                     List<Account> bcscMatch = new List<Account>();
                     List<Account> endorserData = new List<Account>();
                     List<Account> cpnData = new List<Account>();
 //
-
+                    isExistingAccountRequiredActive = matchingRole_rec.is_Existing_Account_Active_Required__c == true ? true:false;
 //
                     if (data.attributeMap.containsKey('idp') && data.attributeMap.containsKey('bcsc_guid')) {
                         isBCSCData = true;
                         List<String> keyValue = new List<String>();
                         keyValue.addAll(data.attributeMap.get('bcsc_guid').split(','));
                         if (!keyValue.isEmpty()) {
-                            bcscMatch = fetchPersonAccount(keyValue);
+                            bcscMatch = fetchPersonAccount(keyValue, isExistingAccountRequiredActive);
                         }
                         
                     }
@@ -212,7 +220,7 @@ public with sharing class UserRegistrationService{
                         keyValue.addAll(data.attributeMap.get('endorser_data').remove('[').remove(']').split(','));
                         System.debug('keyValue:' + keyValue);
                         if (data.attributeMap.get('endorser_data') != '[]') {
-                            endorserData = fetchPersonAccount(keyValue);
+                            endorserData = fetchPersonAccount(keyValue, isExistingAccountRequiredActive);
                             if (!endorserData.isEmpty()) {
                                 isEndorserFound = true;
                             }
@@ -229,7 +237,7 @@ public with sharing class UserRegistrationService{
                         keyValue.addAll(data.attributeMap.get('common_provider_number').split(','));
                         System.debug('keyValue:' + keyValue);
                         if (data.attributeMap.get('common_provider_number') != '') {
-                            cpnData = fetchPersonAccount(keyValue);
+                            cpnData = fetchPersonAccount(keyValue, isExistingAccountRequiredActive);
                             if (!cpnData.isEmpty()) {
                                 contactId = cpnData[0].PersonContactId;
                                 isCpnFound = true;
@@ -259,6 +267,9 @@ public with sharing class UserRegistrationService{
                             qryString = 'select id,PersonContactId, isActive from Account where HDID__c = \'' + searchValue + '\'';
                         } else {
                             qryString = 'select id,PersonContactId, isActive from Account where SourceSystemIdentifier = \'' + searchValue + '\'';
+                        }
+                        if (isExistingAccountRequiredActive == true) {
+                            qryString += ' AND isActive = true';
                         }
 
                         List<Account> accountList = Database.query(qryString);
@@ -374,6 +385,13 @@ public with sharing class UserRegistrationService{
         *     None
         * 
         */       
+        //Verify user data
+        system.debug('data:'+ json.serializePretty(data));
+        String returnCheck = checkValidIdp(data);
+        if (returnCheck == 'NO') {
+            throw new Auth.AuthProviderPluginException('Invalid login, please logout');
+        }            
+
         Boolean isEndorserData = false;
         Boolean isEndorserValuesProvided = true;
         Boolean isHdidMatch = false;
@@ -384,6 +402,9 @@ public with sharing class UserRegistrationService{
         List<Account> endorserData = new List<Account>();
 
         system.debug('data:'+ json.serializePretty(data));
+
+        String currentHost = URL.getCurrentRequestUrl().getHost();
+        system.debug('currentHost: ' + currentHost);
         //Fetch Salesforce Id
         UserRegistrationCustomMetadataUtility processFieldcheck = new UserRegistrationCustomMetadataUtility();
         List<User> retrieveUser = new List<User>();
@@ -449,7 +470,7 @@ public with sharing class UserRegistrationService{
             
             if (data.attributeMap.get('endorser_data') != '[]') {
                 keyValue.addAll(data.attributeMap.get('endorser_data').remove('[').remove(']').split(','));
-                endorserData = fetchPersonAccount(keyValue);
+                endorserData = fetchPersonAccount(keyValue, false);
                 if (!endorserData.isEmpty()) {
                     isEndorserFound = true;
                 }
@@ -461,7 +482,7 @@ public with sharing class UserRegistrationService{
 
         if ((data.attributeMap.containsKey('roles') || data.attributeMap.containsKey('idp')) && processFieldcheck.isFieldExisting('User_Provisioning_Role__c', 'User')) {
             //keycloakRole = data.attributeMap.get('roles'); 
-            String currentHost = URL.getCurrentRequestUrl().getHost();
+            currentHost = URL.getCurrentRequestUrl().getHost();
             List<IDP_User_Registration_User_Mapping__mdt>  matchingRole_list = new List<IDP_User_Registration_User_Mapping__mdt>();
             
             matchingRole_list.add(manageUserRole(data)); 
@@ -471,7 +492,7 @@ public with sharing class UserRegistrationService{
             }          
             for (IDP_User_Registration_User_Mapping__mdt matchingRole_rec : matchingRole_list) {
                 if (isHealthGatewayUser) {
-                    existingUser.User_Provisioning_Role__c = USER_PROVISIONING_ROLE_BETA;
+                    existingUser.User_Provisioning_Role__c = USER_PROVISIONING_ROLE_HGW;
                 } else {
                     if (existingUser.get('User_Provisioning_Role__c') != matchingRole_rec.External_Provider_Role__c) {
                         existingUser.put('User_Provisioning_Role__c', matchingRole_rec.External_Provider_Role__c);
@@ -577,23 +598,33 @@ public with sharing class UserRegistrationService{
         
     }
 
-    private static List<Account> fetchPersonAccount(List<String> keyLookup) 
+    private static List<Account> fetchPersonAccount(List<String> keyLookup, Boolean isActiveRequired) 
     {
         System.debug('keyLookup_fetchvalue: ' + keyLookup);
         Boolean isNewAccount = false;
         String qryFilter = '';
         List<Account> newCommUser = new List<Account>();
         List<String> keyvalues = new List<String>();
+        List<Account> existingAccount = new List<Account>();
         
         if (!keyLookup.isEmpty()) {
             keyvalues.addAll(keyLookup);
         } else {
             return newCommUser;
         }
-        List<Account> existingAccount = [
-            SELECT Id, PersonContactId, FirstName, LastName, PersonEmail, RecordTypeId, SourceSystemIdentifier 
-            FROM Account where HealthCloudGA__SourceSystemId__pc IN : keyValues 
-            ]; 
+        if (isActiveRequired == true)
+        {
+            existingAccount = [
+                SELECT Id, PersonContactId, FirstName, LastName, PersonEmail, RecordTypeId, SourceSystemIdentifier, isActive
+                FROM Account WHERE isActive = true AND HealthCloudGA__SourceSystemId__pc IN : keyValues 
+                ]; 
+        } else {
+            existingAccount = [
+                SELECT Id, PersonContactId, FirstName, LastName, PersonEmail, RecordTypeId, SourceSystemIdentifier, isActive
+                FROM Account WHERE HealthCloudGA__SourceSystemId__pc IN : keyValues 
+                ]; 
+        }
+
 
         return existingAccount;
     }
@@ -902,6 +933,52 @@ public with sharing class UserRegistrationService{
             
         }
         return isLicenseAvailable;
+        
+    }
+
+    public static String checkValidIdp(Auth.UserData data) 
+    {
+         /*
+        * Description: verify user token is a valid source.
+        * Parameters:
+        *     None
+        * Returns:
+        *     String: String
+        * 
+        */           
+        String isValidIdp = '';
+        String currentHost = URL.getCurrentRequestUrl().getHost();
+        String currentIdp = '';
+        Boolean matchfoundIdp = false;
+        List<IDP_User_Registration_Domain_Setting__mdt> availableDomain_list = new List<IDP_User_Registration_Domain_Setting__mdt>();
+        availableDomain_list =
+            [SELECT Id, DeveloperName, Domain__c, Token_Source__c, Token_Attribute__c
+            FROM IDP_User_Registration_Domain_Setting__mdt WHERE Domain__c =: currentHost];
+            
+        if (availableDomain_list.size() > 0)
+        {
+            for(IDP_User_Registration_Domain_Setting__mdt domainSetting_rec : availableDomain_list)
+            {
+                if(data.attributeMap.containsKey(domainSetting_rec.Token_Attribute__c)) {
+                    currentIdp = data.attributeMap.get(domainSetting_rec.Token_Attribute__c);
+                    matchfoundIdp = true;
+                } else {
+                    currentIdp = '';
+                }
+
+                if(currentIdp == domainSetting_rec.Token_Source__c  && matchfoundIdp == true)
+                {
+                    isValidIdp = 'YES';
+                } else {
+                    isValidIdp = 'NO';
+                }
+            }
+
+        } else {
+            isValidIdp = 'NA';
+        }
+        System.debug('isValidIdp: ' + isValidIdp);
+        return isValidIdp;
         
     }
 
