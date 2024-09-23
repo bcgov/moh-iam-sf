@@ -40,6 +40,8 @@ public class UserRegistrationCustomMetadataUtility{
     public Map<String,IDP_User_Registration_Permission_Set__mdt> userPublicGroupIgnoreByName_map;
     
     public List<String> userExternalProvider = new List<String>();
+
+    public String ProvidedExternalProvider = '';
     
     public UserRegistrationCustomMetadataUtility(String ExternalProvider){
         /*
@@ -54,6 +56,7 @@ public class UserRegistrationCustomMetadataUtility{
         system.debug('ExternalProvider:' + ExternalProvider);
         if (ExternalProvider != null)
         {
+            ProvidedExternalProvider = ExternalProvider;
             userExternalProvider.addAll(ExternalProvider.remove('[').remove(']').split(','));
         }
         List<String> userRoleFilter = new List<String>();
@@ -79,15 +82,21 @@ public class UserRegistrationCustomMetadataUtility{
                         FROM IDP_User_Registration_User_Mapping__mdt
                         WHERE External_Provider_Role__c IN: userRoleFilter
                         ORDER BY Sequence__c ASC
-                        LIMIT 1
                         ];
         
         // Load Map object for searching values
-        userMappingByRole_map = new Map<String,IDP_User_Registration_User_Mapping__mdt>();                     
+        userMappingByRole_map = new Map<String,IDP_User_Registration_User_Mapping__mdt>();
+        Integer userMappingbyRoleCount = 0;                     
         for(IDP_User_Registration_User_Mapping__mdt userMapping_rec : userMapping)
         {
-            userMappingByRole_map.put(userMapping_rec.External_Provider_Role__c, userMapping_rec);
+            userMappingbyRoleCount++;
+            if (userMappingbyRoleCount <= 1)
+            {
+                userMappingByRole_map.put(userMapping_rec.External_Provider_Role__c, userMapping_rec);
+            }
+            
         }
+        system.debug('userMapping: ' + userMapping);
         
         //Fetch metadata for PermissionSet mapping
         userPermissionSet = [SELECT DeveloperName,External_Provider_User_Mapping__c,Id,Label,Language,MasterLabel,
@@ -126,7 +135,7 @@ public class UserRegistrationCustomMetadataUtility{
         }
     }
     
-    public IDP_User_Registration_User_Mapping__mdt ReadMapping(String keycloakRole){
+    public List<IDP_User_Registration_User_Mapping__mdt> ReadMapping(String keycloakRole){
         /*
         * Description: ReadMapping method is used to retrieve matching records from custom metadata IDP_User_Registration_User_Mapping__mdt 
         * Parameters:
@@ -136,7 +145,7 @@ public class UserRegistrationCustomMetadataUtility{
         * 
         */        
         //Create single instance of Metadata
-        IDP_User_Registration_User_Mapping__mdt foundUserMapping_md = new IDP_User_Registration_User_Mapping__mdt();
+        List<IDP_User_Registration_User_Mapping__mdt> foundUserMapping_md = new List<IDP_User_Registration_User_Mapping__mdt>();
         //Find keycloakRole in userMapping
         String searchForRoleRec = keycloakRole;
         List<String> searchForRole = new List<String>();
@@ -167,7 +176,7 @@ public class UserRegistrationCustomMetadataUtility{
     
             if (userMappingByRole_map.containsKey(searchKey))
             {
-                foundUserMapping_md = userMappingByRole_map.get(searchKey);
+                foundUserMapping_md.add(userMappingByRole_map.get(searchKey));
             }
         }
 

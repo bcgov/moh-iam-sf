@@ -62,7 +62,7 @@ public with sharing class UserRegistrationService{
         UserRegistrationCustomMetadataUtility fetchRoles = new UserRegistrationCustomMetadataUtility(data.attributeMap.get(keyLookup));
         list<IDP_User_Registration_User_Mapping__mdt> userRoleList = new list<IDP_User_Registration_User_Mapping__mdt>();
         //Get user mapping record based on source IDP
-        userRoleList.add(fetchRoles.ReadMapping(data.attributeMap.get(keyLookup)));
+        userRoleList.addAll(fetchRoles.ReadMapping(data.attributeMap.get(keyLookup)));
      
         system.debug('data:'+ json.serializePretty(data));
         User newUser = new User();
@@ -118,7 +118,7 @@ public with sharing class UserRegistrationService{
                         
                         List<IDP_User_Registration_User_Mapping__mdt>  matchingRole_list = new List<IDP_User_Registration_User_Mapping__mdt>();
                         
-                        matchingRole_list.add(manageUserRole(data)); 
+                        matchingRole_list.addAll(manageUserRole(data)); 
                         System.debug('matchingRole_list::' + matchingRole_list);
                         String currentHost = URL.getCurrentRequestUrl().getHost();
                         system.debug('currentHost: ' + currentHost);
@@ -129,8 +129,8 @@ public with sharing class UserRegistrationService{
                             if (isHealthGatewayUser) {
                                 newUser.User_Provisioning_Role__c = USER_PROVISIONING_ROLE_HGW;
                             } else {
-                                if (newUser.User_Provisioning_Role__c != matchingRole_rec.External_Provider_Role__c) {
-                                    newUser.User_Provisioning_Role__c = matchingRole_rec.External_Provider_Role__c;
+                                if (newUser.User_Provisioning_Role__c != fetchRoles.ProvidedExternalProvider) {
+                                    newUser.User_Provisioning_Role__c = fetchRoles.ProvidedExternalProvider;
                                 }
                             }
 
@@ -139,7 +139,7 @@ public with sharing class UserRegistrationService{
                     if ((data.attributeMap.containsKey('roles') || data.attributeMap.containsKey('idp')) && processRoles.isFieldExisting('CPSID__c', 'User')) {
                         List<IDP_User_Registration_User_Mapping__mdt>  matchingRole_list = new List<IDP_User_Registration_User_Mapping__mdt>();
                         
-                        matchingRole_list.add(manageUserRole(data)); 
+                        matchingRole_list.addAll(manageUserRole(data)); 
 
                         for (IDP_User_Registration_User_Mapping__mdt matchingRole_rec : matchingRole_list) {
                             String roleFilter = matchingRole_rec.External_Provider_Role__c;
@@ -166,7 +166,7 @@ public with sharing class UserRegistrationService{
         }
         List<IDP_User_Registration_User_Mapping__mdt>  matchingRole_list = new List<IDP_User_Registration_User_Mapping__mdt>();
                         
-        matchingRole_list.add(manageUserRole(data)); 
+        matchingRole_list.addAll(manageUserRole(data)); 
 
         String activeUserId = '';
         try {
@@ -402,6 +402,8 @@ public with sharing class UserRegistrationService{
         List<Account> endorserData = new List<Account>();
 
         system.debug('data:'+ json.serializePretty(data));
+        String keyLookup = fetchUserMappingKey(data);
+        UserRegistrationCustomMetadataUtility fetchRoles = new UserRegistrationCustomMetadataUtility(data.attributeMap.get(keyLookup));
 
         String currentHost = URL.getCurrentRequestUrl().getHost();
         system.debug('currentHost: ' + currentHost);
@@ -485,7 +487,7 @@ public with sharing class UserRegistrationService{
             currentHost = URL.getCurrentRequestUrl().getHost();
             List<IDP_User_Registration_User_Mapping__mdt>  matchingRole_list = new List<IDP_User_Registration_User_Mapping__mdt>();
             
-            matchingRole_list.add(manageUserRole(data)); 
+            matchingRole_list.addAll(manageUserRole(data)); 
 
             if(currentHost.toLowerCase().contains('healthgateway')) {
                 isHealthGatewayUser = true;
@@ -494,8 +496,8 @@ public with sharing class UserRegistrationService{
                 if (isHealthGatewayUser) {
                     existingUser.User_Provisioning_Role__c = USER_PROVISIONING_ROLE_HGW;
                 } else {
-                    if (existingUser.get('User_Provisioning_Role__c') != matchingRole_rec.External_Provider_Role__c) {
-                        existingUser.put('User_Provisioning_Role__c', matchingRole_rec.External_Provider_Role__c);
+                    if (existingUser.get('User_Provisioning_Role__c') != fetchRoles.ProvidedExternalProvider) {
+                        existingUser.put('User_Provisioning_Role__c', fetchRoles.ProvidedExternalProvider);
                     }
                 }
             }
@@ -504,7 +506,7 @@ public with sharing class UserRegistrationService{
             //keycloakRole = data.attributeMap.get('roles'); 
             List<IDP_User_Registration_User_Mapping__mdt>  matchingRole_list = new List<IDP_User_Registration_User_Mapping__mdt>();
             
-            matchingRole_list.add(manageUserRole(data)); 
+            matchingRole_list.addAll(manageUserRole(data)); 
 
             for (IDP_User_Registration_User_Mapping__mdt matchingRole_rec : matchingRole_list) {
                 String roleFilter = matchingRole_rec.External_Provider_Role__c;
@@ -561,7 +563,7 @@ public with sharing class UserRegistrationService{
         // add/update user role
         List<IDP_User_Registration_User_Mapping__mdt>  matchingRole_list = new List<IDP_User_Registration_User_Mapping__mdt>();
 
-        matchingRole_list.add(manageUserRole(data));
+        matchingRole_list.addAll(manageUserRole(data));
         for (IDP_User_Registration_User_Mapping__mdt matchingRoleRec : matchingRole_list)
         {
             String userName = UserRegistrationService.generateUserName(data, matchingRoleRec.Username_Type__c, matchingRoleRec.Default_Domain__c);
@@ -776,7 +778,7 @@ public with sharing class UserRegistrationService{
             
     }
     
-    private static IDP_User_Registration_User_Mapping__mdt manageUserRole(Auth.UserData data)
+    private static List<IDP_User_Registration_User_Mapping__mdt> manageUserRole(Auth.UserData data)
     {
          /*
         * Description: Manage user role
@@ -787,18 +789,19 @@ public with sharing class UserRegistrationService{
         * 
         */ 
 
-        IDP_User_Registration_User_Mapping__mdt roles = new IDP_User_Registration_User_Mapping__mdt();
+        List<IDP_User_Registration_User_Mapping__mdt> roles = new List<IDP_User_Registration_User_Mapping__mdt>();
         UserRegistrationCustomMetadataUtility processRoles = new UserRegistrationCustomMetadataUtility();
 
         //Determine source IDP
         if (data.attributeMap.containsKey('idp')) {
             // BCSC
             processRoles = new UserRegistrationCustomMetadataUtility(data.attributeMap.get('idp'));
-            roles = processRoles.ReadMapping(data.attributeMap.get('idp'));
+            roles = processRoles.userMapping;
         } else if (data.attributemap.containsKey('roles')) {
             // MoH
             processRoles = new UserRegistrationCustomMetadataUtility(data.attributeMap.get('roles'));
-            roles = processRoles.ReadMapping(data.attributeMap.get('roles'));
+            roles = processRoles.userMapping;
+            
         }
         
         return roles;
@@ -823,7 +826,7 @@ public with sharing class UserRegistrationService{
         String licenseType = '';
         UserRegistrationCustomMetadataUtility fetchLicenseType = New UserRegistrationCustomMetadataUtility(data.attributeMap.get('roles'));
         List<IDP_User_Registration_User_Mapping__mdt> foundRoleMaping = new List<IDP_User_Registration_User_Mapping__mdt>();
-        foundRoleMaping.add(fetchLicenseType.ReadMapping(data.attributeMap.get('roles')));
+        foundRoleMaping.addAll(fetchLicenseType.ReadMapping(data.attributeMap.get('roles')));
         
         if (foundRoleMaping.size() > 0)
         {

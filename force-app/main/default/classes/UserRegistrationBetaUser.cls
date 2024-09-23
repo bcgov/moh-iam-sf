@@ -28,7 +28,7 @@ public with sharing class UserRegistrationBetaUser {
                 UserRegistrationCustomMetadataUtility processRoles = new UserRegistrationCustomMetadataUtility(checkUser.User_Provisioning_Role__c);
                 String assignedRole = checkUser.User_Provisioning_Role__c;
                 List<IDP_User_Registration_User_Mapping__mdt>  userRoleList = new List<IDP_User_Registration_User_Mapping__mdt>();
-                userRoleList.add(processRoles.ReadMapping(checkUser.User_Provisioning_Role__c));
+                userRoleList.addAll(processRoles.ReadMapping(checkUser.User_Provisioning_Role__c));
                 for (IDP_User_Registration_User_Mapping__mdt  userBeta: userRoleList)
                 {
                     if (userBeta.is_Restrict_Beta_User_Only__c == true)

@@ -22,12 +22,16 @@ public with sharing class UserRegistrationPermission {
         processUserList.addAll(userList);
 
         List<IDP_User_Registration_User_Mapping__mdt>  matchingRole_list = new List<IDP_User_Registration_User_Mapping__mdt>();
-        IDP_User_Registration_User_Mapping__mdt  matchingRole = new IDP_User_Registration_User_Mapping__mdt();   
+        List<IDP_User_Registration_User_Mapping__mdt>  matchingRoles = new List<IDP_User_Registration_User_Mapping__mdt>();   
         for (User processUser: processUserList) {
             UserRegistrationCustomMetadataUtility processRoles = new UserRegistrationCustomMetadataUtility(processUser.User_Provisioning_Role__c);
 
-            matchingRole = processRoles.ReadMapping(processUser.User_Provisioning_Role__c);  
-            matchingRole_list.add(matchingRole);  
+            matchingRoles = processRoles.ReadMapping(processUser.User_Provisioning_Role__c);  
+            for(IDP_User_Registration_User_Mapping__mdt matchingRole_rec: matchingRoles)
+            {
+                matchingRole_list.addAll(matchingRoles);  
+            }
+            //matchingRole_list.add(matchingRole);  
 
             String userTitle = processUser.Title != Null ? processUser.Title.toLowerCase(): '';
             system.debug('processUser.Title.toLowerCase()' + userTitle);
@@ -57,12 +61,18 @@ public with sharing class UserRegistrationPermission {
                     }
                 }
             }
-
+            Boolean isRoleRequireLoginFlow = false;
+            for (IDP_User_Registration_User_Mapping__mdt matchingRole_rec : matchingRoles)
+            {
+                if (matchingRole_rec.Requires_Login_Flow__c) {
+                    isRoleRequireLoginFlow = true;
+                }
+            }
             if (processUser.User_Provisioning_Role__c != null && (!isInactiveUser)) {
-                if (!matchingRole.Requires_Login_Flow__c || 
+                if (!isRoleRequireLoginFlow || 
                         (System.Trigger.isExecuting && 
                         System.Trigger.isUpdate && 
-                        matchingRole.Requires_Login_Flow__c) ) {
+                        isRoleRequireLoginFlow) ) {
                     try {
                 
                         // add/update any new permission sets
@@ -184,8 +194,8 @@ public with sharing class UserRegistrationPermission {
 
             if (userPerms.Assignment_Type__c == USER_ASSIGNMENT_TYPE_PERMISSIONSET)
             {
-                if (userRole.Id == userPerms.External_Provider_User_Mapping__c)
-                {
+                //if (userRole.Id == userPerms.External_Provider_User_Mapping__c)
+                //{
                     if (!userPerms.is_Beta_Only_User__c) 
                     {
                         associatedPermset.add(userPerms.Salesforce_Permission_Set__c);
@@ -194,11 +204,11 @@ public with sharing class UserRegistrationPermission {
                     {
                         associatedPermsetGroup.add(userPerms.Salesforce_Permission_Set_Group__c);
                     }                    
-                }
+                //}
             } else if (userPerms.Assignment_Type__c == USER_ASSIGNMENT_TYPE_PERMISSIONSETGROUP)
             {
-                if (userRole.Id == userPerms.External_Provider_User_Mapping__c)
-                {
+                //if (userRole.Id == userPerms.External_Provider_User_Mapping__c)
+                //{
                     if (!userPerms.is_Beta_Only_User__c)
                     {
                         associatedPermsetGroup.add(userPerms.Salesforce_Permission_Set_Group__c);
@@ -207,7 +217,7 @@ public with sharing class UserRegistrationPermission {
                     {
                         associatedPermsetGroup.add(userPerms.Salesforce_Permission_Set_Group__c);
                     }
-                } 
+                //} 
             }
 
         }
