@@ -51,6 +51,10 @@
         <value xsi:type="xsd:string">PC_HLBC_811,HCR_Support_and_811</value>
     </values>
     <values>
+        <field>Salesforce_Queue__c</field>
+        <value xsi:nil="true"/>
+    </values>
+    <values>
         <field>Salesforce_User_License__c</field>
         <value xsi:type="xsd:string">Salesforce</value>
     </values>
@@ -72,6 +76,10 @@
     </values>
     <values>
         <field>isAccountSetActive__c</field>
+        <value xsi:type="xsd:boolean">false</value>
+    </values>
+    <values>
+        <field>is_Existing_Account_Active_Required__c</field>
         <value xsi:type="xsd:boolean">false</value>
     </values>
     <values>

@@ -328,13 +328,13 @@ public with sharing class UserRegistrationPermission {
             {
                 userGroups.add(userGroupRec.Salesforce_Public_Group__c);
             } 
-/*                 else 
+                 else 
             {
-                if (userPerms.Assignment_Type__c == USER_ASSIGNMENT_TYPE_QUEUE)
+                if (userGroupRec.Assignment_Type__c == USER_ASSIGNMENT_TYPE_QUEUE)
                 {
-                    userGroup.add(userPerms.Salesforce_Queue__c);
+                    userGroups.add(userGroupRec.Salesforce_Queue__c);
                 }
-            } */
+            }
             
         }
         //Add Groups for is_Process_HCFN_Groups__c flag set to true

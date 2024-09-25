@@ -23,6 +23,10 @@
         <value xsi:type="xsd:string">PCN_Attachment_Coordinators</value>
     </values>
     <values>
+        <field>Salesforce_Queue__c</field>
+        <value xsi:nil="true"/>
+    </values>
+    <values>
         <field>is_Beta_Only_User__c</field>
         <value xsi:type="xsd:boolean">false</value>
     </values>
