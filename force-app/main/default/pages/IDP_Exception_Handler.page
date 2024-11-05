@@ -1,0 +1,45 @@
+<apex:page controller="IDP_ExceptionHandler" showHeader="false" sidebar="false"  lightningStylesheets="true">
+    <html lang="en">
+        <head>
+            <title>{!pageTitle}</title>
+            <style>
+                /* Basic styling */
+                body { font-family: Arial, sans-serif; text-align: center; }
+                #header { display: flex; justify-content: space-between; align-items: center; padding: 10px; }
+                #logout { float: right; }
+                #content { padding: 20px; }
+                .exception-message { color: red; font-weight: bold; }
+                .standard-message { margin: 15px 0; }
+                #footer { margin-top: 30px; font-size: 0.9em; }
+            </style>
+        </head>
+        <body>
+            <div id="header">
+                <!-- Logo -->
+                <img src="{!$Resource.IDP_BCID_HealthGateway}" alt="Health Gateway" width="200" />
+                <!-- Logout Link -->
+                <a id="logout" href="{!logoutURL}">Logout</a>
+            </div>
+            
+            <div id="content">
+                <!-- Standard Message from Metadata -->
+                <p Style="font-size:20px;">{!pageTitle}</p>
+                <p Style="font-size:30px;" class="standard-message">{!exceptionHandlingData.Standard_Message_Body__c}</p>
+                
+                <!-- Exception Details -->
+                <p class="exception-message">Error Code: {!errorCode}</p>
+                <p class="exception-message">Error Message: {!errorMessage}</p>
+                
+                <!-- Additional Custom Message from IDP_Exception_Messages -->
+                <p Style="font-size:20px;">{!customExceptionMessage}</p>
+            </div>
+            
+            <!-- Footer Email Link with Error Details -->
+            <div id="footer">
+                <a Style="font-size:20px;" href="mailto:{!contactEmail}?subject=Health Gateway Support:Error Code {!errorCode}&body=Error Message: {!errorMessage}.  Please enter your contact info below.">
+                    Contact Support
+                </a>
+            </div>
+        </body>
+    </html>
+</apex:page>

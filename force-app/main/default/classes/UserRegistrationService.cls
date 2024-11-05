@@ -48,7 +48,7 @@ public with sharing class UserRegistrationService{
         //Verify user data
         String returnCheck = checkValidIdp(data);
         if (returnCheck == 'NO') {
-            throw new Auth.AuthProviderPluginException('Invalid login, please logout');
+            throw new Auth.AuthProviderPluginException('1000_Invalid_login_please_logout');
         }            
         
         String userdata = JSON.serialize(data.attributeMap);
@@ -306,7 +306,7 @@ public with sharing class UserRegistrationService{
                         throw new Auth.AuthProviderPluginException('No Match found for Endorser Supplied Data');
                     }
                     if (!isHdidMatch && isHdidMatch != null && fieldExisting) {
-                        throw new Auth.DiscoveryCustomErrorException('No Match found for HDID');
+                        throw new Auth.DiscoveryCustomErrorException('1000_No_Match_found_for_HDID');
                     } else if (isHdidMatch) {
                         newUser.ContactId = contactId;
                     } else if (!isCpnFound) {
@@ -389,7 +389,7 @@ public with sharing class UserRegistrationService{
         system.debug('data:'+ json.serializePretty(data));
         String returnCheck = checkValidIdp(data);
         if (returnCheck == 'NO') {
-            throw new Auth.AuthProviderPluginException('Invalid login, please logout');
+            throw new Auth.AuthProviderPluginException('1000_Invalid_login_please_logout');
         }            
 
         Boolean isEndorserData = false;
