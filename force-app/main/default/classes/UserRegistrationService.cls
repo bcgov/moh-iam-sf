@@ -447,8 +447,6 @@ public with sharing class UserRegistrationService{
         }        
 
         existingUser.FederationIdentifier = data.username;
-        
-        existingUser.alias = UserRegistrationService.generateUserAlias(data);
 
         if (data.attributeMap.containsKey('endorser_data')) {
             emptyEndorser = data.attributeMap.get('endorser_data');
