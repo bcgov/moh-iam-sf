@@ -10,17 +10,11 @@
     {
       "path": "force-app",
       "package": "Keycloak.Community",
-      "versionName": "ver 1.24",
-      "versionNumber": "1.24.0.NEXT",
+      "versionName": "ver 1.25",
+      "versionNumber": "1.25.0.NEXT",
       "default": false,
       "versionDescription": "Keycloak User Provisioning, community enabled",
-      "definitionFile": "config/project-scratch-release.json",
-      "dependencies": [
-        {
-          "package": "HealthCloud",
-          "subscriberPackageVersionId": "04t4W000002PysVQAS"
-        }
-      ]
+      "definitionFile": "config/project-scratch-release.json"
     }
   ],
   "namespace": "",
@@ -109,6 +103,7 @@
     "Keycloak.Community@1.23.0-4": "04tJQ000001HW69YAG",
     "Keycloak.Community@1.23.0-5": "04tJQ000001HskzYAC",
     "Keycloak.Community@1.24.0-1": "04tJQ000001NmhhYAC",
-    "Keycloak.Community@1.24.0-2": "04tJQ000001PjhJYAS"
+    "Keycloak.Community@1.24.0-2": "04tJQ000001PjhJYAS",
+    "Keycloak.Community@1.25.0-1": "04tJQ000001Xc7ZYAS"
   }
 }

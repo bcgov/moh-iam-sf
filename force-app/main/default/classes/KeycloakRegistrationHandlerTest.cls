@@ -21,6 +21,7 @@ public class KeycloakRegistrationHandlerTest {
   private static final String API_USER_URL = 'www.concursolutions.com/user/api';
   private static User RUN_TIME_USER = new User();
   private static Boolean ACCOUNT_HDID_EXISTS = false;
+  private static Boolean HC_SOURCESYSTEMID_PC_EXISTS = false;
 
   private static Map<String, String> setupAuthProviderConfig() {
       Map<String, String> authProviderConfiguration = new Map<String, String>();
@@ -55,6 +56,10 @@ public class KeycloakRegistrationHandlerTest {
     {
         ACCOUNT_HDID_EXISTS = true;
     } 
+    if (utilityChecks.isFieldExisting('HealthCloudGA_SourceSystemId__pc', 'Account'))
+    {
+        HC_SOURCESYSTEMID_PC_EXISTS = true;
+    }
 
     User runtimeUser = [SELECT Id FROM User WHERE Email = 'systemuser@testorg.com' LIMIT 1];
     System.runAs(runtimeUser) {   
@@ -76,9 +81,14 @@ public class KeycloakRegistrationHandlerTest {
         newPersonAccount0.LastName = 'TESTONLY_LAST';
         newPersonAccount0.PersonEmail = 'TESTONLY0@EMAIL.com';
         newPersonAccount0.SourceSystemIdentifier = 'CPN.TSTP00000.CPSID.GS';
-        newPersonAccount0.HealthCloudGA__SourceSystemId__pc = 'CPN.TSTP00000.CPSID.GS';
         newPersonAccount0.isActive = true;
-        //setIdentifier = (String)newPersonAccount0.put('HealthCloudGA__SourceSystemId__pc', 'CPN.TSTP00000.CPSID.GS');
+        if (HC_SOURCESYSTEMID_PC_EXISTS)
+        {
+            newPersonAccount0.put('HealthCloudGA__SourceSystemId__pc', 'CPN.TSTP00000.CPSID.GS');
+        } else {
+            newPersonAccount0.put('SourceSystemIdentifier', 'CPN.TSTP00000.CPSID.GS');
+        }
+
         if (ACCOUNT_HDID_EXISTS)
         {
             newPersonAccount0.put('HDID__c', 'newPersonAccount0');
@@ -93,9 +103,14 @@ public class KeycloakRegistrationHandlerTest {
         newPersonAccount.LastName = 'TESTONLY_LAST';
         newPersonAccount.PersonEmail = 'TESTONLY@EMAIL.com';
         newPersonAccount.SourceSystemIdentifier = 'CPN.TSTP00015.CPSID.GS';
-        newPersonAccount.HealthCloudGA__SourceSystemId__pc = 'CPN.TSTP00015.CPSID.GS';
         newPersonAccount.isActive = true;
-        //setIdentifier = (String)newPersonAccount.put('HealthCloudGA__SourceSystemId__pc', 'CPN.TSTP00015.CPSID.GS');
+        if (HC_SOURCESYSTEMID_PC_EXISTS)
+        {
+            newPersonAccount.put('HealthCloudGA__SourceSystemId__pc', 'CPN.TSTP00015.CPSID.GS');
+        } else {
+            newPersonAccount.put('SourceSystemIdentifier', 'CPN.TSTP00015.CPSID.GS');
+        }
+
         if (ACCOUNT_HDID_EXISTS)
         {
             newPersonAccount.put('HDID__c', 'newPersonAccount');
@@ -111,9 +126,16 @@ public class KeycloakRegistrationHandlerTest {
         newPersonAccount3.LastName = 'TESTONLYBCSC3_LAST';
         newPersonAccount3.PersonEmail = 'testusername3@me.com';
         newPersonAccount3.SourceSystemIdentifier = 'CPN.TSTP00016.CPSID.GS';
-        newPersonAccount3.HealthCloudGA__SourceSystemId__pc = 'CPN.TSTP00016.CPSID.GS';
+
         newPersonAccount3.isActive = true;
-        //setIdentifier = (String)newPersonAccount3.put('HealthCloudGA__SourceSystemId__pc', 'CPN.TSTP00016.CPSID.GS');
+
+        if (HC_SOURCESYSTEMID_PC_EXISTS)
+        {
+            newPersonAccount3.put('HealthCloudGA__SourceSystemId__pc', 'CPN.TSTP00016.CPSID.GS');
+        } else {
+            newPersonAccount3.put('SourceSystemIdentifier', 'CPN.TSTP00016.CPSID.GS');
+        }
+
         if (ACCOUNT_HDID_EXISTS)
         {
             newPersonAccount3.put('HDID__c', 'newPersonAccount3');
@@ -127,11 +149,16 @@ public class KeycloakRegistrationHandlerTest {
         newPersonAccount2.RecordTypeId = personAccountRecordTypeId;
         newPersonAccount2.FirstName = 'TESTONLYBCSC2_FIRST';
         newPersonAccount2.LastName = 'TESTONLYBCSC2_LAST';
-        newPersonAccount2.PersonEmail = 'TESTONLYBCSC2@EMAIL.com';
         newPersonAccount2.SourceSystemIdentifier = 'GUID01';
-        newPersonAccount2.HealthCloudGA__SourceSystemId__pc = 'GUID01';
         newPersonAccount2.isActive = true;
-        //setIdentifier = (String)newPersonAccount2.put('HealthCloudGA__SourceSystemId__pc', 'GUID01');
+
+        if (HC_SOURCESYSTEMID_PC_EXISTS)
+        {
+            newPersonAccount2.put('HealthCloudGA__SourceSystemId__pc', 'GUID01');
+        } else {
+            newPersonAccount2.put('SourceSystemIdentifier', 'GUID01');
+        }
+
         if (ACCOUNT_HDID_EXISTS)
         {
             newPersonAccount2.put('HDID__c', 'newPersonAccount2');
@@ -147,9 +174,16 @@ public class KeycloakRegistrationHandlerTest {
         newPersonAccount4.LastName = 'TESTONLYBCSC4_LAST';
         newPersonAccount4.PersonEmail = 'TESTONLYBCSC4@EMAIL.com';
         newPersonAccount4.SourceSystemIdentifier = 'newPersonAccount4';
-        newPersonAccount4.HealthCloudGA__SourceSystemId__pc = 'newPersonAccount4';
+
         newPersonAccount4.isActive = true;
-        //setIdentifier = (String)newPersonAccount4.put('HealthCloudGA__SourceSystemId__pc', 'GUID02');
+
+        if (HC_SOURCESYSTEMID_PC_EXISTS)
+        {
+            newPersonAccount4.put('HealthCloudGA__SourceSystemId__pc', 'newPersonAccount4');
+        } else {
+            newPersonAccount4.put('SourceSystemIdentifier', 'newPersonAccount4');
+        }
+
         if (ACCOUNT_HDID_EXISTS)
         {
             newPersonAccount4.put('HDID__c', 'newPersonAccount4');
@@ -166,7 +200,14 @@ public class KeycloakRegistrationHandlerTest {
         newPersonAccount5.PersonEmail = 'TESTONLYBCSC5@EMAIL.com';
         newPersonAccount5.SourceSystemIdentifier = 'newPersonAccount5';
         newPersonAccount5.isActive = true;
-        //setIdentifier = (String)newPersonAccount4.put('HealthCloudGA__SourceSystemId__pc', 'GUID02');
+
+        if (HC_SOURCESYSTEMID_PC_EXISTS)
+        {
+            newPersonAccount5.put('HealthCloudGA__SourceSystemId__pc', 'newPersonAccount5');
+        } else {
+            newPersonAccount5.put('SourceSystemIdentifier', 'newPersonAccount5');
+        }
+
         if (ACCOUNT_HDID_EXISTS)
         {
             newPersonAccount5.put('HDID__c', 'newPersonAccount5');

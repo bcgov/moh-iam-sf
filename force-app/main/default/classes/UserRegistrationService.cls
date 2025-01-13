@@ -600,30 +600,47 @@ public with sharing class UserRegistrationService{
 
     private static List<Account> fetchPersonAccount(List<String> keyLookup, Boolean isActiveRequired) 
     {
+        UserRegistrationCustomMetadataUtility utilityTool = new UserRegistrationCustomMetadataUtility();
         System.debug('keyLookup_fetchvalue: ' + keyLookup);
         Boolean isNewAccount = false;
         String qryFilter = '';
         List<Account> newCommUser = new List<Account>();
         List<String> keyvalues = new List<String>();
         List<Account> existingAccount = new List<Account>();
-        
+
         if (!keyLookup.isEmpty()) {
             keyvalues.addAll(keyLookup);
         } else {
             return newCommUser;
         }
+        String queryFilter = String.join(new List<String>(keyvalues), '\',\'');        
+        String qryString = '';
+        String hcSourceSystemId = 'SourceSystemIdentifier';
+
+        qryString = 'SELECT Id, PersonContactId, FirstName, LastName, PersonEmail, ';
+        qryString += 'RecordTypeId, SourceSystemIdentifier, isActive ';
+        qryString += 'FROM Account ';
+        if (utilityTool.isFieldExisting('HealthCloudGA__SourceSystemId__pc', 'Account'))
+        {
+            hcSourceSystemId = 'HealthCloudGA__SourceSystemId__pc';
+        }
+        
         if (isActiveRequired == true)
         {
-            existingAccount = [
-                SELECT Id, PersonContactId, FirstName, LastName, PersonEmail, RecordTypeId, SourceSystemIdentifier, isActive
-                FROM Account WHERE isActive = true AND HealthCloudGA__SourceSystemId__pc IN : keyValues 
-                ]; 
+            qryString += 'WHERE  isActive = true AND ' + hcSourceSystemId + ' IN (\'' + queryFilter + '\')';
+            // existingAccount = [
+            //     SELECT Id, PersonContactId, FirstName, LastName, PersonEmail, RecordTypeId, SourceSystemIdentifier, isActive
+            //     FROM Account WHERE isActive = true AND HealthCloudGA__SourceSystemId__pc IN : keyValues 
+            //     ]; 
         } else {
-            existingAccount = [
-                SELECT Id, PersonContactId, FirstName, LastName, PersonEmail, RecordTypeId, SourceSystemIdentifier, isActive
-                FROM Account WHERE HealthCloudGA__SourceSystemId__pc IN : keyValues 
-                ]; 
+            qryString += 'WHERE ' + hcSourceSystemId + ' IN (\'' + queryFilter + '\')';
+            // existingAccount = [
+            //     SELECT Id, PersonContactId, FirstName, LastName, PersonEmail, RecordTypeId, SourceSystemIdentifier, isActive
+            //     FROM Account WHERE HealthCloudGA__SourceSystemId__pc IN : keyValues 
+            //     ]; 
         }
+        existingAccount = Database.query(qryString);
+        System.debug('qryString: ' + qryString);
 
 
         return existingAccount;
