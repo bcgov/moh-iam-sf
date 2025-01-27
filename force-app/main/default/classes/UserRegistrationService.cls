@@ -90,6 +90,11 @@ public with sharing class UserRegistrationService{
                 String emailAddress = UserRegistrationService.generateEmailAddress(data, userName);
                 List<Profile> profileId = [SELECT Id FROM profile WHERE name=:userRoleRec.Salesforce_User_Profile__c LIMIT 1];
                 if (profileId.size() > 0) {
+                    if (userRoleRec.Knowledge_User__c) {
+                        newUser.UserPermissionsKnowledgeUser = true;
+                    } else {
+                        newUser.UserPermissionsKnowledgeUser = false;
+                    }
                     if (userRoleRec.Flow_User__c) {
                         newUser.UserPermissionsInteractionUser = true;
                     } else {
@@ -514,6 +519,12 @@ public with sharing class UserRegistrationService{
                         existingUser.put('CPSID__c', roleFilter);
                     }
                 }
+
+                if (matchingRole_rec.Knowledge_User__c) {
+                    existingUser.UserPermissionsKnowledgeUser = true;
+                } else {
+                    existingUser.UserPermissionsKnowledgeUser = false;
+                }        
 
             }
         }        
