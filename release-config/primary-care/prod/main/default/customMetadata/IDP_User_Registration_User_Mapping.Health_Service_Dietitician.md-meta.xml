@@ -27,6 +27,10 @@
         <value xsi:type="xsd:string">Keycloak</value>
     </values>
     <values>
+        <field>Knowledge_User__c</field>
+        <value xsi:type="xsd:boolean">false</value>
+    </values>
+    <values>
         <field>MFA_Flag__c</field>
         <value xsi:type="xsd:boolean">true</value>
     </values>
@@ -92,7 +96,7 @@
     </values>
     <values>
         <field>is_Ignore_Public_Group_Reset__c</field>
-        <value xsi:type="xsd:boolean">false</value>
+        <value xsi:type="xsd:boolean">true</value>
     </values>
     <values>
         <field>is_Process_HCFN_Groups__c</field>
