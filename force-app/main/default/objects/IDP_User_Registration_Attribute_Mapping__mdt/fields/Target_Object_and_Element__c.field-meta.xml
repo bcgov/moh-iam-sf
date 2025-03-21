@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Target_Object_and_Element__c</fullName>
+    <description>Used to map the target object.field (API value for both Object &amp; Field) to complete a lookup based on the 	Source Attribute Value</description>
+    <externalId>false</externalId>
+    <fieldManageability>SubscriberControlled</fieldManageability>
+    <label>Target Object and Element</label>
+    <required>true</required>
+    <type>TextArea</type>
+</CustomField>

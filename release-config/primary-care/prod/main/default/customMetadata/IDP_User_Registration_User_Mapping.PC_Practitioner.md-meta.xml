@@ -27,6 +27,10 @@
         <value xsi:type="xsd:string">Keycloak</value>
     </values>
     <values>
+        <field>Knowledge_User__c</field>
+        <value xsi:type="xsd:boolean">false</value>
+    </values>
+    <values>
         <field>MFA_Flag__c</field>
         <value xsi:type="xsd:boolean">true</value>
     </values>
@@ -41,6 +45,10 @@
     <values>
         <field>Populate_Role_Filter__c</field>
         <value xsi:type="xsd:boolean">false</value>
+    </values>
+    <values>
+        <field>Portal_User_Lookup__c</field>
+        <value xsi:type="xsd:string">Account</value>
     </values>
     <values>
         <field>Requires_Login_Flow__c</field>

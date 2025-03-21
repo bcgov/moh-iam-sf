@@ -34,6 +34,10 @@ public with sharing class UserRegistrationService{
     public static final String EMAIL_ENCODING_KEY = 'UTF-8';
     public static final String TIME_ZONE_SID_KEY = 'America/Vancouver';
     public static final String IDP_VALUE_FOR_TOKEN = 'idp';
+    public static final String IDP_DEFAULT_ENDORSER_DATA_TARGET_VALUE = 'Account.HealthCloudGA__SourceSystemId__pc';
+    public static final String IDP_DEFAULT_HDID_TARGET_VALUE = 'Account.HDID__c';
+    public static final String IDP_DEFAULT_SOURCESYSTEMID_TARGET_VALUE = 'Account.HealthCloudGA__SourceSystemId__pc';
+    public static final String IDP_DEFAULT_PIDP_EMAIL_TARGET_VALUE = 'Account.PersonEmail';
 
     public static User createUser(Id portalId, Auth.UserData data) {   
         /*
@@ -210,7 +214,7 @@ public with sharing class UserRegistrationService{
                         List<String> keyValue = new List<String>();
                         keyValue.addAll(data.attributeMap.get('bcsc_guid').split(','));
                         if (!keyValue.isEmpty()) {
-                            bcscMatch = fetchPersonAccount(keyValue, isExistingAccountRequiredActive);
+                            bcscMatch = fetchPersonAccount(keyValue, isExistingAccountRequiredActive, data, 'bcsc_guid');
                         }
                         
                     }
@@ -225,7 +229,7 @@ public with sharing class UserRegistrationService{
                         keyValue.addAll(data.attributeMap.get('endorser_data').remove('[').remove(']').split(','));
                         System.debug('keyValue:' + keyValue);
                         if (data.attributeMap.get('endorser_data') != '[]') {
-                            endorserData = fetchPersonAccount(keyValue, isExistingAccountRequiredActive);
+                            endorserData = fetchPersonAccount(keyValue, isExistingAccountRequiredActive, data, 'endorser_data');
                             if (!endorserData.isEmpty()) {
                                 isEndorserFound = true;
                             }
@@ -242,7 +246,7 @@ public with sharing class UserRegistrationService{
                         keyValue.addAll(data.attributeMap.get('common_provider_number').split(','));
                         System.debug('keyValue:' + keyValue);
                         if (data.attributeMap.get('common_provider_number') != '') {
-                            cpnData = fetchPersonAccount(keyValue, isExistingAccountRequiredActive);
+                            cpnData = fetchPersonAccount(keyValue, isExistingAccountRequiredActive, data, 'common_provider_number');
                             if (!cpnData.isEmpty()) {
                                 contactId = cpnData[0].PersonContactId;
                                 isCpnFound = true;
@@ -250,7 +254,7 @@ public with sharing class UserRegistrationService{
                         }
                     }
 
-                    // Create
+                    // Create - 
                     String searchValue = ''; 
                     Boolean fieldExisting = false;
 
@@ -475,7 +479,7 @@ public with sharing class UserRegistrationService{
             
             if (data.attributeMap.get('endorser_data') != '[]') {
                 keyValue.addAll(data.attributeMap.get('endorser_data').remove('[').remove(']').split(','));
-                endorserData = fetchPersonAccount(keyValue, false);
+                endorserData = fetchPersonAccount(keyValue, false, data, 'endorser_data');
                 if (!endorserData.isEmpty()) {
                     isEndorserFound = true;
                 }
@@ -609,9 +613,14 @@ public with sharing class UserRegistrationService{
         
     }
 
-    private static List<Account> fetchPersonAccount(List<String> keyLookup, Boolean isActiveRequired) 
+    private static List<Account> fetchPersonAccount(List<String> keyLookup, Boolean isActiveRequired, Auth.UserData data, String sourceAttribute) 
     {
         UserRegistrationCustomMetadataUtility utilityTool = new UserRegistrationCustomMetadataUtility();
+
+        AttributeMapping attributes = new AttributeMapping();
+        String defaultAttributeValue = IDP_DEFAULT_ENDORSER_DATA_TARGET_VALUE;
+        attributes = fetchAttributeValue(data, sourceAttribute, defaultAttributeValue);
+
         System.debug('keyLookup_fetchvalue: ' + keyLookup);
         Boolean isNewAccount = false;
         String qryFilter = '';
@@ -631,9 +640,11 @@ public with sharing class UserRegistrationService{
         qryString = 'SELECT Id, PersonContactId, FirstName, LastName, PersonEmail, ';
         qryString += 'RecordTypeId, SourceSystemIdentifier, isActive ';
         qryString += 'FROM Account ';
-        if (utilityTool.isFieldExisting('HealthCloudGA__SourceSystemId__pc', 'Account'))
+        
+        //String sourceSystemField = attributes.getSourceSystemField();
+        if (utilityTool.isFieldExisting(attributes.Target_Field, attributes.Target_Object))
         {
-            hcSourceSystemId = 'HealthCloudGA__SourceSystemId__pc';
+            hcSourceSystemId = attributes.Target_Field;
         }
         
         if (isActiveRequired == true)
@@ -863,7 +874,27 @@ public with sharing class UserRegistrationService{
         }
         Return licenseType;
     }
-    
+    public static AttributeMapping fetchAttributeValue(Auth.UserData data, String sourceAttribute, String defaultAttributeValue)
+    {
+        UserRegistrationCustomMetadataUtility userAttribute = new UserRegistrationCustomMetadataUtility();
+        AttributeMapping mapping = new AttributeMapping();
+        if (userAttribute.userAttributeMapping_map <> null && 
+                userAttribute.userAttributeMapping_map.containsKey(sourceAttribute) && 
+                data.attributeMap.containsKey(sourceAttribute)) {
+            IDP_User_Registration_Attribute_Mapping__mdt foundAttributes = userAttribute.userAttributeMapping_map.get(sourceAttribute);
+            mapping.Source_Attribute = foundAttributes.Source_Attribute_Value__c;
+            mapping.Target_Object = foundAttributes.Target_Object_and_Element__c.substringBefore('.');
+            mapping.Target_Field = foundAttributes.Target_Object_and_Element__c.substringAfter('.');
+            mapping.Match_Required = foundAttributes.Match_Required__c;
+        } else {
+            mapping.Source_Attribute = sourceAttribute;
+            mapping.Target_Object = defaultAttributeValue.substringBefore('.');
+            mapping.Target_Field = defaultAttributeValue.substringAfter('.');
+            mapping.Match_Required = false;
+        }
+        return mapping;
+
+    }
     public static string generateUserName(Auth.UserData data, String nameType, String domainName)
     {
         /*
@@ -1016,6 +1047,13 @@ public with sharing class UserRegistrationService{
         Id ContactId;
         Id AccountId;
         String AccountName;
+    }
+    private class AttributeMapping
+    {
+        String Target_Field;
+        String Target_Object;
+        String Source_Attribute;
+        Boolean Match_Required;
     }
 
 }
