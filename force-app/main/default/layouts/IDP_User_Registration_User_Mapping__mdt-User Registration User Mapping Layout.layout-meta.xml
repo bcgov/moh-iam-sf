@@ -89,7 +89,7 @@
         </layoutColumns>
         <layoutColumns>
             <layoutItems>
-                <behavior>Required</behavior>
+                <behavior>Edit</behavior>
                 <field>Portal_User_Lookup__c</field>
             </layoutItems>
             <layoutItems>
