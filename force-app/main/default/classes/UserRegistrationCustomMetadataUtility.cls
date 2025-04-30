@@ -38,6 +38,8 @@ public class UserRegistrationCustomMetadataUtility{
     public Map<String,IDP_User_Registration_Permission_Set__mdt> userPermissionSetGroupByName_map;
 
     public Map<String,IDP_User_Registration_Permission_Set__mdt> userPublicGroupIgnoreByName_map;
+
+    public Map<String, IDP_User_Registration_Attribute_Mapping__mdt> userAttributeMapping_map;
     
     public List<String> userExternalProvider = new List<String>();
 
@@ -69,6 +71,21 @@ public class UserRegistrationCustomMetadataUtility{
             }
             
         }
+        //Fetch metadata for attribute mapping
+        List<IDP_User_Registration_Attribute_Mapping__mdt> userAttributeMapping = new List<IDP_User_Registration_Attribute_Mapping__mdt>();
+        userAttributeMapping = [SELECT Id, Source_Attribute_Value__c, Target_Object_and_Element__c, Match_Required__c, 
+                                    Effective_Start_Date__c, Effective_End_Date__c FROM IDP_User_Registration_Attribute_Mapping__mdt];
+                                    //WHERE Effective_Start_Date__c <= TODAY AND (Effective_End_Date__c = null OR Effective_End_Date__c >= TODAY)];
+
+        userAttributeMapping_map = new Map<String,IDP_User_Registration_Attribute_Mapping__mdt>();    
+        if (userAttributeMapping_map != null) 
+        {
+            for(IDP_User_Registration_Attribute_Mapping__mdt userAttributeMapping_rec : userAttributeMapping)
+            {
+                userAttributeMapping_map.put(userAttributeMapping_rec.Source_Attribute_Value__c, userAttributeMapping_rec);
+            }
+        }    
+                                 
         System.debug('userRoleFilter:' + userRoleFilter);
         //Fetch metadata for Role mapping
         userMapping = [SELECT Assurance_Level__c,DeveloperName,External_Provider_Role__c,Id,
@@ -78,7 +95,8 @@ public class UserRegistrationCustomMetadataUtility{
                             Username_Type__c, Non_Regulated_User_Record_Type__c, Account_Record_Type__c, Flow_User__c, 
                             isAccountSetActive__c, Requires_Login_Flow__c, Populate_Role_Filter__c, is_Ignore_Endorser_Data__c,
                             is_Ignore_License_Attribute__c, is_Ignore_Public_Group_Reset__c, is_Process_HCFN_Groups__c,
-                            is_Restrict_Beta_User_Only__c, is_Existing_Account_Active_Required__c, Knowledge_User__c
+                            is_Restrict_Beta_User_Only__c, is_Existing_Account_Active_Required__c, Knowledge_User__c,
+                            Portal_User_Lookup__c
                         FROM IDP_User_Registration_User_Mapping__mdt
                         WHERE External_Provider_Role__c IN: userRoleFilter
                         ORDER BY Sequence__c ASC

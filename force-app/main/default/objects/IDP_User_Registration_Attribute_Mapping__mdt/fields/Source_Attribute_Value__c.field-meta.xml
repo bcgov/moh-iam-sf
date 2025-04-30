@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Source_Attribute_Value__c</fullName>
+    <description>The value of the source attribute being passed in the Access/User Info token</description>
+    <externalId>false</externalId>
+    <fieldManageability>SubscriberControlled</fieldManageability>
+    <label>Source Attribute Value</label>
+    <required>true</required>
+    <type>TextArea</type>
+</CustomField>
