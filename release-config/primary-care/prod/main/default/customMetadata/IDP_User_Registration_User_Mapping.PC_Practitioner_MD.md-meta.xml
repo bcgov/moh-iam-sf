@@ -47,10 +47,6 @@
         <value xsi:type="xsd:boolean">true</value>
     </values>
     <values>
-        <field>Portal_User_Lookup__c</field>
-        <value xsi:type="xsd:string">Account</value>
-    </values>
-    <values>
         <field>Requires_Login_Flow__c</field>
         <value xsi:type="xsd:boolean">false</value>
     </values>

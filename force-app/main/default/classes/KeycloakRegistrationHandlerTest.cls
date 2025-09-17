@@ -56,7 +56,7 @@ public class KeycloakRegistrationHandlerTest {
     {
         ACCOUNT_HDID_EXISTS = true;
     } 
-    if (utilityChecks.isFieldExisting('HealthCloudGA_SourceSystemId__pc', 'Account'))
+    if (utilityChecks.isFieldExisting('HealthCloudGA__SourceSystemId__c', 'Account'))
     {
         HC_SOURCESYSTEMID_PC_EXISTS = true;
     }
@@ -64,10 +64,12 @@ public class KeycloakRegistrationHandlerTest {
     User runtimeUser = [SELECT Id FROM User WHERE Email = 'systemuser@testorg.com' LIMIT 1];
     System.runAs(runtimeUser) {   
 
-        Profile commUserType = [
-            SELECT Id, Name, UserType 
+        Profile commUserType = [ 
+            SELECT Id, Name, UserType,UserLicense.Status 
             FROM Profile 
-            WHERE Name = 'Customer Community Plus Login User' Limit 1];  
+            WHERE Name like 'Customer Community Plus%' 
+            AND UserLicense.Status = 'Active' Limit 1
+        ]; 
 
         Account newPersonAccount0 = new Account();    
         Account newPersonAccount = new Account();
@@ -84,7 +86,7 @@ public class KeycloakRegistrationHandlerTest {
         newPersonAccount0.isActive = true;
         if (HC_SOURCESYSTEMID_PC_EXISTS)
         {
-            newPersonAccount0.put('HealthCloudGA__SourceSystemId__pc', 'CPN.TSTP00000.CPSID.GS');
+            newPersonAccount0.put('HealthCloudGA__SourceSystemId__c', 'CPN.TSTP00000.CPSID.GS');
         } else {
             newPersonAccount0.put('SourceSystemIdentifier', 'CPN.TSTP00000.CPSID.GS');
         }
@@ -106,7 +108,7 @@ public class KeycloakRegistrationHandlerTest {
         newPersonAccount.isActive = true;
         if (HC_SOURCESYSTEMID_PC_EXISTS)
         {
-            newPersonAccount.put('HealthCloudGA__SourceSystemId__pc', 'CPN.TSTP00015.CPSID.GS');
+            newPersonAccount.put('HealthCloudGA__SourceSystemId__c', 'CPN.TSTP00015.CPSID.GS');
         } else {
             newPersonAccount.put('SourceSystemIdentifier', 'CPN.TSTP00015.CPSID.GS');
         }
@@ -131,7 +133,7 @@ public class KeycloakRegistrationHandlerTest {
 
         if (HC_SOURCESYSTEMID_PC_EXISTS)
         {
-            newPersonAccount3.put('HealthCloudGA__SourceSystemId__pc', 'CPN.TSTP00016.CPSID.GS');
+            newPersonAccount3.put('HealthCloudGA__SourceSystemId__c', 'CPN.TSTP00016.CPSID.GS');
         } else {
             newPersonAccount3.put('SourceSystemIdentifier', 'CPN.TSTP00016.CPSID.GS');
         }
@@ -150,11 +152,12 @@ public class KeycloakRegistrationHandlerTest {
         newPersonAccount2.FirstName = 'TESTONLYBCSC2_FIRST';
         newPersonAccount2.LastName = 'TESTONLYBCSC2_LAST';
         newPersonAccount2.SourceSystemIdentifier = 'GUID01';
+        newPersonAccount3.PersonEmail = 'testusername2@me.com';
         newPersonAccount2.isActive = true;
 
         if (HC_SOURCESYSTEMID_PC_EXISTS)
         {
-            newPersonAccount2.put('HealthCloudGA__SourceSystemId__pc', 'GUID01');
+            newPersonAccount2.put('HealthCloudGA__SourceSystemId__c', 'GUID01');
         } else {
             newPersonAccount2.put('SourceSystemIdentifier', 'GUID01');
         }
@@ -179,7 +182,7 @@ public class KeycloakRegistrationHandlerTest {
 
         if (HC_SOURCESYSTEMID_PC_EXISTS)
         {
-            newPersonAccount4.put('HealthCloudGA__SourceSystemId__pc', 'newPersonAccount4');
+            newPersonAccount4.put('HealthCloudGA__SourceSystemId__c', 'newPersonAccount4');
         } else {
             newPersonAccount4.put('SourceSystemIdentifier', 'newPersonAccount4');
         }
@@ -203,7 +206,7 @@ public class KeycloakRegistrationHandlerTest {
 
         if (HC_SOURCESYSTEMID_PC_EXISTS)
         {
-            newPersonAccount5.put('HealthCloudGA__SourceSystemId__pc', 'newPersonAccount5');
+            newPersonAccount5.put('HealthCloudGA__SourceSystemId__c', 'newPersonAccount5');
         } else {
             newPersonAccount5.put('SourceSystemIdentifier', 'newPersonAccount5');
         }
@@ -680,7 +683,7 @@ public class KeycloakRegistrationHandlerTest {
         attribmap.put('family_name', 'TestOnlyLast');
         attribmap.put('given_name', 'TestOnlyGiven');
         attribmap.put('bcsc_guid','newPersonAccount4');
-        attribmap.put('idp','BCSC_TESTONLY');
+        //attribmap.put('idp','BCSC_TESTONLY');
 
         Auth.UserData sampleData = new Auth.UserData(
             'testIdComm',

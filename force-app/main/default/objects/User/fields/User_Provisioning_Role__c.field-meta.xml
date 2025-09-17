@@ -3,11 +3,9 @@
     <fullName>User_Provisioning_Role__c</fullName>
     <description>Used for post user provisioning processing of permissions</description>
     <encryptionScheme>None</encryptionScheme>
-    <externalId>false</externalId>
     <label>User Provisioning Role</label>
-    <length>255</length>
-    <required>false</required>
+    <length>32768</length>
     <trackFeedHistory>false</trackFeedHistory>
-    <type>Text</type>
-    <unique>false</unique>
+    <type>LongTextArea</type>
+    <visibleLines>3</visibleLines>
 </CustomField>

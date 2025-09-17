@@ -27,16 +27,16 @@ public with sharing class UserRegistrationService{
     public static final String SALESFORCE_USER_LICENSE_COMMUNITY = 'Community';
     public static final String SALESFORCE_USER_LICENSE_STANDARD = 'Salesforce';
     public static final String EMAIL_ASPERAND_SIGN = '@';
-    public static final String ACCOUNT_PERSONACCOUNT_RECORDTYPE = 'PersonAccount';
+    public static final String ACCOUNT_PERSONACCOUNT_RECORDTYPE = 'Provider';
     public static final String BCSC_IDP_KEY = 'idp';
     public static final String MOH_IDP_KEY = 'roles';
     public static final String USER_USERNAME_REFERENCE = 'data.username';
     public static final String EMAIL_ENCODING_KEY = 'UTF-8';
     public static final String TIME_ZONE_SID_KEY = 'America/Vancouver';
     public static final String IDP_VALUE_FOR_TOKEN = 'idp';
-    public static final String IDP_DEFAULT_ENDORSER_DATA_TARGET_VALUE = 'Account.HealthCloudGA__SourceSystemId__pc';
+    public static final String IDP_DEFAULT_ENDORSER_DATA_TARGET_VALUE = 'Account.HealthCloudGA__SourceSystemId__c';
     public static final String IDP_DEFAULT_HDID_TARGET_VALUE = 'Account.HDID__c';
-    public static final String IDP_DEFAULT_SOURCESYSTEMID_TARGET_VALUE = 'Account.HealthCloudGA__SourceSystemId__pc';
+    public static final String IDP_DEFAULT_SOURCESYSTEMID_TARGET_VALUE = 'Account.HealthCloudGA__SourceSystemId__c';
     public static final String IDP_DEFAULT_PIDP_EMAIL_TARGET_VALUE = 'Account.PersonEmail';
 
     public static User createUser(Id portalId, Auth.UserData data) {   
@@ -421,7 +421,12 @@ public with sharing class UserRegistrationService{
         List<User> retrieveUser = new List<User>();
         User existingUser = new User();
         String qryUserString = 'SELECT Id, username, email, lastname, firstname, alias,';
-        qryUserString += 'emailEncodingKey, timeZoneSidKey, languagelocaleKey, localesidkey, IsPortalEnabled';
+        
+        qryUserString += 'emailEncodingKey, timeZoneSidKey, languagelocaleKey, localesidkey ';
+        if (processFieldcheck.isFieldExisting('IsPortalEnabled', 'User'))
+        {
+            qryUserString += ', IsPortalEnabled ';
+        }
 
         if (processFieldcheck.isFieldExisting('User_Provisioning_Role__c', 'User')) {
             qryUserString += ', User_Provisioning_Role__c';
@@ -432,7 +437,7 @@ public with sharing class UserRegistrationService{
         }
 
         qryUserString += ' FROM User WHERE Id = \'' + userId + '\'';
-
+        system.debug('qryUserString: ' + qryUserString);
         retrieveUser = Database.query(qryUserString);
         if (retrieveUser.size() == 1) {
             existingUser = retrieveUser[0];
@@ -532,21 +537,22 @@ public with sharing class UserRegistrationService{
 
             }
         }        
+        if (processFieldcheck.isFieldExisting('IsPortalEnabled', 'User'))
+        {
+            if (existingUser.get('IsPortalEnabled') == true) {
+                
+                String qryString = '';
+                qryString = 'SELECT Id, username, email,lastname,firstname,alias,emailEncodingKey,';
+                qryString += ' timeZoneSidKey, languagelocaleKey, localesidkey, IsPortalEnabled, AccountId, ContactId ';
 
-        if (existingUser.IsPortalEnabled == true) {
-            
-            String qryString = '';
-            qryString = 'SELECT Id, username, email,lastname,firstname,alias,emailEncodingKey,';
-            qryString += ' timeZoneSidKey, languagelocaleKey, localesidkey, IsPortalEnabled, AccountId, ContactId ';
+                if (processFieldcheck.isFieldExisting('OneHealthID_Name__c','Contact')) {
+                    qryString += ', Contact.OneHealthID_Name__c ';
+                }
+                qryString += 'FROM User WHERE Id = \'' + userId + '\'';
 
-            if (processFieldcheck.isFieldExisting('OneHealthID_Name__c','Contact')) {
-                qryString += ', Contact.OneHealthID_Name__c ';
+                existingPortalUser = Database.query(qryString);
             }
-            qryString += 'FROM User WHERE Id = \'' + userId + '\'';
-
-            existingPortalUser = Database.query(qryString);
         }
-
 
         if (data.attributeMap.containsKey('preferred_username')) {
             String preferredUsername = data.attributeMap.get('preferred_username');
@@ -558,15 +564,18 @@ public with sharing class UserRegistrationService{
                 userPrefix = preferredUsername;
             }
             if (processFieldcheck.isFieldExisting('OneHealthID_Name__c','Contact')) {
-                if (existingPortalUser.IsPortalEnabled && userPrefix != existingPortalUser.Contact.get('OneHealthID_Name__c')) // existingPortalUser.Contact.OneHealthID_Name__c
-                 {
-                    Contact preferredContact = new Contact();
-                    preferredContact.Id = existingPortalUser.ContactId;
-                    preferredContact.put('OneHealthId_Name__c', userPrefix);
+                if (processFieldcheck.isFieldExisting('IsPortalEnabled', 'User'))
+                {
+                    if (existingPortalUser.get('IsPortalEnabled') == true && userPrefix != existingPortalUser.Contact.get('OneHealthID_Name__c')) // existingPortalUser.Contact.OneHealthID_Name__c
+                    {
+                        Contact preferredContact = new Contact();
+                        preferredContact.Id = existingPortalUser.ContactId;
+                        preferredContact.put('OneHealthId_Name__c', userPrefix);
 
-                    String json_ContactDetails = JSON.serialize(preferredContact, true);
-                    //update Contact
-                    updateContactDetails(json_ContactDetails);
+                        String json_ContactDetails = JSON.serialize(preferredContact, true);
+                        //update Contact
+                        updateContactDetails(json_ContactDetails);
+                    }
                 }
             }
         }       
@@ -620,8 +629,9 @@ public with sharing class UserRegistrationService{
         AttributeMapping attributes = new AttributeMapping();
         String defaultAttributeValue = IDP_DEFAULT_ENDORSER_DATA_TARGET_VALUE;
         attributes = fetchAttributeValue(data, sourceAttribute, defaultAttributeValue);
-
         System.debug('keyLookup_fetchvalue: ' + keyLookup);
+        System.debug('sourceAttribute: ' + sourceAttribute);
+        System.debug('defaultAttributeValue: ' + defaultAttributeValue);
         Boolean isNewAccount = false;
         String qryFilter = '';
         List<Account> newCommUser = new List<Account>();

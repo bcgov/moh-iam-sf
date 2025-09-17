@@ -12,7 +12,7 @@
     </values>
     <values>
         <field>Salesforce_Permission_Set_Group__c</field>
-        <value xsi:type="xsd:string">Health_Service_Professional_QEP_Permissions</value>
+        <value xsi:type="xsd:string">Health_Service_Professional_QEP_Lead_Permissions</value>
     </values>
     <values>
         <field>Salesforce_Permission_Set__c</field>
