@@ -667,6 +667,54 @@ public class KeycloakRegistrationHandlerTest {
   }
 
   @isTest
+    public static void testCreateBCeIDUser() {
+        String uniqueUserName =
+            'standarduser' +
+            DateTime.now().getTime() +
+            '@testorg.com';
+        Profile p = [SELECT Id FROM Profile WHERE Name = 'System Administrator'];
+        List<UserRole> userRole = [SELECT Id FROM UserRole];
+        String userRoleId = userRole[0].Id;
+        KeycloakRegistrationHandler handler = new KeycloakRegistrationHandler();
+        
+        Map<String,String> attribmap = new Map<String,String>();
+        attribmap.put('roles', 'BCeID_TESTONLY');
+        attribmap.put('email', 'testonly@bcsc.ca');
+        attribmap.put('family_name', 'TestOnlyLast');
+        attribmap.put('given_name', 'TestOnlyGiven');
+        attribmap.put('bceid_business_id','newAccount4');
+        attribmap.put('bceid_username', 'testonlyLast@testonly.com');
+        attribmap.put('bceid_business_name', 'TestOnlyLast');
+        attribmap.put('idp','BCeID_TESTONLY');
+
+        Auth.UserData sampleData = new Auth.UserData(
+            'testIdComm',
+            'testFirst',
+            'testLast',
+            'testFirst testLast',
+            'testuserComm@example.org',
+            null,
+            'testusername@me.com',
+            'en_US',
+            'facebook',
+            null,
+            attribmap
+        );
+        System.debug('sampleData:' + sampleData);
+        test.startTest();
+            verifyTestUser();
+        test.stopTest();
+
+        User runtimeUser = [SELECT Id FROM User WHERE Email = 'systemuser@testorg.com' LIMIT 1];
+        System.runAs(runtimeUser) {
+            User u = handler.createUser(null, sampleData);
+            System.assertEquals('TestOnlyLast', u.lastName);
+            System.assertEquals('TestOnlyGiven', u.firstName);
+        }
+
+  }
+
+  @isTest
     public static void testCreateProviderUser() {
         String uniqueUserName =
             'standarduser' +
@@ -832,7 +880,7 @@ public class KeycloakRegistrationHandlerTest {
             'testFirst testLast',
             null,
             null,
-            null,
+            'testusername3@me.com',
             'en_US',
             'facebook',
             null,
@@ -846,7 +894,7 @@ public class KeycloakRegistrationHandlerTest {
         System.runAs(runtimeUser) {
             KeycloakRegistrationHandler handler = new KeycloakRegistrationHandler();
             Boolean canCreate = handler.canCreateUser(sampleData);
-            System.assert(!canCreate);
+            System.assert(canCreate);
         }
     }
 

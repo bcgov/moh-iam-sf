@@ -30,8 +30,20 @@ global class KeycloakRegistrationHandler implements Auth.RegistrationHandler{
         system.debug('data:'+ json.serializePretty(data));
         system.debug('roles:'+ json.serializePretty(data.attributeMap.get('roles')));
         boolean isUserCreate = false;
+        List<User> fetchExistingUser = new List<User>();
+
+        String qryString = 'Select Id, FederationIdentifier FROM User where FederationIdentifier =';
         
-        User[] fetchExistingUser = [Select Id, FederationIdentifier FROM User where FederationIdentifier =: data.username Limit 1];
+        if (data.attributeMap.containsKey('bceid_username'))
+        {
+            qryString += '\'' + data.attributeMap.get('bceid_username') + '\'' + ' Limit 1';
+        } else {
+            qryString += '\'' + data.username + '\'' + ' Limit 1'; //  Id = \'' + userId + '\'';
+        }
+        System.debug('qryString: ' + qryString);
+        system.debug('fetchExistingUser.size():' + fetchExistingUser.size());
+        fetchExistingUser = Database.query(qryString);        
+
         if (fetchExistingUser.size() == 0)
         {
             isUserCreate = true;
@@ -51,11 +63,21 @@ global class KeycloakRegistrationHandler implements Auth.RegistrationHandler{
      * 
      */
         User matchUser = new User();
+        List<User> lookupUser = new List<User>();
+        String qryString = 'Select Id, FederationIdentifier FROM User where FederationIdentifier =:';
         if(canCreateUser(data)) {
             //Returning null or throwing an exception fails the SSO flow
             matchUser = UserRegistrationService.createUser(portalId, data);
         } else {
-            for (User fetchExistingUser : [Select Id, FederationIdentifier FROM User where FederationIdentifier =: data.username Limit 1])
+        if (data.attributeMap.containsKey('bceid_username'))
+        {
+            qryString += '\'' + data.attributeMap.get('bceid_username') + '\'' + ' Limit 1';
+        } else {
+            qryString += '\'' + data.username + '\'' + ' Limit 1';
+        }
+            lookupUser = Database.query(qryString);
+
+            for (User fetchExistingUser : lookupUser)
             {
                 matchUser = UserRegistrationService.updateUser(fetchExistingUser.Id, portalId, data);
             }
