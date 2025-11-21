@@ -71,7 +71,7 @@ public with sharing class UserRegistrationService{
         system.debug('data:'+ json.serializePretty(data));
         User newUser = new User();
         List<User> checkUser = [
-            SELECT Id, email, User_Provisioning_Role__c 
+            SELECT Id, email, User_Provisioning_Role__c, User_Assigned_Role__c 
             FROM User 
             WHERE FederationIdentifier =: data.username ];
         if (checkUser.size() > 0) {
@@ -123,7 +123,8 @@ public with sharing class UserRegistrationService{
                     } else {
                         newUser.firstName = data.firstName;
                     }
-                    if ((data.attributeMap.containsKey('roles') || data.attributeMap.containsKey('idp')) && processRoles.isFieldExisting('User_Provisioning_Role__c', 'User')) {
+                    if ((data.attributeMap.containsKey('roles') || data.attributeMap.containsKey('idp')) 
+                            && processRoles.isFieldExisting('User_Assigned_Role__c', 'User')) {
                         
                         List<IDP_User_Registration_User_Mapping__mdt>  matchingRole_list = new List<IDP_User_Registration_User_Mapping__mdt>();
                         
@@ -136,10 +137,11 @@ public with sharing class UserRegistrationService{
                         }
                         for (IDP_User_Registration_User_Mapping__mdt matchingRole_rec : matchingRole_list) {
                             if (isHealthGatewayUser) {
-                                newUser.User_Provisioning_Role__c = USER_PROVISIONING_ROLE_HGW;
+                                //newUser.User_Provisioning_Role__c = USER_PROVISIONING_ROLE_HGW;
+                                newUser.User_Assigned_Role__c = USER_PROVISIONING_ROLE_HGW;
                             } else {
-                                if (newUser.User_Provisioning_Role__c != fetchRoles.ProvidedExternalProvider) {
-                                    newUser.User_Provisioning_Role__c = fetchRoles.ProvidedExternalProvider;
+                                if (newUser.User_Assigned_Role__c != fetchRoles.ProvidedExternalProvider) {
+                                    newUser.User_Assigned_Role__c = fetchRoles.ProvidedExternalProvider;
                                 }
                             }
 
@@ -428,8 +430,10 @@ public with sharing class UserRegistrationService{
             qryUserString += ', IsPortalEnabled ';
         }
 
-        if (processFieldcheck.isFieldExisting('User_Provisioning_Role__c', 'User')) {
-            qryUserString += ', User_Provisioning_Role__c';
+        if (processFieldcheck.isFieldExisting('User_Provisioning_Role__c', 'User') &&
+            processFieldcheck.isFieldExisting('User_Assigned_Role__c', 'User')) {
+            qryUserString += ', User_Provisioning_Role__c, User_Assigned_Role__c';
+    
         }
 
         if (processFieldcheck.isFieldExisting('CPSID__c', 'User') ) {
@@ -494,7 +498,9 @@ public with sharing class UserRegistrationService{
         }
         User existingPortalUser = new User();
 
-        if ((data.attributeMap.containsKey('roles') || data.attributeMap.containsKey('idp')) && processFieldcheck.isFieldExisting('User_Provisioning_Role__c', 'User')) {
+        if ((data.attributeMap.containsKey('roles') || data.attributeMap.containsKey('idp')) &&
+                processFieldcheck.isFieldExisting('User_Provisioning_Role__c', 'User') &&
+                processFieldcheck.isFieldExisting('User_Assigned_Role__c', 'User')) {
             //keycloakRole = data.attributeMap.get('roles'); 
             currentHost = URL.getCurrentRequestUrl().getHost();
             List<IDP_User_Registration_User_Mapping__mdt>  matchingRole_list = new List<IDP_User_Registration_User_Mapping__mdt>();
@@ -509,7 +515,8 @@ public with sharing class UserRegistrationService{
                     existingUser.User_Provisioning_Role__c = USER_PROVISIONING_ROLE_HGW;
                 } else {
                     if (existingUser.get('User_Provisioning_Role__c') != fetchRoles.ProvidedExternalProvider) {
-                        existingUser.put('User_Provisioning_Role__c', fetchRoles.ProvidedExternalProvider);
+                        //existingUser.put('User_Provisioning_Role__c', fetchRoles.ProvidedExternalProvider);
+                        existingUser.put('User_Assigned_Role__c', fetchRoles.ProvidedExternalProvider);
                     }
                 }
             }

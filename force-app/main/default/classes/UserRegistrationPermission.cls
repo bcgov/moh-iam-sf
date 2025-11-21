@@ -24,9 +24,9 @@ public with sharing class UserRegistrationPermission {
         List<IDP_User_Registration_User_Mapping__mdt>  matchingRole_list = new List<IDP_User_Registration_User_Mapping__mdt>();
         List<IDP_User_Registration_User_Mapping__mdt>  matchingRoles = new List<IDP_User_Registration_User_Mapping__mdt>();   
         for (User processUser: processUserList) {
-            UserRegistrationCustomMetadataUtility processRoles = new UserRegistrationCustomMetadataUtility(processUser.User_Provisioning_Role__c);
+            UserRegistrationCustomMetadataUtility processRoles = new UserRegistrationCustomMetadataUtility(processUser.User_Assigned_Role__c);
 
-            matchingRoles = processRoles.ReadMapping(processUser.User_Provisioning_Role__c);  
+            matchingRoles = processRoles.ReadMapping(processUser.User_Assigned_Role__c);  
             for(IDP_User_Registration_User_Mapping__mdt matchingRole_rec: matchingRoles)
             {
                 matchingRole_list.addAll(matchingRoles);  
@@ -68,7 +68,7 @@ public with sharing class UserRegistrationPermission {
                     isRoleRequireLoginFlow = true;
                 }
             }
-            if (processUser.User_Provisioning_Role__c != null && (!isInactiveUser)) {
+            if (processUser.User_Assigned_Role__c != null && (!isInactiveUser)) {
                 if (!isRoleRequireLoginFlow || 
                         (System.Trigger.isExecuting && 
                         System.Trigger.isUpdate && 
@@ -76,9 +76,9 @@ public with sharing class UserRegistrationPermission {
                     try {
                 
                         // add/update any new permission sets
-                        managePermissionSet(processUser.Id, processUser.User_Provisioning_Role__c);
+                        managePermissionSet(processUser.Id, processUser.User_Assigned_Role__c);
                         // add user to Public Group
-                        manageGroups(processUser.Id, processUser.User_Provisioning_Role__c);
+                        manageGroups(processUser.Id, processUser.User_Assigned_Role__c);
                         
                         } catch (Exception e) {
                             system.debug('exception caught:' + e);
@@ -108,8 +108,8 @@ public with sharing class UserRegistrationPermission {
         List<IDP_User_Registration_User_Mapping__mdt>  matchingRole_list = new List<IDP_User_Registration_User_Mapping__mdt>();
         IDP_User_Registration_User_Mapping__mdt  matchingRole = new IDP_User_Registration_User_Mapping__mdt();   
         for (User processUser: userList) {
-            if (processUser.User_Provisioning_Role__c != null) {
-                String userProvisioningRole = processUser.User_Provisioning_Role__c;
+            if (processUser.User_Assigned_Role__c != null) {
+                String userProvisioningRole = processUser.User_Assigned_Role__c;
                 try {
                     // add/update any new permission sets
                     managePermissionSet(processUser.Id, userProvisioningRole);

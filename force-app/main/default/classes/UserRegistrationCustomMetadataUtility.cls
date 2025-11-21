@@ -44,6 +44,8 @@ public class UserRegistrationCustomMetadataUtility{
     public List<String> userExternalProvider = new List<String>();
 
     public String ProvidedExternalProvider = '';
+
+    private static Map<String, IDP_User_Registration_Trigger_Management__mdt> triggerSettingsCache;
     
     public UserRegistrationCustomMetadataUtility(String ExternalProvider){
         /*
@@ -250,5 +252,21 @@ public class UserRegistrationCustomMetadataUtility{
             }
          }
          return isFieldFound;
+    }
+
+    /**
+     * Checks if a trigger should execute based on Custom Metadata.
+     * @param triggerName - Unique identifier (e.g., 'Account_BeforeInsert')
+     * @return true if active (execute trigger), false if disabled
+     */
+    public Boolean isTriggerActive(String triggerName) {
+        if (triggerSettingsCache == null) {
+            triggerSettingsCache = new Map<String, IDP_User_Registration_Trigger_Management__mdt>();
+            for (IDP_User_Registration_Trigger_Management__mdt ts : IDP_User_Registration_Trigger_Management__mdt.getAll().values()) {
+                triggerSettingsCache.put(ts.Trigger_Name__c, ts);
+            }
+        }
+        IDP_User_Registration_Trigger_Management__mdt setting = triggerSettingsCache.get(triggerName);
+        return setting != null && setting.Is_Active__c;
     }
 }

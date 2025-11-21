@@ -10,8 +10,8 @@
     {
       "path": "force-app",
       "package": "Keycloak.Community",
-      "versionName": "ver 1.31",
-      "versionNumber": "1.31.0.NEXT",
+      "versionName": "ver 1.33",
+      "versionNumber": "1.33.0.NEXT",
       "default": false,
       "versionDescription": "Keycloak User Provisioning, community enabled",
       "definitionFile": "config/project-scratch-release.json"
@@ -119,6 +119,10 @@
     "Keycloak.Community@1.31.0-6": "04tJQ000002yxTtYAI",
     "Keycloak.Community@1.31.0-7": "04tJQ000002yta9YAA",
     "Keycloak.Community@1.31.0-8": "04tJQ000002yyY1YAI",
-    "Keycloak.Community@1.31.0-9": "04tJQ000003BwBpYAK"
+    "Keycloak.Community@1.31.0-9": "04tJQ000003BwBpYAK",
+    "Keycloak.Community@1.33.0-1": "04tJQ000003koWLYAY",
+    "Keycloak.Community@1.33.0-2": "04tJQ000003kp4DYAQ",
+    "Keycloak.Community@1.33.0-3": "04tJQ000003kp5pYAA",
+    "Keycloak.Community@1.33.0-4": "04tJQ000003kp7RYAQ"
   }
 }
