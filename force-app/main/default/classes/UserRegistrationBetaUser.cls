@@ -51,7 +51,7 @@ public with sharing class UserRegistrationBetaUser {
                     {
                         User userUpdate = new User();
                         userUpdate.Id = updateUserToBeta.Id;
-                        //userUpdate.User_Provisioning_Role__c = 'BETA';
+                        userUpdate.User_Provisioning_Role__c = 'BETA';
                         userUpdate.User_Assigned_Role__c = 'BETA';
                         updateUserList.add(userUpdate);
                     }

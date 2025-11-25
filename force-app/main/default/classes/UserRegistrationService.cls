@@ -38,6 +38,7 @@ public with sharing class UserRegistrationService{
     public static final String IDP_DEFAULT_HDID_TARGET_VALUE = 'Account.HDID__c';
     public static final String IDP_DEFAULT_SOURCESYSTEMID_TARGET_VALUE = 'Account.HealthCloudGA__SourceSystemId__c';
     public static final String IDP_DEFAULT_PIDP_EMAIL_TARGET_VALUE = 'Account.PersonEmail';
+    public static final Integer USER_PROVISIONING_ROLE_MAXLENGTH = 80;
 
     public static User createUser(Id portalId, Auth.UserData data) {   
         /*
@@ -137,7 +138,7 @@ public with sharing class UserRegistrationService{
                         }
                         for (IDP_User_Registration_User_Mapping__mdt matchingRole_rec : matchingRole_list) {
                             if (isHealthGatewayUser) {
-                                //newUser.User_Provisioning_Role__c = USER_PROVISIONING_ROLE_HGW;
+                                newUser.User_Provisioning_Role__c = USER_PROVISIONING_ROLE_HGW;
                                 newUser.User_Assigned_Role__c = USER_PROVISIONING_ROLE_HGW;
                             } else {
                                 if (newUser.User_Assigned_Role__c != fetchRoles.ProvidedExternalProvider) {
@@ -513,9 +514,15 @@ public with sharing class UserRegistrationService{
             for (IDP_User_Registration_User_Mapping__mdt matchingRole_rec : matchingRole_list) {
                 if (isHealthGatewayUser) {
                     existingUser.User_Provisioning_Role__c = USER_PROVISIONING_ROLE_HGW;
+                    existingUser.User_Assigned_Role__c = USER_PROVISIONING_ROLE_HGW;
                 } else {
-                    if (existingUser.get('User_Provisioning_Role__c') != fetchRoles.ProvidedExternalProvider) {
-                        //existingUser.put('User_Provisioning_Role__c', fetchRoles.ProvidedExternalProvider);
+                    if (fetchRoles.ProvidedExternalProvider.length() <= USER_PROVISIONING_ROLE_MAXLENGTH) {
+                        if (existingUser.get('User_Provisioning_Role__c') != fetchRoles.ProvidedExternalProvider) {
+                            
+                                existingUser.put('User_Provisioning_Role__c', fetchRoles.ProvidedExternalProvider);
+                        }
+                    }
+                    if (existingUser.get('User_Assigned_Role__c') != fetchRoles.ProvidedExternalProvider) {
                         existingUser.put('User_Assigned_Role__c', fetchRoles.ProvidedExternalProvider);
                     }
                 }

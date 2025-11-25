@@ -73,7 +73,7 @@
         </connector>
         <filterLogic>and</filterLogic>
         <filters>
-            <field>User_Provisioning_Role__c</field>
+            <field>User_Assigned_Role__c</field>
             <operator>NotEqualTo</operator>
             <value>
                 <stringValue></stringValue>
