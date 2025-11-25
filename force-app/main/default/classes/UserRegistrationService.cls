@@ -31,6 +31,7 @@ public with sharing class UserRegistrationService{
     public static final String BCSC_IDP_KEY = 'idp';
     public static final String MOH_IDP_KEY = 'roles';
     public static final String USER_USERNAME_REFERENCE = 'data.username';
+    public static final String USER_BCEID_USERNAME_REFERENCE = 'data.bceid_username';
     public static final String EMAIL_ENCODING_KEY = 'UTF-8';
     public static final String TIME_ZONE_SID_KEY = 'America/Vancouver';
     public static final String IDP_VALUE_FOR_TOKEN = 'idp';
@@ -61,6 +62,8 @@ public with sharing class UserRegistrationService{
         String personAccountType = '';
         Boolean createUser = true;
         String existingBcscGuid = null;
+        Boolean userBceidType = false;
+        userBceidType = data.attributeMap.containsKey('bceid_username') == true ? true:false;
 
         String keyLookup = UserRegistrationService.fetchUserMappingKey(data);
         UserRegistrationCustomMetadataUtility processRoles = new UserRegistrationCustomMetadataUtility();
@@ -70,11 +73,22 @@ public with sharing class UserRegistrationService{
         userRoleList.addAll(fetchRoles.ReadMapping(data.attributeMap.get(keyLookup)));
      
         system.debug('data:'+ json.serializePretty(data));
+        
+        String qryString = 'Select Id, email, User_Provisioning_Role__c FROM User where FederationIdentifier =';
+
         User newUser = new User();
         List<User> checkUser = [
             SELECT Id, email, User_Provisioning_Role__c, User_Assigned_Role__c 
             FROM User 
             WHERE FederationIdentifier =: data.username ];
+        if (userBceidType) 
+        {
+            qryString += '\'' + data.attributeMap.get('bceid_username') + '\'' + ' Limit 1';
+        } else {
+            qryString += '\'' + data.username + '\'' + ' Limit 1';
+        }
+        System.debug('qryString: ' + qryString);
+        List<User> checkUser = Database.query(qryString);
         if (checkUser.size() > 0) {
             newUser = checkUser[0];
         } 
@@ -274,7 +288,7 @@ public with sharing class UserRegistrationService{
                     
                     if (data.attributeMap.containsKey('idp') && data.attributeMap.containsKey('hdid') 
                             && fieldExisting ) {
-                        String qryString = '';
+                        qryString = '';
                         if (!Test.isRunningTest()) {
                             qryString = 'select id,PersonContactId, isActive from Account where HDID__c = \'' + searchValue + '\'';
                         } else {
@@ -333,8 +347,14 @@ public with sharing class UserRegistrationService{
                             } else {
                                 userPrefix = preferredUsername;
                             }
-                        }      
-                        contactId = managePersonAccount(data, personAccountType, matchingRole_rec.isAccountSetActive__c, userPrefix);
+                        } 
+                        if (userBceidType)
+                        {
+                            contactId = manageContact(data, personAccountType, matchingRole_rec.isAccountSetActive__c, userPrefix);
+                        } else {
+                            contactId = managePersonAccount(data, personAccountType, matchingRole_rec.isAccountSetActive__c, userPrefix);
+                        }
+                        
                     }
                         
                     newUser.ContactId = contactId;
@@ -690,6 +710,101 @@ public with sharing class UserRegistrationService{
 
 
         return existingAccount;
+    }
+
+    private static String manageContact(Auth.UserData data, String optionalRecordType, 
+            Boolean isContactSetActive, String preferredName) 
+    {
+        UserRegistrationCustomMetadataUtility processRoles = new UserRegistrationCustomMetadataUtility();
+        System.debug('optionalRecordType: ' + optionalRecordType);
+        Boolean isNewContact = false;
+        Id newCommUser = null;
+        String searchEmail = '';
+        
+        if (data.email!= null) {
+            searchEmail = data.email;
+        } else if (data.attributeMap.containsKey('pidp_email')) {
+            searchEmail = data.attributeMap.get('pidp_email');
+        } else {
+            searchEmail = data.userName;
+        }
+
+        String qryString = '';
+        if (processRoles.isFieldExisting('OneHealthID_Name__c','Contact')) {
+            qryString = 'SELECT Id, PersonContactId, FirstName, LastName, PersonEmail, RecordTypeId, ';
+            qryString += 'isActive, OneHealthID_Name__pc  from Account ';
+            qryString += 'where PersonEmail = \'' + searchEmail + '\'';
+            if (optionalRecordType != '') {
+                qryString += ' AND RecordType.DeveloperName = \'' + optionalRecordType + '\'';
+            }
+        } else {
+            qryString = 'SELECT Id, PersonContactId, FirstName, LastName, PersonEmail, RecordTypeId, ';
+            qryString += 'isActive from Account ';
+            qryString += 'where PersonEmail = \'' + searchEmail + '\'';
+            if (optionalRecordType != '') {
+                qryString += ' AND RecordType.DeveloperName = \'' + optionalRecordType + '\'';
+            }            
+        }
+
+        List<Account> existingAccount = Database.query(qryString);
+        Account newPersonAccount = new Account();
+        
+        if (existingAccount.size() == 0) 
+        {
+            isNewContact = true;
+            Id personAccountRecordTypeId =  Schema.SObjectType.Account.getRecordTypeInfosByDeveloperName().get(optionalRecordType).getRecordTypeId();
+
+            if (data.attributeMap.containsKey('family_name')) {
+                newPersonAccount.LastName = data.attributeMap.get('family_name');
+            } else {
+                newPersonAccount.lastName = data.lastName;
+            }
+            if (data.attributeMap.containsKey('given_name')) {
+                newPersonAccount.firstName = data.attributeMap.get('given_name');
+            } else {
+                newPersonAccount.firstName = data.firstName;
+            }            
+
+            if(data.email!= null) {
+                String emailaddress = data.email;
+                if (emailaddress.length() > 0) {
+                    newPersonAccount.PersonEmail = emailaddress;
+                } else {
+                    newPersonAccount.PersonEmail = data.username;
+                }
+            } else if (data.attributeMap.containsKey('pidp_email')) {
+                newPersonAccount.PersonEmail = data.attributeMap.get('pidp_email');
+            } else {
+                newPersonAccount.PersonEmail = data.userName;
+            }
+
+            newPersonAccount.RecordTypeId = personAccountRecordTypeId;
+            if (isContactSetActive) {
+                newPersonAccount.isActive = true;
+            } else {
+                newPersonAccount.isActive = false;
+            }
+            // Set Account 
+
+            if (processRoles.isFieldExisting('OneHealthID_Name__c','Contact')) {
+                newPersonAccount.put('OneHealthID_Name__pc', preferredName);
+            }
+
+            insert newPersonAccount;
+
+            newCommUser = [SELECT PersonContactId FROM Account WHERE Id =:newPersonAccount.Id ].PersonContactId;
+        } else {
+            newCommUser = existingAccount[0].PersonContactId;
+        }
+
+        if (!isNewContact) {
+            if (isContactSetActive) {
+                existingAccount[0].isActive = true;
+            } else {
+                existingAccount[0].isActive = false;
+            }
+        }
+        return newCommUser ;
     }
 
     private static String managePersonAccount(Auth.UserData data, String optionalRecordType, 
