@@ -282,7 +282,7 @@ public class KeycloakRegistrationHandlerTest {
             users.add(sampleData);
             handler.updateUser(u.Id, null, sampleData);
             String uid = u.id;
-            List<User> processUserList = [SELECT Id, Name, FirstName, LastName, User_Provisioning_Role__c FROM USER WHERE Id =: u.id Limit 1];
+            List<User> processUserList = [SELECT Id, Name, FirstName, LastName, User_Provisioning_Role__c, User_Assigned_Role__c FROM USER WHERE Id =: u.id Limit 1];
             // Test Permission callout
              try {
                 List<UserRegistrationPermission.InputVariables> processInput = new List<UserRegistrationPermission.InputVariables>();
@@ -354,7 +354,7 @@ public class KeycloakRegistrationHandlerTest {
             users.add(sampleData);
             handler.updateUser(u.Id, null, sampleData);
             String uid = u.id;
-            List<User> processUserList = [SELECT Id, Name, FirstName, LastName, User_Provisioning_Role__c FROM USER WHERE Id =: u.id Limit 1];
+            List<User> processUserList = [SELECT Id, Name, FirstName, LastName, User_Provisioning_Role__c, User_Assigned_Role__c FROM USER WHERE Id =: u.id Limit 1];
             // Test Permission callout
              try {
                 String requestEndpoint = KeycloakCommonService.getEndpointURL(KeycloakConstants.SERVICE_NAME_GATEWAY_SERVICE);
@@ -437,7 +437,7 @@ public class KeycloakRegistrationHandlerTest {
           users.add(sampleData);
           handler.updateUser(u.Id, null, sampleData);
           String uid = u.id;
-          List<User> processUserList = [SELECT Id, Name, FirstName, LastName, User_Provisioning_Role__c FROM USER WHERE Id =: u.id Limit 1];
+          List<User> processUserList = [SELECT Id, Name, FirstName, LastName, User_Provisioning_Role__c, User_Assigned_Role__c FROM USER WHERE Id =: u.id Limit 1];
           // Test Permission callout
            try {
               String requestEndpoint = KeycloakCommonService.getEndpointURL(KeycloakConstants.SERVICE_NAME_GATEWAY_SERVICE);

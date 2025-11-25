@@ -147,7 +147,7 @@
         <getFirstRecordOnly>true</getFirstRecordOnly>
         <object>User</object>
         <queriedFields>Id</queriedFields>
-        <queriedFields>User_Provisioning_Role__c</queriedFields>
+        <queriedFields>User_Assigned_Role__c</queriedFields>
         <storeOutputAutomatically>true</storeOutputAutomatically>
     </recordLookups>
     <recordLookups>
@@ -164,7 +164,7 @@
             <field>External_Provider_Role__c</field>
             <operator>EqualTo</operator>
             <value>
-                <elementReference>getUsers.User_Provisioning_Role__c</elementReference>
+                <elementReference>getUsers.User_Assigned_Role__c</elementReference>
             </value>
         </filters>
         <getFirstRecordOnly>true</getFirstRecordOnly>

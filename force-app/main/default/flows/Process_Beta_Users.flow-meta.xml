@@ -64,7 +64,7 @@
         <getFirstRecordOnly>false</getFirstRecordOnly>
         <object>User</object>
         <queriedFields>Id</queriedFields>
-        <queriedFields>User_Provisioning_Role__c</queriedFields>
+        <queriedFields>User_Assigned_Role__c</queriedFields>
         <storeOutputAutomatically>true</storeOutputAutomatically>
     </recordLookups>
     <runInMode>DefaultMode</runInMode>
