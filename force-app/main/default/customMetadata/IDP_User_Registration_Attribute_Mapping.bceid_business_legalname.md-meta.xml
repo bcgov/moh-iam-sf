@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomMetadata xmlns="http://soap.sforce.com/2006/04/metadata" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+    <label>bceid_business_legalname</label>
+    <protected>false</protected>
+    <values>
+        <field>Effective_End_Date__c</field>
+        <value xsi:nil="true"/>
+    </values>
+    <values>
+        <field>Effective_Start_Date__c</field>
+        <value xsi:type="xsd:dateTime">2025-10-08T04:00:00.000Z</value>
+    </values>
+    <values>
+        <field>Match_Required__c</field>
+        <value xsi:type="xsd:boolean">true</value>
+    </values>
+    <values>
+        <field>Source_Attribute_Value__c</field>
+        <value xsi:type="xsd:string">bceid_business_legalname</value>
+    </values>
+    <values>
+        <field>Target_Object_and_Element__c</field>
+        <value xsi:type="xsd:string">Account.Name</value>
+    </values>
+</CustomMetadata>
