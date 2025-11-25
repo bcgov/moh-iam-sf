@@ -141,6 +141,11 @@ public with sharing class UserRegistrationService{
                                 newUser.User_Provisioning_Role__c = USER_PROVISIONING_ROLE_HGW;
                                 newUser.User_Assigned_Role__c = USER_PROVISIONING_ROLE_HGW;
                             } else {
+                                if (fetchRoles.ProvidedExternalProvider.length() <= USER_PROVISIONING_ROLE_MAXLENGTH) {
+                                    if (newUser.User_Provisioning_Role__c != fetchRoles.ProvidedExternalProvider) {
+                                        newUser.User_Provisioning_Role__c = fetchRoles.ProvidedExternalProvider;
+                                    }
+                                }
                                 if (newUser.User_Assigned_Role__c != fetchRoles.ProvidedExternalProvider) {
                                     newUser.User_Assigned_Role__c = fetchRoles.ProvidedExternalProvider;
                                 }
