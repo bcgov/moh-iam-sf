@@ -4,7 +4,6 @@
     <defaultValue>false</defaultValue>
     <deprecated>false</deprecated>
     <description>Used to trigger code when PIdP data is included in the inbound token (payload).</description>
-    <externalId>false</externalId>
     <fieldManageability>SubscriberControlled</fieldManageability>
     <label>Payload Includes PIdP Data</label>
     <type>Checkbox</type>

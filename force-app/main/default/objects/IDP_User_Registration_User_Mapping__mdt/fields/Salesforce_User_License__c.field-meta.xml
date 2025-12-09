@@ -3,7 +3,6 @@
     <fullName>Salesforce_User_License__c</fullName>
     <deprecated>false</deprecated>
     <description>Salesforce User License</description>
-    <externalId>false</externalId>
     <fieldManageability>SubscriberControlled</fieldManageability>
     <label>Salesforce User License</label>
     <required>true</required>

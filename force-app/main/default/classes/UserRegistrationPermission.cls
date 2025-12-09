@@ -27,6 +27,7 @@ public with sharing class UserRegistrationPermission {
             UserRegistrationCustomMetadataUtility processRoles = new UserRegistrationCustomMetadataUtility(processUser.User_Assigned_Role__c);
 
             matchingRoles = processRoles.ReadMapping(processUser.User_Assigned_Role__c);  
+            Boolean isIsActiveOnAccount = processRoles.isPersonAccountsEnabled();
             for(IDP_User_Registration_User_Mapping__mdt matchingRole_rec: matchingRoles)
             {
                 matchingRole_list.addAll(matchingRoles);  
@@ -37,26 +38,28 @@ public with sharing class UserRegistrationPermission {
             system.debug('processUser.Title.toLowerCase()' + userTitle);
             Boolean isTestUser = userTitle == USER_TITLE_FILTER ? true : false;
             Boolean isInactiveUser = false;
+
             if (isUpdate == true && isAfter == true) {
                 if (oldUserMap.containsKey(processUser.Id)) {
                     User oldUserMap_rec = oldUserMap.get(processUser.Id);
-                    if (oldUserMap_rec.IsActive == true && processUser.IsActive == false) {
+
+                    if (isIsActiveOnAccount && oldUserMap_rec.get('IsActive') == true && processUser.get('IsActive') == false) {
                         isInactiveUser = true;
-                        if (!isTestUser)
+                    }
+                    if (!isTestUser)
+                    {
+                        List<PermissionSetAssignment> removeOtherPerms = new List<PermissionSetAssignment>();
+                        for(PermissionSetAssignment existingPSAByUser_rec : [SELECT AssigneeId,Id,PermissionSetId,PermissionSet.Name 
+                                                                                FROM PermissionSetAssignment 
+                                                                                WHERE AssigneeId =: processUser.Id
+                                                                                AND PermissionSet.ProfileId = null  
+                                                                                ORDER BY AssigneeId ASC])
                         {
-                            List<PermissionSetAssignment> removeOtherPerms = new List<PermissionSetAssignment>();
-                            for(PermissionSetAssignment existingPSAByUser_rec : [SELECT AssigneeId,Id,PermissionSetId,PermissionSet.Name 
-                                                                                    FROM PermissionSetAssignment 
-                                                                                    WHERE AssigneeId =: processUser.Id
-                                                                                    AND PermissionSet.ProfileId = null  
-                                                                                    ORDER BY AssigneeId ASC])
-                            {
-                                removeOtherPerms.add(existingPSAByUser_rec);
-                            } 
-                            
-                            if(removeOtherPerms.size() > 0) {
-                                delete removeOtherPerms;
-                            }
+                            removeOtherPerms.add(existingPSAByUser_rec);
+                        } 
+                        
+                        if(removeOtherPerms.size() > 0) {
+                            delete removeOtherPerms;
                         }
                     }
                 }
@@ -285,13 +288,24 @@ public with sharing class UserRegistrationPermission {
         
         UserRegistrationCustomMetadataUtility processRoles = new UserRegistrationCustomMetadataUtility(userProvisioningRole);
 
+        Boolean isHealthCloudInstalled = processRoles.isHealthCloudInstalled();
+
         //is_Ignore_Public_Group_Reset__c
         // 
         List<String> filterPublicGroupByRoleId = new List<String>();
-        List<HealthcareFacilityNetwork> hcfn = new List<HealthcareFacilityNetwork>();
-        Id accountIdMatch = [SELECT AccountId FROM User WHERE Id =: userId].AccountId;
+        if (isHealthCloudInstalled) {
+
+        }
         Boolean hcfnFieldExisting;
-        hcfnFieldExisting = processRoles.isFieldExisting('Clinic_Panel_Group_ID__c','HealthcareFacilityNetwork');
+        List<SObject> hcfn = processRoles.safeNewSObjectList('HealthcareFacilityNetwork');
+        List<SObject> hcfnList = new List<SObject>();
+        if (hcfn != null) {
+            
+            hcfnFieldExisting = processRoles.isFieldExisting('Clinic_Panel_Group_ID__c','HealthcareFacilityNetwork');
+        }
+        
+        Id accountIdMatch = [SELECT AccountId FROM User WHERE Id =: userId].AccountId;
+        
 
         for (IDP_User_Registration_User_Mapping__mdt userRegistrationRec: processRoles.userMapping)
         {
@@ -305,7 +319,7 @@ public with sharing class UserRegistrationPermission {
                 {
                     String qryString = '';
                     qryString = 'select Id, Clinic_Panel_Group_ID__c, Practitioner.Account.Id from HealthcareFacilityNetwork WHERE Clinic_Panel_Group_ID__c <> null And Practitioner.Account.Id = \'' + accountIdMatch + '\'';
-                    hcfn = Database.query(qryString);
+                    hcfnList = Database.query(qryString);
                 }
 
             }
@@ -350,7 +364,7 @@ public with sharing class UserRegistrationPermission {
             }
             if (hcfnFieldExisting) 
             {
-                for(HealthcareFacilityNetwork hcfn_rec : hcfn) {
+                for(SObject hcfn_rec : hcfnList) {
                     groupMember gp = new groupMember(groupId = (String)hcfn_rec.get('Clinic_Panel_Group_ID__c'));
                     gp.UserOrGroupId = userId;
                     groupList.add(gp);                

@@ -4,7 +4,6 @@
     <defaultValue>&quot;Keycloak&quot;</defaultValue>
     <deprecated>false</deprecated>
     <description>Identity Provider</description>
-    <externalId>false</externalId>
     <fieldManageability>SubscriberControlled</fieldManageability>
     <label>Identity Provider</label>
     <required>true</required>

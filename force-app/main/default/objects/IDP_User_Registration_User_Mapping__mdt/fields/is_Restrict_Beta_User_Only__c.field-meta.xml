@@ -4,7 +4,6 @@
     <defaultValue>false</defaultValue>
     <deprecated>false</deprecated>
     <description>Used to restrict logins to BETA Users only</description>
-    <externalId>false</externalId>
     <fieldManageability>SubscriberControlled</fieldManageability>
     <label>is Restrict Beta User Only</label>
     <type>Checkbox</type>

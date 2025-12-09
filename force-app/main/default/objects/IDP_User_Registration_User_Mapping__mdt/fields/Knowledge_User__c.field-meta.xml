@@ -4,7 +4,6 @@
     <defaultValue>false</defaultValue>
     <deprecated>false</deprecated>
     <description>When checked it will include the user attribute user.UserPermissionsKnowledgeUser=true</description>
-    <externalId>false</externalId>
     <fieldManageability>SubscriberControlled</fieldManageability>
     <label>Knowledge User</label>
     <type>Checkbox</type>
