@@ -389,6 +389,11 @@ public with sharing class UserRegistrationService{
                         {
                             accountId = manageAccountByBceid(data, accountType, matchingRole_rec.isAccountSetActive__c);
                             contactId = manageContactByBceid(data, contactType, matchingRole_rec.isAccountSetActive__c, accountId);
+                            if (checkAttributes.isFieldExisting('BCeIDGUID__c', 'User')) {
+                                if (data.attributeMap.containsKey('bceid_user_guid')) { 
+                                    newUser.put('BCeIDGUID__c', data.attributeMap.get('bceid_user_guid'));
+                                }
+                            }
                         } else {
                             contactId = managePersonAccount(data, accountType, matchingRole_rec.isAccountSetActive__c, userPrefix);
                         }
@@ -837,6 +842,18 @@ public with sharing class UserRegistrationService{
                 newContact.put('bceid_user_guid', data.attributeMap.get('bceid_user_guid'));
             }
 
+            if (processRoles.isFieldExisting('BCeIDGUID__c', 'Contact')) {
+                if (data.attributeMap.containsKey('bceid_user_guid')) { 
+                    newContact.put('BCeIDGUID__c', data.attributeMap.get('bceid_user_guid'));
+                }
+            }
+
+            if (processRoles.isFieldExisting('ExternalId__c', 'Contact')) {
+                if (data.attributeMap.containsKey('bceid_user_guid')) { 
+                    newContact.put('ExternalId__c', data.attributeMap.get('bceid_user_guid'));
+                }
+            }            
+
             insert newContact;
 
             newCommUser = newContact.Id;
@@ -892,7 +909,12 @@ public with sharing class UserRegistrationService{
                 if (data.attributeMap.containsKey('bceid_business_id')) { 
                     newAccount.put('BCeIDGUID__c', data.attributeMap.get('bceid_business_id'));
                 }
-            }           
+            }     
+            if (processRoles.isFieldExisting('ExternalId__c', 'Account')) {
+                if (data.attributeMap.containsKey('bceid_business_id')) { 
+                    newAccount.put('ExternalId__c', data.attributeMap.get('bceid_business_id'));
+                }
+            }      
 
             newAccount.RecordTypeId = accountRecordTypeId;
 
