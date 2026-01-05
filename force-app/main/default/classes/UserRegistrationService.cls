@@ -77,10 +77,7 @@ public with sharing class UserRegistrationService{
         String qryString = 'Select Id, email, User_Provisioning_Role__c FROM User where FederationIdentifier =';
 
         User newUser = new User();
-        List<User> checkUser = [
-            SELECT Id, email, User_Provisioning_Role__c, User_Assigned_Role__c 
-            FROM User 
-            WHERE FederationIdentifier =: data.username ];
+
         if (userBceidType) 
         {
             qryString += '\'' + data.attributeMap.get('bceid_username') + '\'' + ' Limit 1';
