@@ -784,7 +784,7 @@ public class KeycloakRegistrationHandlerTest {
         attribmap.put('family_name', 'TestOnlyLast');
         attribmap.put('given_name', 'TestOnlyGiven');
         attribmap.put('bcsc_guid','newPersonAccount4');
-        //attribmap.put('idp','BCSC_TESTONLY');
+        attribmap.put('idp','BCSC_TESTONLY');
 
         Auth.UserData sampleData = new Auth.UserData(
             'testIdComm',
@@ -830,7 +830,7 @@ public class KeycloakRegistrationHandlerTest {
         attribmap.put('family_name', 'TestOnlyLast');
         attribmap.put('given_name', 'TestOnlyGiven');
         attribmap.put('endorser_data','CPN.TSTP00016.CPSID.GS');
-        attribmap.put('common_provider_number', '');
+        attribmap.put('common_provider_number', 'CPN.TSTP00016.CPSID.GS');
         attribmap.put('preferred_username', 'pidp.fifteen@bcprovidertest.onmicrosoft.com@bcp');
         attribmap.put('name', 'TestOnlyGiven TestOnlyLast');
 

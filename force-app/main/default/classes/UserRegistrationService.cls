@@ -937,6 +937,7 @@ public with sharing class UserRegistrationService{
         String personEmail = '';
 
         Boolean isActiveRecord; 
+        Boolean isPersonAccount = false;
 
         System.debug('optionalRecordType: ' + optionalRecordType);
         Boolean isNewAccount = false;
@@ -1004,8 +1005,13 @@ public with sharing class UserRegistrationService{
                 } else {
                     personEmail = data.userName;
                 }
-                newPersonAccount.put('PersonEmail', personEmail);
-
+                if (processRoles.isFieldExisting('PersonEmail', 'Account')) {
+                    newPersonAccount.put('PersonEmail', personEmail);
+                }
+                if (processRoles.isFieldExisting('Email', 'Account')) {
+                    newPersonAccount.put('Email', personEmail);
+                }
+                
                 if (optionalRecordType == 'PersonAccount')
                     newPersonAccount.RecordTypeId = personAccountRecordTypeId;
                 if (isAccountSetActive) {
@@ -1026,11 +1032,15 @@ public with sharing class UserRegistrationService{
                 List<Account> fetchAccount = Database.query(qryString);
                 
                 if (fetchAccount.size() > 0) {
-                    newCommUser = String.valueOf(existingAccount[0].get('PersonContactId'));
+                    if (processRoles.isFieldExisting('PersonContactId', 'Account')) {
+                        newCommUser = String.valueOf(fetchAccount[0].get('PersonContactId'));
+                    }
                 }
                 //newCommUser = [SELECT PersonContactId FROM Account WHERE Id =:newPersonAccount.Id ].PersonContactId;
             } else {
-                newCommUser = String.valueOf(existingAccount[0].get('PersonContactId'));
+                    if (processRoles.isFieldExisting('PersonContactId', 'Account')) {
+                        newCommUser = String.valueOf(existingAccount[0].get('PersonContactId'));
+                    }
             }
 
             if (!isNewAccount) {
