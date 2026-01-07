@@ -46,6 +46,8 @@ public class UserRegistrationCustomMetadataUtility{
     public String ProvidedExternalProvider = '';
 
     private static Map<String, IDP_User_Registration_Trigger_Management__mdt> triggerSettingsCache;
+
+    private static Boolean cachedPersonAccountsEnabled;
     
     public UserRegistrationCustomMetadataUtility(String ExternalProvider){
         /*
@@ -98,7 +100,7 @@ public class UserRegistrationCustomMetadataUtility{
                             isAccountSetActive__c, Requires_Login_Flow__c, Populate_Role_Filter__c, is_Ignore_Endorser_Data__c,
                             is_Ignore_License_Attribute__c, is_Ignore_Public_Group_Reset__c, is_Process_HCFN_Groups__c,
                             is_Restrict_Beta_User_Only__c, is_Existing_Account_Active_Required__c, Knowledge_User__c,
-                            Portal_User_Lookup__c
+                            Portal_User_Lookup__c, Contact_Record_Type__c
                         FROM IDP_User_Registration_User_Mapping__mdt
                         WHERE External_Provider_Role__c IN: userRoleFilter
                         ORDER BY Sequence__c ASC
@@ -268,5 +270,59 @@ public class UserRegistrationCustomMetadataUtility{
         }
         IDP_User_Registration_Trigger_Management__mdt setting = triggerSettingsCache.get(triggerName);
         return setting != null && setting.Is_Active__c;
+    }
+    /**
+     * Checks if Person Accounts are enabled.
+     * @return true if enabled, false if not
+     */
+    public Boolean isPersonAccountsEnabled() {
+        if (cachedPersonAccountsEnabled != null) return cachedPersonAccountsEnabled;
+
+        try {
+            Schema.DescribeSObjectResult acctDescribe = Account.sObjectType.getDescribe();
+            // check for the special Person Account fields
+            Map<String, Schema.SObjectField> fieldMap = acctDescribe.fields.getMap();
+            cachedPersonAccountsEnabled = fieldMap.containsKey('IsPersonAccount')
+                                        || fieldMap.containsKey('PersonContactId');
+        } catch (Exception e) {
+            // defensive: if describe fails for some reason, treat as not enabled
+            cachedPersonAccountsEnabled = false;
+        }
+        return cachedPersonAccountsEnabled;
+    }
+
+    public Boolean isHealthCloudInstalled() {
+        for (String key : Schema.getGlobalDescribe().keySet()) {
+            if (key.startsWith('hc__')) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public SObject safeNewSObject(String objectApiName) {
+        Map<String, Schema.SObjectType> g = Schema.getGlobalDescribe();
+
+        if (!g.containsKey(objectApiName)) {
+            // Object not installed → return null or throw exception depending on your needs
+            return null;
+        }
+
+        return g.get(objectApiName).newSObject();  // SAFE
+    }
+    public List<SObject> safeNewSObjectList(String objectApiName) {
+        Map<String, Schema.SObjectType> g = Schema.getGlobalDescribe();
+
+        if (!g.containsKey(objectApiName)) {
+            // Object not installed → return null or throw exception depending on your needs
+            return null;
+        }
+
+        Schema.SObjectType sType = Schema.getGlobalDescribe().get(objectApiName);
+        List<SObject> results = new List<SObject>();
+
+        SObject record = sType.newSObject();  // SAFE
+        results.add(record);
+        return results;
     }
 }

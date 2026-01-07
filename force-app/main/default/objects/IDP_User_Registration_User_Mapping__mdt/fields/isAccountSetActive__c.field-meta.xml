@@ -3,7 +3,6 @@
     <fullName>isAccountSetActive__c</fullName>
     <defaultValue>false</defaultValue>
     <deprecated>false</deprecated>
-    <externalId>false</externalId>
     <fieldManageability>SubscriberControlled</fieldManageability>
     <label>is Account Set Active</label>
     <type>Checkbox</type>

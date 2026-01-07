@@ -3,9 +3,8 @@
   "edition": "Enterprise",
   "hasSampleData": false,
   "features": [
-    "HealthCloudAddOn",
-    "PersonAccounts",
-    "HealthCloudUser",
+    "Communities",
+    "ServiceCloud",
     "CustomerCommunityPlusLogin",
     "ContactsToMultipleAccounts",
     "SalesforceIdentityForCommunities"

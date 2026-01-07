@@ -4,7 +4,6 @@
     <defaultValue>false</defaultValue>
     <deprecated>false</deprecated>
     <description>When checked public group assignments will not be cleared for this person/user to prevent loss of manual set public groups.</description>
-    <externalId>false</externalId>
     <fieldManageability>SubscriberControlled</fieldManageability>
     <label>is Ignore Public Group Reset</label>
     <type>Checkbox</type>
