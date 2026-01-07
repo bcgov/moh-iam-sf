@@ -80,6 +80,7 @@ public with sharing class UserRegistrationService{
         String qryString = 'SELECT Id, email, User_Provisioning_Role__c, User_Assigned_Role__c FROM User WHERE FederationIdentifier =';
 
         User newUser = new User();
+
         if (userBceidType) 
         {
             qryString += '\'' + data.attributeMap.get('bceid_username') + '\'' + ' Limit 1';
