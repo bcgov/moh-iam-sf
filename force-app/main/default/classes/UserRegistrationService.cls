@@ -395,6 +395,11 @@ public with sharing class UserRegistrationService{
                                     newUser.put('BCeIDGUID__c', data.attributeMap.get('bceid_user_guid'));
                                 }
                             }
+                            if (checkAttributes.isFieldExisting('ExternalId__c', 'User')) {
+                                if (data.attributeMap.containsKey('bceid_user_guid')) { 
+                                    newUser.put('ExternalId__c', data.attributeMap.get('bceid_user_guid'));
+                                }
+                            }
                         } else {
                             contactId = managePersonAccount(data, accountType, matchingRole_rec.isAccountSetActive__c, userPrefix);
                         }

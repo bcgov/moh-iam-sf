@@ -296,7 +296,7 @@ public with sharing class UserRegistrationPermission {
         if (isHealthCloudInstalled) {
 
         }
-        Boolean hcfnFieldExisting;
+        Boolean hcfnFieldExisting = false;
         List<SObject> hcfn = processRoles.safeNewSObjectList('HealthcareFacilityNetwork');
         List<SObject> hcfnList = new List<SObject>();
         if (hcfn != null) {
