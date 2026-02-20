@@ -64,7 +64,7 @@ global class KeycloakRegistrationHandler implements Auth.RegistrationHandler{
      */
         User matchUser = new User();
         List<User> lookupUser = new List<User>();
-        String qryString = 'Select Id, FederationIdentifier FROM User where FederationIdentifier =:';
+        String qryString = 'Select Id, FederationIdentifier FROM User where FederationIdentifier =';
         if(canCreateUser(data)) {
             //Returning null or throwing an exception fails the SSO flow
             matchUser = UserRegistrationService.createUser(portalId, data);
