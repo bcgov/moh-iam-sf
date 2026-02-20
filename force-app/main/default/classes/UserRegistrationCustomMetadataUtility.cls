@@ -100,7 +100,7 @@ public class UserRegistrationCustomMetadataUtility{
                             isAccountSetActive__c, Requires_Login_Flow__c, Populate_Role_Filter__c, is_Ignore_Endorser_Data__c,
                             is_Ignore_License_Attribute__c, is_Ignore_Public_Group_Reset__c, is_Process_HCFN_Groups__c,
                             is_Restrict_Beta_User_Only__c, is_Existing_Account_Active_Required__c, Knowledge_User__c,
-                            Portal_User_Lookup__c, Contact_Record_Type__c
+                            Portal_User_Lookup__c, Contact_Record_Type__c, is_Prevent_Name_Update__c
                         FROM IDP_User_Registration_User_Mapping__mdt
                         WHERE External_Provider_Role__c IN: userRoleFilter
                         ORDER BY Sequence__c ASC

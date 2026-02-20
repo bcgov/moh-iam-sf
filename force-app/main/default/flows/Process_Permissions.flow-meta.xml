@@ -15,8 +15,8 @@
             </value>
         </inputParameters>
         <nameSegment>UserRegistrationPermission</nameSegment>
+        <offset>0</offset>
         <storeOutputAutomatically>true</storeOutputAutomatically>
-        <versionSegment>1</versionSegment>
     </actionCalls>
     <actionCalls>
         <name>User_Permissions</name>
@@ -36,8 +36,8 @@
             </value>
         </inputParameters>
         <nameSegment>UserRegistrationPermission</nameSegment>
+        <offset>0</offset>
         <storeOutputAutomatically>true</storeOutputAutomatically>
-        <versionSegment>1</versionSegment>
     </actionCalls>
     <apiVersion>58.0</apiVersion>
     <environments>Default</environments>
@@ -73,7 +73,7 @@
         </connector>
         <filterLogic>and</filterLogic>
         <filters>
-            <field>User_Assigned_Role__c</field>
+            <field>User_Provisioning_Role__c</field>
             <operator>NotEqualTo</operator>
             <value>
                 <stringValue></stringValue>
@@ -88,6 +88,9 @@
         </filters>
         <getFirstRecordOnly>false</getFirstRecordOnly>
         <object>User</object>
+        <queriedFields>Id</queriedFields>
+        <queriedFields>User_Provisioning_Role__c</queriedFields>
+        <queriedFields>User_Assigned_Role__c</queriedFields>
         <storeOutputAutomatically>true</storeOutputAutomatically>
     </recordLookups>
     <runInMode>DefaultMode</runInMode>

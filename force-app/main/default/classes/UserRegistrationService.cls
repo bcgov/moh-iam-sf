@@ -65,6 +65,7 @@ public with sharing class UserRegistrationService{
         String existingBcscGuid = null;
         Boolean userBceidType = false;
         Boolean userTokenRole = false;
+        Boolean isExistingUser = false;
         userBceidType = data.attributeMap.containsKey('bceid_username') == true ? true:false;
         userTokenRole = data.attributeMap.containsKey('roles') == true ? true:false;
 
@@ -91,6 +92,7 @@ public with sharing class UserRegistrationService{
         List<User> checkUser = Database.query(qryString);
         if (checkUser.size() > 0) {
             newUser = checkUser[0];
+            isExistingUser = true;
         } 
 
         //Create user
@@ -134,8 +136,10 @@ public with sharing class UserRegistrationService{
                         if (data.lastName != null) {
                             newUser.LastName = data.lastName;
                         } else {
-                            if (data.attributeMap.containsKey('bceid_username')) {
-                                newUser.LastName = data.attributeMap.get('bceid_username');
+                            if (!isExistingUser) {
+                                if (data.attributeMap.containsKey('bceid_username')) {
+                                    newUser.LastName = data.attributeMap.get('bceid_username');
+                                }
                             }
                         }
                         
@@ -146,8 +150,10 @@ public with sharing class UserRegistrationService{
                         if (data.firstName != null) {
                             newUser.FirstName = data.firstName;
                         } else {
-                            if (data.attributeMap.containsKey('bceid_username')) {
-                                newUser.FirstName = data.attributeMap.get('bceid_username');
+                            if (!isExistingUser) {
+                                if (data.attributeMap.containsKey('bceid_username')) {
+                                    newUser.FirstName = data.attributeMap.get('bceid_username');
+                                }
                             }
                         }  
                     }
@@ -523,29 +529,6 @@ public with sharing class UserRegistrationService{
 
         String l_userdata = JSON.serialize(data.attributeMap);
 
-        if (data.attributeMap.containsKey('family_name')) {
-            existingUser.LastName = data.attributeMap.get('family_name');
-        } else {
-            if (data.lastName != null) {
-                existingUser.LastName = data.lastName;
-            } else {
-                if (data.attributeMap.containsKey('bceid_username')) {
-                    existingUser.LastName = data.attributeMap.get('bceid_username');
-                }
-            }   
-        }
-        if (data.attributeMap.containsKey('given_name')) {
-            existingUser.firstName = data.attributeMap.get('given_name');
-        } else {
-            if (data.firstName != null) {
-                existingUser.FirstName = data.firstName;
-            } else {
-                if (data.attributeMap.containsKey('bceid_username')) {
-                    existingUser.FirstName = data.attributeMap.get('bceid_username');
-                }
-            }  
-        }
-
         existingUser.FederationIdentifier = data.username;
 
         if (data.attributeMap.containsKey('endorser_data')) {
@@ -674,11 +657,10 @@ public with sharing class UserRegistrationService{
                 }
             }
         }       
-
-        // add/update any new permission sets
         
         // add/update user role
         List<IDP_User_Registration_User_Mapping__mdt>  matchingRole_list = new List<IDP_User_Registration_User_Mapping__mdt>();
+        Boolean isAllowNameUpdates = true;
 
         matchingRole_list.addAll(manageUserRole(data));
         for (IDP_User_Registration_User_Mapping__mdt matchingRoleRec : matchingRole_list)
@@ -702,7 +684,36 @@ public with sharing class UserRegistrationService{
             {
                 existingUser.UserRoleId = userRoleRec.Id;
             }
+            if (!matchingRoleRec.is_Prevent_Name_Update__c) {
+                isAllowNameUpdates = false;
+            }
         }
+        // update user first/last name if required.
+        if (isAllowNameUpdates) {
+            if (data.attributeMap.containsKey('family_name')) {
+                existingUser.LastName = data.attributeMap.get('family_name');
+            } else {
+                if (data.lastName != null) {
+                    existingUser.LastName = data.lastName;
+                } else {
+                    if (data.attributeMap.containsKey('bceid_username')) {
+                        existingUser.LastName = data.attributeMap.get('bceid_username');
+                    }
+                }   
+            }
+            if (data.attributeMap.containsKey('given_name')) {
+                existingUser.firstName = data.attributeMap.get('given_name');
+            } else {
+                if (data.firstName != null) {
+                    existingUser.FirstName = data.firstName;
+                } else {
+                    if (data.attributeMap.containsKey('bceid_username')) {
+                        existingUser.FirstName = data.attributeMap.get('bceid_username');
+                    }
+                }  
+            }
+        }
+
           
         try {
             update(existingUser);
