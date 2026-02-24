@@ -133,7 +133,7 @@ public with sharing class UserRegistrationService{
                     if (data.attributeMap.containsKey('family_name')) {
                         newUser.LastName = data.attributeMap.get('family_name');
                     } else {
-                        if (data.lastName != null) {
+                        if (data.lastName != null || data.lastName != 'null') {
                             newUser.LastName = data.lastName;
                         } else {
                             if (!isExistingUser) {
@@ -147,7 +147,7 @@ public with sharing class UserRegistrationService{
                     if (data.attributeMap.containsKey('given_name')) {
                         newUser.firstName = data.attributeMap.get('given_name');
                     } else {
-                        if (data.firstName != null) {
+                        if (data.firstName != null || data.firstName != 'null') {
                             newUser.FirstName = data.firstName;
                         } else {
                             if (!isExistingUser) {
@@ -433,7 +433,8 @@ public with sharing class UserRegistrationService{
             if(checkUser.size() > 0) {
                 createUser = false;
                 newUser.Id = checkUser[0].Id;
-            }        
+            } 
+            System.debug('newUser::' + newUser);       
             if(createUser) {
                 insert newUser;
             } else {

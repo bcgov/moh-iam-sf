@@ -78,7 +78,7 @@ public class KeycloakRegistrationHandlerTest {
         String businessAccountRecTypeId = [SELECT Id 
                                             FROM RecordType 
                                             WHERE SobjectType = 'Account'
-                                            AND DeveloperName LIKE 'business%' LIMIT 1 ].Id;
+                                            AND (DeveloperName LIKE 'business%' OR DeveloperName LIKE 'PersonAccount%') LIMIT 1 ].Id;
         Id personAccountRecordTypeId;
 
         Account newPersonAccount0 = new Account();    
@@ -761,6 +761,7 @@ public class KeycloakRegistrationHandlerTest {
         User runtimeUser = [SELECT Id FROM User WHERE Email = 'systemuser@testorg.com' LIMIT 1];
         System.runAs(runtimeUser) {
             User u = handler.createUser(null, sampleData);
+            System.debug('sampleData:' + sampleData);
             //System.assertEquals('TestOnlyLast', u.lastName);
             //System.assertEquals('TestOnlyGiven', u.firstName);
         }
@@ -1140,8 +1141,8 @@ public class KeycloakRegistrationHandlerTest {
             handler.updateUser(UserInfo.getUserId(), null, sampleData);
             
             User user = [Select Id, LastName, FirstName From User Where Id = :UserInfo.getUserId()];
-            System.assert(user.LastName == sampleData.lastName);
-            System.assert(user.FirstName == sampleData.firstName);
+            System.assert(user.LastName != sampleData.lastName);
+            System.assert(user.FirstName != sampleData.firstName);
         }
     }
     

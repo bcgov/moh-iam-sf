@@ -9,6 +9,7 @@ trigger UserPermissionsTrigger on User (after insert, after update) {
             } 
             else
             {
+                System.debug('trigger.new::' + trigger.new);
                 UserRegistrationPermission.processPermissions(trigger.new, Trigger.oldMap, Trigger.isUpdate, Trigger.isAfter);
             }
         }
