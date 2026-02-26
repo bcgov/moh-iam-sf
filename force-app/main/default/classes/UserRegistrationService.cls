@@ -133,7 +133,7 @@ public with sharing class UserRegistrationService{
                     if (data.attributeMap.containsKey('family_name')) {
                         newUser.LastName = data.attributeMap.get('family_name');
                     } else {
-                        if (data.lastName != null || data.lastName != 'null') {
+                        if (data.lastName != null || data.lastName != '') {
                             newUser.LastName = data.lastName;
                         } else {
                             if (!isExistingUser) {
@@ -147,7 +147,7 @@ public with sharing class UserRegistrationService{
                     if (data.attributeMap.containsKey('given_name')) {
                         newUser.firstName = data.attributeMap.get('given_name');
                     } else {
-                        if (data.firstName != null || data.firstName != 'null') {
+                        if (data.firstName != null || data.firstName != '') {
                             newUser.FirstName = data.firstName;
                         } else {
                             if (!isExistingUser) {
@@ -516,7 +516,9 @@ public with sharing class UserRegistrationService{
         if (processFieldcheck.isFieldExisting('CPSID__c', 'User') ) {
             qryUserString += ', CPSID__c';
         }
+        if (userId != null) {
 
+        }
         qryUserString += ' FROM User WHERE Id = \'' + userId + '\'';
         system.debug('qryUserString: ' + qryUserString);
         retrieveUser = Database.query(qryUserString);
@@ -795,16 +797,22 @@ public with sharing class UserRegistrationService{
         System.debug('optionalRecordType: ' + optionalRecordType);
         Boolean isNewContact = false;
         Boolean isContainBceid = false;
+
+        Boolean isRecordTypeAvailable = false;
         Id newCommUser = null;
         String searchBceid = '';
         
+        if (optionalRecordType != '') {
+            isRecordTypeAvailable = processRoles.checkForRecordType('Contact', optionalRecordType);
+        }
         if (data.attributeMap.containsKey('bceid_user_guid')) {
             isContainBceid = true;
             searchBceid = data.attributeMap.get('bceid_user_guid');
         }
 
         String qryString = '';
-        if (processRoles.isFieldExisting('OneHealthID_Name__c','Contact')) {
+        if (processRoles.isFieldExisting('isBCeIDUsername','Contact')
+                && processRoles.isFieldExisting('BCeIDGUID__c','Contact')) {
             qryString = 'SELECT Id, FirstName, LastName, Email, RecordTypeId, ';
             qryString += 'isBCeIDUsername__c, AccountId from Contact ';
             qryString += 'where BCeIDGUID__c = \'' + searchBceid + '\'';
@@ -823,7 +831,8 @@ public with sharing class UserRegistrationService{
         {
             isNewContact = true;
             Id contactRecordTypeId;
-            if (processRoles.isFieldExisting('RecordTypeId', 'Contact')) {
+            if (processRoles.isFieldExisting('RecordTypeId', 'Contact')
+                    && isRecordTypeAvailable && optionalRecordType != '') {
                 contactRecordTypeId =  Schema.SObjectType.Contact.getRecordTypeInfosByDeveloperName().get(optionalRecordType).getRecordTypeId();
             }
 
@@ -848,7 +857,7 @@ public with sharing class UserRegistrationService{
             } else if (data.attributeMap.containsKey('email')) {
                 newContact.Email = data.attributeMap.get('email');
             }
-            if (processRoles.isFieldExisting('RecordTypeId', 'Contact')) {
+            if (processRoles.isFieldExisting('RecordTypeId', 'Contact') && isRecordTypeAvailable) {
                 newContact.put('RecordTypeId', contactRecordTypeId);
             } 
 
@@ -888,9 +897,14 @@ public with sharing class UserRegistrationService{
         UserRegistrationCustomMetadataUtility processRoles = new UserRegistrationCustomMetadataUtility();
         System.debug('optionalRecordType: ' + optionalRecordType);
         Boolean isNewAccount = false;
+        Boolean isRecordTypeAvailable = false;
         Id newCommUser = null;
         String searchBusinessId = '';
         
+        if (optionalRecordType != '') {
+            isRecordTypeAvailable = processRoles.checkForRecordType('Account', optionalRecordType);
+        }
+
         if (data.attributeMap.containsKey('bceid_business_id')) {
             searchBusinessId = data.attributeMap.get('bceid_business_id');
         } 
@@ -913,11 +927,14 @@ public with sharing class UserRegistrationService{
         }
         
         Account newAccount = new Account();
+        Id accountRecordTypeId = null;
         
         if (existingAccount.size() == 0) 
         {
             isNewAccount = true;
-            Id accountRecordTypeId =  Schema.SObjectType.Account.getRecordTypeInfosByDeveloperName().get(optionalRecordType).getRecordTypeId();
+            if (isRecordTypeAvailable) {
+                accountRecordTypeId =  Schema.SObjectType.Account.getRecordTypeInfosByDeveloperName().get(optionalRecordType).getRecordTypeId();
+            }
 
             if (data.attributeMap.containsKey('bceid_business_legalName')) {
                 newAccount.Name = data.attributeMap.get('bceid_business_legalName');
@@ -933,8 +950,9 @@ public with sharing class UserRegistrationService{
                     newAccount.put('ExternalId__c', data.attributeMap.get('bceid_business_id'));
                 }
             }      
-
-            newAccount.RecordTypeId = accountRecordTypeId;
+            if (processRoles.isFieldExisting('RecordTypeId', 'Account') && isRecordTypeAvailable) {
+                newAccount.put('RecordTypeId', accountRecordTypeId);
+            }            
 
             insert newAccount;
 

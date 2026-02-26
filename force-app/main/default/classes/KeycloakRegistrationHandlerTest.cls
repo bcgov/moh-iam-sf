@@ -70,6 +70,8 @@ public class KeycloakRegistrationHandlerTest {
             WHERE Name like 'Customer Community Plus%' 
             AND UserLicense.Status = 'Active' Limit 1
         ]; 
+        // check for existing Record types for Account & contact
+        
 
         List<Account> newPersonAccounts = new List<Account>();
         String setIdentifier = '';
@@ -741,13 +743,13 @@ public class KeycloakRegistrationHandlerTest {
         attribmap.put('bceid_business_legalName','Test Case BELN-1');
 
         Auth.UserData sampleData = new Auth.UserData(
-            'testIdComm',
+            'testIdCommxra',
+            'TestcaseOperator1',
+            'TestCaseOperator1',
             null,
+            'testuserCommxra@example.org',
             null,
-            null,
-            'testuserComm@example.org',
-            null,
-            'testusername@me.com',
+            'testusernamexra@me.com',
             'en_US',
             'facebook',
             null,
@@ -762,8 +764,8 @@ public class KeycloakRegistrationHandlerTest {
         System.runAs(runtimeUser) {
             User u = handler.createUser(null, sampleData);
             System.debug('sampleData:' + sampleData);
-            //System.assertEquals('TestOnlyLast', u.lastName);
-            //System.assertEquals('TestOnlyGiven', u.firstName);
+            //System.assert(u.lastName == 'TestCaseOperator1');
+            //System.assert(u.firstName == 'TestCaseOperator1');
         }
 
   }

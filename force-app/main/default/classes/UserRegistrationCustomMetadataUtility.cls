@@ -325,4 +325,23 @@ public class UserRegistrationCustomMetadataUtility{
         results.add(record);
         return results;
     }
+    public Boolean checkForRecordType(String objectApiName, String recordTypeApiName) {
+
+        Id rtId;
+        Boolean isRecordTypeFound = false;
+        Map<String, Schema.RecordTypeInfo> rtMap;
+        if (objectApiName == 'Account')
+        {
+            rtMap = Schema.SObjectType.Account.getRecordTypeInfosByDeveloperName();
+        }
+        if (objectApiName == 'Contact')
+        {
+            rtMap = Schema.SObjectType.Contact.getRecordTypeInfosByDeveloperName();
+        }
+
+        if (rtMap.containsKey('recordTypeApiName')) {
+            isRecordTypeFound = true;
+        }
+        return isRecordTypeFound;
+    }
 }
