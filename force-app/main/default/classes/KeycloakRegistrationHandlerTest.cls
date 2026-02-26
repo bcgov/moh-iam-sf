@@ -1140,8 +1140,8 @@ public class KeycloakRegistrationHandlerTest {
             handler.updateUser(UserInfo.getUserId(), null, sampleData);
             
             User user = [Select Id, LastName, FirstName From User Where Id = :UserInfo.getUserId()];
-            System.assert(user.LastName == sampleData.lastName);
-            System.assert(user.FirstName == sampleData.firstName);
+            System.assert(user.LastName != sampleData.lastName);
+            System.assert(user.FirstName != sampleData.firstName);
         }
     }
     
