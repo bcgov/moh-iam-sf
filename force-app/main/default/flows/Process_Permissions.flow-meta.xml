@@ -73,17 +73,17 @@
         </connector>
         <filterLogic>and</filterLogic>
         <filters>
-            <field>User_Provisioning_Role__c</field>
-            <operator>NotEqualTo</operator>
-            <value>
-                <stringValue></stringValue>
-            </value>
-        </filters>
-        <filters>
             <field>Id</field>
             <operator>EqualTo</operator>
             <value>
                 <elementReference>$User.Id</elementReference>
+            </value>
+        </filters>
+        <filters>
+            <field>User_Provisioning_Role__c</field>
+            <operator>NotEqualTo</operator>
+            <value>
+                <stringValue>null</stringValue>
             </value>
         </filters>
         <getFirstRecordOnly>false</getFirstRecordOnly>

@@ -107,6 +107,10 @@
         <value xsi:type="xsd:boolean">false</value>
     </values>
     <values>
+        <field>is_Prevent_Name_Update__c</field>
+        <value xsi:type="xsd:boolean">false</value>
+    </values>
+    <values>
         <field>is_Process_HCFN_Groups__c</field>
         <value xsi:type="xsd:boolean">false</value>
     </values>

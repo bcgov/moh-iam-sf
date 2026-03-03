@@ -11,6 +11,10 @@
         <value xsi:type="xsd:string">3</value>
     </values>
     <values>
+        <field>Contact_Record_Type__c</field>
+        <value xsi:nil="true"/>
+    </values>
+    <values>
         <field>Default_Domain__c</field>
         <value xsi:nil="true"/>
     </values>
@@ -100,6 +104,10 @@
     </values>
     <values>
         <field>is_Ignore_Public_Group_Reset__c</field>
+        <value xsi:type="xsd:boolean">false</value>
+    </values>
+    <values>
+        <field>is_Prevent_Name_Update__c</field>
         <value xsi:type="xsd:boolean">false</value>
     </values>
     <values>
