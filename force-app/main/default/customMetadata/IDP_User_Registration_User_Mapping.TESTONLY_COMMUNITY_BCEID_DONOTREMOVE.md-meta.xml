@@ -4,7 +4,7 @@
     <protected>false</protected>
     <values>
         <field>Account_Record_Type__c</field>
-        <value xsi:type="xsd:string">Business_Account</value>
+        <value xsi:type="xsd:string">Business</value>
     </values>
     <values>
         <field>Assurance_Level__c</field>

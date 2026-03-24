@@ -51,10 +51,6 @@
         <value xsi:type="xsd:boolean">false</value>
     </values>
     <values>
-        <field>Portal_User_Lookup__c</field>
-        <value xsi:type="xsd:string">Account</value>
-    </values>
-    <values>
         <field>Requires_Login_Flow__c</field>
         <value xsi:type="xsd:boolean">false</value>
     </values>
@@ -80,7 +76,7 @@
     </values>
     <values>
         <field>Sequence__c</field>
-        <value xsi:type="xsd:double">99997.0</value>
+        <value xsi:type="xsd:double">11.0</value>
     </values>
     <values>
         <field>Username_Type__c</field>
