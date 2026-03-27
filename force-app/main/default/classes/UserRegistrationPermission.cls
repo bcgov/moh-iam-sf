@@ -22,8 +22,19 @@ public with sharing class UserRegistrationPermission {
         processUserList.addAll(userList);
 
         List<IDP_User_Registration_User_Mapping__mdt>  matchingRole_list = new List<IDP_User_Registration_User_Mapping__mdt>();
-        List<IDP_User_Registration_User_Mapping__mdt>  matchingRoles = new List<IDP_User_Registration_User_Mapping__mdt>();   
+        List<IDP_User_Registration_User_Mapping__mdt>  matchingRoles = new List<IDP_User_Registration_User_Mapping__mdt>();
+        Boolean isPortalEnabled = true;
+
         for (User processUser: processUserList) {
+            if (oldUserMap != null) {
+                User oldUserMapInactivate_rec = oldUserMap.get(processUser.Id);
+                
+                if (oldUserMapInactivate_rec.IsPortalEnabled == true && processUser.IsPortalEnabled == false) {
+                    
+                    isPortalEnabled = false;
+                }
+            }
+
             UserRegistrationCustomMetadataUtility processRoles = new UserRegistrationCustomMetadataUtility(processUser.User_Assigned_Role__c);
 
             matchingRoles = processRoles.ReadMapping(processUser.User_Assigned_Role__c);  
@@ -40,6 +51,7 @@ public with sharing class UserRegistrationPermission {
             Boolean isInactiveUser = false;
 
             if (isUpdate == true && isAfter == true) {
+                
                 if (oldUserMap.containsKey(processUser.Id)) {
                     User oldUserMap_rec = oldUserMap.get(processUser.Id);
 
@@ -71,10 +83,11 @@ public with sharing class UserRegistrationPermission {
                     isRoleRequireLoginFlow = true;
                 }
             }
-            if (processUser.User_Assigned_Role__c != null && (!isInactiveUser)) {
+            if (processUser.User_Assigned_Role__c != null && (!isInactiveUser && isPortalEnabled)) {
                 if (!isRoleRequireLoginFlow || 
                         (System.Trigger.isExecuting && 
-                        System.Trigger.isUpdate && 
+                        (System.Trigger.isUpdate || 
+                        System.Trigger.isInsert) &&
                         isRoleRequireLoginFlow) ) {
                     try {
                 
