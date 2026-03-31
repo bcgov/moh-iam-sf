@@ -186,6 +186,14 @@ public with sharing class UserRegistrationService{
 
                         }
                     }
+                    if (userTokenRole == true && processRoles.isFieldExisting('BCH_Medical_ID__c', 'User') &&
+                            data.attributeMap.containsKey('msp_id')) {
+                        String mspIdvalue = data.attributeMap.get('msp_id');
+                        if (!String.isBlank(mspIdvalue.remove('[').remove(']').trim())) {
+                            newUser.put('BCH_Medical_ID__c',mspIdvalue.remove('[').remove(']'));
+                        }
+                    }
+
                     if ((data.attributeMap.containsKey('roles') || data.attributeMap.containsKey('idp')) && processRoles.isFieldExisting('CPSID__c', 'User')) {
                         List<IDP_User_Registration_User_Mapping__mdt>  matchingRole_list = new List<IDP_User_Registration_User_Mapping__mdt>();
                         
@@ -227,6 +235,7 @@ public with sharing class UserRegistrationService{
 
             for (IDP_User_Registration_User_Mapping__mdt matchingRole_rec : matchingRole_list)
             {
+
                 System.debug('matchingRole_rec: ' + matchingRole_rec);
                 if (matchingRole_rec.Salesforce_User_License__c == SALESFORCE_USER_LICENSE_COMMUNITY)
                 {
@@ -429,7 +438,6 @@ public with sharing class UserRegistrationService{
                 }       
             }
                
-
             if(checkUser.size() > 0) {
                 createUser = false;
                 newUser.Id = checkUser[0].Id;
@@ -593,6 +601,13 @@ public with sharing class UserRegistrationService{
                         existingUser.put('User_Assigned_Role__c', fetchRoles.ProvidedExternalProvider);
                     }
                 }
+            }
+        }
+        if (data.attributeMap.containsKey('roles') && processFieldcheck.isFieldExisting('BCH_Medical_ID__c', 'User') &&
+                data.attributeMap.containsKey('msp_id')) {
+            String mspIdvalue = data.attributeMap.get('msp_id');
+            if (!String.isBlank(mspIdvalue.remove('[').remove(']').trim())) {
+                existingUser.put('BCH_Medical_ID__c',mspIdvalue.remove('[').remove(']'));
             }
         }
         if ((data.attributeMap.containsKey('roles') || data.attributeMap.containsKey('idp')) && processFieldcheck.isFieldExisting('CPSID__c', 'User')) {
