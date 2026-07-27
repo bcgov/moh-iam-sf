@@ -10,8 +10,8 @@
     {
       "path": "force-app",
       "package": "Keycloak.Community",
-      "versionName": "ver 1.36",
-      "versionNumber": "1.36.0.NEXT",
+      "versionName": "ver 1.37",
+      "versionNumber": "1.37.0.NEXT",
       "default": true,
       "versionDescription": "Keycloak User Provisioning, community enabled",
       "definitionFile": "config/project-scratch-release.json"

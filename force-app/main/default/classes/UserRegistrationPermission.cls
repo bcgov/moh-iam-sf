@@ -1,3 +1,10 @@
+/**
+ * @description       : 
+ * @author            : ChangeMeIn@UserSettingsUnder.SFDoc
+ * @group             : 
+ * @last modified on  : 06-18-2026
+ * @last modified by  : ChangeMeIn@UserSettingsUnder.SFDoc
+**/
 public with sharing class UserRegistrationPermission {
     public static final String USER_ASSIGNMENT_TYPE_PERMISSIONSET = 'Permission Set';
     public static final String USER_ASSIGNMENT_TYPE_PERMISSIONSETGROUP = 'Permission Set Group';
@@ -51,27 +58,29 @@ public with sharing class UserRegistrationPermission {
             Boolean isInactiveUser = false;
 
             if (isUpdate == true && isAfter == true) {
+                if (processUser.User_Assigned_Role__c != null) {
                 
-                if (oldUserMap.containsKey(processUser.Id)) {
-                    User oldUserMap_rec = oldUserMap.get(processUser.Id);
+                    if (oldUserMap.containsKey(processUser.Id)) {
+                        User oldUserMap_rec = oldUserMap.get(processUser.Id);
 
-                    if (isIsActiveOnAccount && oldUserMap_rec.get('IsActive') == true && processUser.get('IsActive') == false) {
-                        isInactiveUser = true;
-                    }
-                    if (!isTestUser)
-                    {
-                        List<PermissionSetAssignment> removeOtherPerms = new List<PermissionSetAssignment>();
-                        for(PermissionSetAssignment existingPSAByUser_rec : [SELECT AssigneeId,Id,PermissionSetId,PermissionSet.Name 
-                                                                                FROM PermissionSetAssignment 
-                                                                                WHERE AssigneeId =: processUser.Id
-                                                                                AND PermissionSet.ProfileId = null  
-                                                                                ORDER BY AssigneeId ASC])
+                        if (isIsActiveOnAccount && oldUserMap_rec.get('IsActive') == true && processUser.get('IsActive') == false) {
+                            isInactiveUser = true;
+                        }
+                        if (!isTestUser)
                         {
-                            removeOtherPerms.add(existingPSAByUser_rec);
-                        } 
-                        
-                        if(removeOtherPerms.size() > 0) {
-                            delete removeOtherPerms;
+                            List<PermissionSetAssignment> removeOtherPerms = new List<PermissionSetAssignment>();
+                            for(PermissionSetAssignment existingPSAByUser_rec : [SELECT AssigneeId,Id,PermissionSetId,PermissionSet.Name 
+                                                                                    FROM PermissionSetAssignment 
+                                                                                    WHERE AssigneeId =: processUser.Id
+                                                                                    AND PermissionSet.ProfileId = null  
+                                                                                    ORDER BY AssigneeId ASC])
+                            {
+                                removeOtherPerms.add(existingPSAByUser_rec);
+                            } 
+                            
+                            if(removeOtherPerms.size() > 0) {
+                                delete removeOtherPerms;
+                            }
                         }
                     }
                 }
