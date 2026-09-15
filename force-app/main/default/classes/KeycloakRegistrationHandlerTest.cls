@@ -23,6 +23,35 @@ public class KeycloakRegistrationHandlerTest {
   private static Boolean ACCOUNT_HDID_EXISTS = false;
   private static Boolean HC_SOURCESYSTEMID_PC_EXISTS = false;
 
+  private class BceidGetAccountDetailMock implements HttpCalloutMock {
+      public HttpResponse respond(HttpRequest req) {
+          System.assertEquals('POST', req.getMethod());
+          System.assert(req.getEndpoint().contains('BCeID_ws'));
+          System.assertEquals(
+              '"http://www.bceid.ca/webservices/Client/V10/getAccountDetail"',
+              req.getHeader('SOAPAction')
+          );
+          System.assert(req.getBody().contains('64510436D6CF4EE68B1DFE39111FFE74'));
+
+          HttpResponse res = new HttpResponse();
+          res.setStatusCode(200);
+          res.setHeader('Content-Type', 'text/xml; charset=utf-8');
+          res.setBody(
+              '<?xml version="1.0" encoding="utf-8"?>' +
+              '<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/" ' +
+              'xmlns:v10="http://www.bceid.ca/webservices/Client/V10/">' +
+              '<soap:Body><v10:getAccountDetailResponse><v10:getAccountDetailResult>' +
+              '<v10:code>Success</v10:code><v10:failureCode>Void</v10:failureCode>' +
+              '<v10:message></v10:message><v10:account><v10:individualIdentity><v10:name>' +
+              '<v10:firstname><v10:value>BCeID First</v10:value></v10:firstname>' +
+              '<v10:surname><v10:value>BCeID Last</v10:value></v10:surname>' +
+              '</v10:name></v10:individualIdentity></v10:account>' +
+              '</v10:getAccountDetailResult></v10:getAccountDetailResponse></soap:Body></soap:Envelope>'
+          );
+          return res;
+      }
+  }
+
   private static Map<String, String> setupAuthProviderConfig() {
       Map<String, String> authProviderConfiguration = new Map<String, String>();
       authProviderConfiguration.put('Key__c', KEY);
@@ -719,18 +748,12 @@ public class KeycloakRegistrationHandlerTest {
 
   @isTest
     public static void testCreateBCeIDUser() {
-        String uniqueUserName =
-            'standarduser' +
-            DateTime.now().getTime() +
-            '@testorg.com';
-        Profile p = [SELECT Id FROM Profile WHERE Name = 'System Administrator'];
-        List<UserRole> userRole = [SELECT Id FROM UserRole];
-        String userRoleId = userRole[0].Id;
         KeycloakRegistrationHandler handler = new KeycloakRegistrationHandler();
-        
+
         Map<String,String> attribmap = new Map<String,String>();
         attribmap.put('sfdc_networkid', '0DBbZ0000001H8T');
         attribmap.put('roles', 'BCEID_TESTONLY');
+        attribmap.put('identity_provider', 'bceid_business');
         attribmap.put('email', 'testonly@bcsc.ca');
         attribmap.put('preferred_username', 'testuser@bceid_business');
         attribmap.put('bceid_business_id','64550CDAB0C245D5B428C4A88D7D84DB');
@@ -743,32 +766,111 @@ public class KeycloakRegistrationHandlerTest {
         attribmap.put('bceid_business_legalName','Test Case BELN-1');
 
         Auth.UserData sampleData = new Auth.UserData(
-            'testIdCommxra',
-            'TestcaseOperator1',
-            'TestCaseOperator1',
-            null,
-            'testuserCommxra@example.org',
-            null,
-            'testusernamexra@me.com',
-            'en_US',
-            'facebook',
-            null,
-            attribmap
+            'testIdCommxra', 'Token First', 'Token Last', null,
+            'testuserCommxra@example.org', null, 'testusernamexra@me.com',
+            'en_US', 'facebook', null, attribmap
         );
-        System.debug('sampleData:' + sampleData);
-        test.startTest();
-            verifyTestUser();
-        test.stopTest();
 
         User runtimeUser = [SELECT Id FROM User WHERE Email = 'systemuser@testorg.com' LIMIT 1];
         System.runAs(runtimeUser) {
+            Test.setMock(HttpCalloutMock.class, new BceidGetAccountDetailMock());
+            Test.startTest();
             User u = handler.createUser(null, sampleData);
-            System.debug('sampleData:' + sampleData);
-            //System.assert(u.lastName == 'TestCaseOperator1');
-            //System.assert(u.firstName == 'TestCaseOperator1');
+            Test.stopTest();
+
+            User savedUser = [
+                SELECT Id, ContactId, FirstName, LastName
+                FROM User WHERE Id = :u.Id LIMIT 1
+            ];
+            System.assertEquals('BCeID First', savedUser.FirstName);
+            System.assertEquals('BCeID Last', savedUser.LastName);
+            System.assertNotEquals(null, savedUser.ContactId);
+
+            Contact savedContact = [
+                SELECT Id, FirstName, LastName, BCeIDGUID__c
+                FROM Contact WHERE Id = :savedUser.ContactId LIMIT 1
+            ];
+            System.assertEquals('BCeID First', savedContact.FirstName);
+            System.assertEquals('BCeID Last', savedContact.LastName);
+        }
+    }
+
+    @isTest
+    public static void testUpdateBCeIDUserUsesAuthoritativeNames() {
+        User runtimeUser = [
+            SELECT Id FROM User WHERE Email = 'systemuser@testorg.com' LIMIT 1
+        ];
+        Account businessAccount = [
+            SELECT Id FROM Account WHERE AccountNumber = 'newPersonAccount' LIMIT 1
+        ];
+
+        Contact c = new Contact(
+            AccountId = businessAccount.Id,
+            FirstName = 'Old Contact',
+            LastName = 'Old Name',
+            BCeIDGUID__c = '64510436D6CF4EE68B1DFE39111FFE74'
+        );
+        insert c;
+
+        Profile communityProfile = [
+            SELECT Id FROM Profile
+            WHERE Name LIKE 'Customer Community Plus%'
+            AND UserLicense.Status = 'Active'
+            LIMIT 1
+        ];
+
+        User portalUser = new User(
+            Username = 'bceid-update-' + DateTime.now().getTime() + '@testorg.com',
+            Email = 'bceid-update@testorg.com',
+            Alias = 'bceidupd',
+            LastName = 'Old User',
+            FirstName = 'Old Name',
+            CommunityNickname = 'bceidupd' + DateTime.now().getTime(),
+            TimeZoneSidKey = 'America/Vancouver',
+            LocaleSidKey = 'en_CA',
+            EmailEncodingKey = 'UTF-8',
+            LanguageLocaleKey = 'en_US',
+            ProfileId = communityProfile.Id,
+            ContactId = c.Id,
+            FederationIdentifier = 'TestCaseOperator1'
+        );
+        System.runAs(runtimeUser) {
+            insert portalUser;
         }
 
-  }
+        Map<String,String> attribmap = new Map<String,String>{
+            'identity_provider' => 'bceid_business',
+            'roles' => 'BCEID_TESTONLY',
+            'bceid_username' => 'TestCaseOperator1',
+            'bceid_user_guid' => '64510436D6CF4EE68B1DFE39111FFE74',
+            'preferred_username' => 'testuser@bceid_business',
+            'given_name' => 'Token First',
+            'family_name' => 'Token Last'
+        };
+        Auth.UserData sampleData = new Auth.UserData(
+            'testIdBceidUpdate', 'Token First', 'Token Last',
+            'Token First Token Last', 'bceid-update@testorg.com', null,
+            'TestCaseOperator1', 'en_US', 'facebook', null, attribmap
+        );
+
+        System.runAs(runtimeUser) {
+            Test.setMock(HttpCalloutMock.class, new BceidGetAccountDetailMock());
+            Test.startTest();
+            UserRegistrationService.updateUser(portalUser.Id, null, sampleData);
+            Test.stopTest();
+
+            User updatedUser = [
+                SELECT FirstName, LastName FROM User WHERE Id = :portalUser.Id
+            ];
+            Contact updatedContact = [
+                SELECT FirstName, LastName FROM Contact WHERE Id = :c.Id
+            ];
+            System.assertEquals('BCeID First', updatedUser.FirstName);
+            System.assertEquals('BCeID Last', updatedUser.LastName);
+            System.assertEquals('BCeID First', updatedContact.FirstName);
+            System.assertEquals('BCeID Last', updatedContact.LastName);
+        }
+    }
 
   @isTest
     public static void testCreateProviderUser() {

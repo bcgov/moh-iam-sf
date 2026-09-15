@@ -24,12 +24,14 @@ public with sharing class UserRegistrationService{
     public static final String USER_ASSIGNMENT_TYPE_PUBLICGROUP = 'Public Group';
     public static final String USER_ASSIGNMENT_TYPE_QUEUE = 'QUEUE';
     public static final String USER_PROVISIONING_ROLE_HGW = 'BCSC';
+    public static final String USER_PROVISIONING_ROLE_BCEID = 'bceid_business';
     public static final String SALESFORCE_USER_LICENSE_COMMUNITY = 'Community';
     public static final String SALESFORCE_USER_LICENSE_STANDARD = 'Salesforce';
     public static final String EMAIL_ASPERAND_SIGN = '@';
     public static final String ACCOUNT_PERSONACCOUNT_RECORDTYPE = 'Provider';
     public static final String BCSC_IDP_KEY = 'idp';
     public static final String MOH_IDP_KEY = 'roles';
+    public static final String BCEID_IDP_KEY = 'identity_provider';
     public static final String USER_USERNAME_REFERENCE = 'data.username';
     public static final String USER_BCEID_USERNAME_REFERENCE = 'data.bceid_username';
     public static final String EMAIL_ENCODING_KEY = 'UTF-8';
@@ -40,6 +42,20 @@ public with sharing class UserRegistrationService{
     public static final String IDP_DEFAULT_SOURCESYSTEMID_TARGET_VALUE = 'Account.HealthCloudGA__SourceSystemId__c';
     public static final String IDP_DEFAULT_PIDP_EMAIL_TARGET_VALUE = 'Account.PersonEmail';
     public static final Integer USER_PROVISIONING_ROLE_MAXLENGTH = 80;
+
+    private static String escapeSoql(String value) {
+        return String.escapeSingleQuotes(value == null ? '' : value);
+    }
+
+    private class BceidProvisioningName {
+        String firstName;
+        String lastName;
+        BceidProvisioningName(String firstName, String lastName) {
+            this.firstName = firstName;
+            this.lastName = lastName;
+        }
+    }
+
 
     public static User createUser(Id portalId, Auth.UserData data) {   
         /*
@@ -69,6 +85,9 @@ public with sharing class UserRegistrationService{
         userBceidType = data.attributeMap.containsKey('bceid_username') == true ? true:false;
         userTokenRole = data.attributeMap.containsKey('roles') == true ? true:false;
 
+        // Call BCeID before provisioning DML.
+        BceidProvisioningName bceidProvisioningName = fetchBceidProvisioningName(data, null);
+
         String keyLookup = UserRegistrationService.fetchUserMappingKey(data);
         UserRegistrationCustomMetadataUtility processRoles = new UserRegistrationCustomMetadataUtility();
         UserRegistrationCustomMetadataUtility fetchRoles = new UserRegistrationCustomMetadataUtility(data.attributeMap.get(keyLookup));
@@ -84,9 +103,9 @@ public with sharing class UserRegistrationService{
 
         if (userBceidType) 
         {
-            qryString += '\'' + data.attributeMap.get('bceid_username') + '\'' + ' Limit 1';
+            qryString += '\'' + escapeSoql(data.attributeMap.get('bceid_username')) + '\'' + ' Limit 1';
         } else {
-            qryString += '\'' + data.username + '\'' + ' Limit 1';
+            qryString += '\'' + escapeSoql(data.username) + '\'' + ' Limit 1';
         }
         System.debug('qryString: ' + qryString);
         List<User> checkUser = Database.query(qryString);
@@ -103,9 +122,10 @@ public with sharing class UserRegistrationService{
                 system.debug('userRole_rec:' + userRoleRec );
                 String keycloakRole = '';
                 Boolean isHealthGatewayUser = false;
+                Boolean isBCeIDUser = false;
                 String userName = UserRegistrationService.generateUserName(data, userRoleRec.Username_Type__c, userRoleRec.Default_Domain__c);
                 if (userName.length() > 80) {
-                    userName = userName.substring(1,80);
+                    userName = userName.substring(0, 80);
                 }
                 
                 String emailAddress = UserRegistrationService.generateEmailAddress(data, userName);
@@ -130,34 +150,19 @@ public with sharing class UserRegistrationService{
                         }  
                     }
 
-                    if (data.attributeMap.containsKey('family_name')) {
-                        newUser.LastName = data.attributeMap.get('family_name');
+                    if (bceidProvisioningName != null) {
+                        newUser.FirstName = bceidProvisioningName.firstName;
+                        newUser.LastName = bceidProvisioningName.lastName;
                     } else {
-                        if (data.lastName != null || data.lastName != '') {
-                            newUser.LastName = data.lastName;
-                        } else {
-                            if (!isExistingUser) {
-                                if (data.attributeMap.containsKey('bceid_username')) {
-                                    newUser.LastName = data.attributeMap.get('bceid_username');
-                                }
-                            }
-                        }
-                        
+                        if (data.attributeMap.containsKey('family_name')) newUser.LastName = data.attributeMap.get('family_name');
+                        else if (data.lastName != null) newUser.LastName = data.lastName;
+                        else if (data.attributeMap.containsKey('bceid_username')) newUser.LastName = data.attributeMap.get('bceid_username');
+
+                        if (data.attributeMap.containsKey('given_name')) newUser.FirstName = data.attributeMap.get('given_name');
+                        else if (data.firstName != null) newUser.FirstName = data.firstName;
+                        else if (data.attributeMap.containsKey('bceid_username')) newUser.FirstName = data.attributeMap.get('bceid_username');
                     }
-                    if (data.attributeMap.containsKey('given_name')) {
-                        newUser.firstName = data.attributeMap.get('given_name');
-                    } else {
-                        if (data.firstName != null || data.firstName != '') {
-                            newUser.FirstName = data.firstName;
-                        } else {
-                            if (!isExistingUser) {
-                                if (data.attributeMap.containsKey('bceid_username')) {
-                                    newUser.FirstName = data.attributeMap.get('bceid_username');
-                                }
-                            }
-                        }  
-                    }
-                    if ((data.attributeMap.containsKey('roles') || data.attributeMap.containsKey('idp')) 
+                    if ((data.attributeMap.containsKey('roles') || data.attributeMap.containsKey(BCSC_IDP_KEY) || data.attributeMap.containsKey(BCEID_IDP_KEY)) 
                             && processRoles.isFieldExisting('User_Assigned_Role__c', 'User')) {
                         
                         List<IDP_User_Registration_User_Mapping__mdt>  matchingRole_list = new List<IDP_User_Registration_User_Mapping__mdt>();
@@ -166,6 +171,9 @@ public with sharing class UserRegistrationService{
                         System.debug('matchingRole_list::' + matchingRole_list);
                         String currentHost = URL.getCurrentRequestUrl().getHost();
                         system.debug('currentHost: ' + currentHost);
+                        if(data.attributeMap.containsKey(BCEID_IDP_KEY) && data.attributeMap.get(BCEID_IDP_KEY) == USER_PROVISIONING_ROLE_BCEID) {
+                            isBCeIDUser = true;
+                        }
                         if(currentHost.toLowerCase().contains('healthgateway')) {
                             isHealthGatewayUser = true;
                         }
@@ -173,6 +181,9 @@ public with sharing class UserRegistrationService{
                             if (isHealthGatewayUser) {
                                 newUser.User_Provisioning_Role__c = USER_PROVISIONING_ROLE_HGW;
                                 newUser.User_Assigned_Role__c = USER_PROVISIONING_ROLE_HGW;
+                            } else if (isBCeIDUser) {
+                                newUser.User_Provisioning_Role__c = USER_PROVISIONING_ROLE_BCEID;
+                                newUser.User_Assigned_Role__c = USER_PROVISIONING_ROLE_BCEID;
                             } else {
                                 if (fetchRoles.ProvidedExternalProvider.length() <= USER_PROVISIONING_ROLE_MAXLENGTH) {
                                     if (newUser.User_Provisioning_Role__c != fetchRoles.ProvidedExternalProvider) {
@@ -194,7 +205,8 @@ public with sharing class UserRegistrationService{
                         }
                     }
 
-                    if ((data.attributeMap.containsKey('roles') || data.attributeMap.containsKey('idp')) && processRoles.isFieldExisting('CPSID__c', 'User')) {
+                    if ((data.attributeMap.containsKey('roles') || data.attributeMap.containsKey(BCSC_IDP_KEY) || data.attributeMap.containsKey(BCEID_IDP_KEY)) 
+                            && processRoles.isFieldExisting('CPSID__c', 'User')) {
                         List<IDP_User_Registration_User_Mapping__mdt>  matchingRole_list = new List<IDP_User_Registration_User_Mapping__mdt>();
                         
                         matchingRole_list.addAll(manageUserRole(data)); 
@@ -225,6 +237,7 @@ public with sharing class UserRegistrationService{
         List<IDP_User_Registration_User_Mapping__mdt>  matchingRole_list = new List<IDP_User_Registration_User_Mapping__mdt>();
                         
         matchingRole_list.addAll(manageUserRole(data)); 
+        System.debug('matchingRole_list: ' + matchingRole_list);
 
         String activeUserId = '';
         try {
@@ -253,6 +266,7 @@ public with sharing class UserRegistrationService{
                     Boolean isEndorserValuesProvided = true;
                     Boolean isCpnFound = false;
                     Boolean isBCSCData = false;
+                    Boolean isBCEIDData = false;
                     Boolean isHdidMatch = false;
                     Boolean isCpnData = false;
                     Boolean isExistingAccountRequiredActive = false;
@@ -264,7 +278,7 @@ public with sharing class UserRegistrationService{
 //
                     isExistingAccountRequiredActive = matchingRole_rec.is_Existing_Account_Active_Required__c == true ? true:false;
 //
-                    if (data.attributeMap.containsKey('idp') && data.attributeMap.containsKey('bcsc_guid')) {
+                    if (data.attributeMap.containsKey(BCSC_IDP_KEY) && data.attributeMap.containsKey('bcsc_guid')) {
                         isBCSCData = true;
                         List<String> keyValue = new List<String>();
                         keyValue.addAll(data.attributeMap.get('bcsc_guid').split(','));
@@ -273,10 +287,11 @@ public with sharing class UserRegistrationService{
                         }
                         
                     }
+
                     //lookup up when endorser_data is available
                     if (data.attributeMap.containsKey('endorser_data') 
                             && (data.attributeMap.containsKey('common_provider_number')
-                            && data.attributeMap.get('common_provider_number') == '') 
+                            && String.isBlank(data.attributeMap.get('common_provider_number'))) 
                             && !matchingRole_rec.is_Ignore_License_Attribute__c) {
                         isEndorserData = true;
                         List<String> keyValue = new List<String>();
@@ -294,13 +309,13 @@ public with sharing class UserRegistrationService{
                     }
                     //lookup up when common_provider_number is available
                     if (data.attributeMap.containsKey('common_provider_number') 
-                            && data.attributeMap.get('common_provider_number') != ''
+                            && String.isNotBlank(data.attributeMap.get('common_provider_number'))
                             && !matchingRole_rec.is_Ignore_License_Attribute__c) {
                         isCpnData = true;
                         List<String> keyValue = new List<String>();
                         keyValue.addAll(data.attributeMap.get('common_provider_number').split(','));
                         System.debug('keyValue:' + keyValue);
-                        if (data.attributeMap.get('common_provider_number') != '') {
+                        if (String.isNotBlank(data.attributeMap.get('common_provider_number'))) {
                             cpnData = fetchPersonAccount(keyValue, isExistingAccountRequiredActive, data, 'common_provider_number');
                             if (!cpnData.isEmpty()) {
                                 if (isPersonAccountExist == true) {
@@ -327,7 +342,7 @@ public with sharing class UserRegistrationService{
 
 
                     
-                    if (data.attributeMap.containsKey('idp') && data.attributeMap.containsKey('hdid') 
+                    if (data.attributeMap.containsKey(BCSC_IDP_KEY) && data.attributeMap.containsKey('hdid') 
                             && fieldExisting && isPersonAccountExist ) {
                         qryString = '';
                         qryString += 'SELECT Id ';
@@ -338,7 +353,7 @@ public with sharing class UserRegistrationService{
                             qryString += ', isActive';
                         }
                         if (!Test.isRunningTest()) {
-                            qryString += ' FROM Account WHERE HDID__c = \'' + searchValue + '\'';
+                            qryString += ' FROM Account WHERE HDID__c = \'' + escapeSoql(searchValue) + '\'';
                         } else {
                             qryString += ' FROM Account WHERE SourceSystemIdentifier = \'' + searchValue + '\'';
                         }
@@ -372,9 +387,6 @@ public with sharing class UserRegistrationService{
                             && !data.attributeMap.containsKey('roles')) {
                         throw new Auth.AuthProviderPluginException('No Match found, Missing Roles Data');
                     }
-                    if (!userTokenRole && userBceidType) {
-                        throw new Auth.AuthProviderPluginException('No Match found, role has not been assigned');
-                    }
                     if (bcscMatch.isEmpty() && isBCSCData && !isHdidMatch) {
                         throw new Auth.AuthProviderPluginException('No Match found for BCSC');
                     }
@@ -404,7 +416,7 @@ public with sharing class UserRegistrationService{
                         if (userBceidType)
                         {
                             accountId = manageAccountByBceid(data, accountType, matchingRole_rec.isAccountSetActive__c);
-                            contactId = manageContactByBceid(data, contactType, matchingRole_rec.isAccountSetActive__c, accountId);
+                            contactId = manageContactByBceid(data, contactType, matchingRole_rec.isAccountSetActive__c, accountId, bceidProvisioningName);
                             if (checkAttributes.isFieldExisting('BCeIDGUID__c', 'User')) {
                                 if (data.attributeMap.containsKey('bceid_user_guid')) { 
                                     newUser.put('BCeIDGUID__c', data.attributeMap.get('bceid_user_guid'));
@@ -447,7 +459,13 @@ public with sharing class UserRegistrationService{
                 insert newUser;
             } else {
                 update newUser;
-            } 
+            }
+
+            if (bceidProvisioningName != null && newUser.ContactId != null) {
+                System.enqueueJob(new BceidContactUpdateJob(
+                    newUser.ContactId, newUser.Id,
+                    bceidProvisioningName.firstName, bceidProvisioningName.lastName, false));
+            }
 
             // add user to Public Group
             for (IDP_User_Registration_User_Mapping__mdt matchingRole_rec : matchingRole_list)
@@ -494,6 +512,7 @@ public with sharing class UserRegistrationService{
         Boolean isEndorserFound = false;
         String emptyEndorser = '';
         Boolean isHealthGatewayUser = false;
+        Boolean isBCeIDUser = false;
 
         List<Account> endorserData = new List<Account>();
 
@@ -509,7 +528,8 @@ public with sharing class UserRegistrationService{
         User existingUser = new User();
         String qryUserString = 'SELECT Id, username, email, lastname, firstname, alias,';
         
-        qryUserString += 'emailEncodingKey, timeZoneSidKey, languagelocaleKey, localesidkey ';
+        qryUserString += 'emailEncodingKey, timeZoneSidKey, languagelocaleKey, localesidkey, ContactId ';
+        if (processFieldcheck.isFieldExisting('BCeIDGUID__c', 'Contact')) qryUserString += ', Contact.BCeIDGUID__c ';
         if (processFieldcheck.isFieldExisting('IsPortalEnabled', 'User'))
         {
             qryUserString += ', IsPortalEnabled ';
@@ -524,17 +544,24 @@ public with sharing class UserRegistrationService{
         if (processFieldcheck.isFieldExisting('CPSID__c', 'User') ) {
             qryUserString += ', CPSID__c';
         }
-        if (userId != null) {
-
-        }
-        qryUserString += ' FROM User WHERE Id = \'' + userId + '\'';
+                qryUserString += ' FROM User WHERE Id = \'' + escapeSoql(String.valueOf(userId)) + '\'';
         system.debug('qryUserString: ' + qryUserString);
         retrieveUser = Database.query(qryUserString);
         if (retrieveUser.size() == 1) {
             existingUser = retrieveUser[0];
         }
         
-        System.debug('existingUser: ' + existingUser);              
+        System.debug('existingUser: ' + existingUser);
+
+        String fallbackBceidGuid = null;
+        if (existingUser.ContactId != null && processFieldcheck.isFieldExisting('BCeIDGUID__c', 'Contact')) {
+            try {
+                fallbackBceidGuid = String.valueOf(existingUser.getSObject('Contact').get('BCeIDGUID__c'));
+            } catch (Exception e) {
+                System.debug(LoggingLevel.WARN, 'Unable to read Contact.BCeIDGUID__c: ' + e.getMessage());
+            }
+        }
+        BceidProvisioningName bceidProvisioningName = fetchBceidProvisioningName(data, fallbackBceidGuid);
 
          //Verify user data - to be removed prior to completion
 
@@ -554,7 +581,7 @@ public with sharing class UserRegistrationService{
         //lookup up when endorser_data is available
         if (data.attributeMap.containsKey('endorser_data') 
                 && (data.attributeMap.containsKey('common_provider_number')
-                && data.attributeMap.get('common_provider_number') == '')) {
+                && String.isBlank(data.attributeMap.get('common_provider_number')))) {
   
             if (emptyEndorser == '[]' && !data.attributeMap.containsKey('roles')) {
                 throw new Auth.AuthProviderPluginException('No Match found for Endorser Supplied Data');
@@ -574,7 +601,7 @@ public with sharing class UserRegistrationService{
         }
         User existingPortalUser = new User();
 
-        if ((data.attributeMap.containsKey('roles') || data.attributeMap.containsKey('idp')) &&
+        if ((data.attributeMap.containsKey('roles') || data.attributeMap.containsKey(BCSC_IDP_KEY)) &&
                 processFieldcheck.isFieldExisting('User_Provisioning_Role__c', 'User') &&
                 processFieldcheck.isFieldExisting('User_Assigned_Role__c', 'User')) {
             //keycloakRole = data.attributeMap.get('roles'); 
@@ -582,7 +609,9 @@ public with sharing class UserRegistrationService{
             List<IDP_User_Registration_User_Mapping__mdt>  matchingRole_list = new List<IDP_User_Registration_User_Mapping__mdt>();
             
             matchingRole_list.addAll(manageUserRole(data)); 
-
+            if(data.attributeMap.containsKey(BCEID_IDP_KEY) && data.attributeMap.get(BCEID_IDP_KEY) == USER_PROVISIONING_ROLE_BCEID) {
+                isBCeIDUser = true;
+            }
             if(currentHost.toLowerCase().contains('healthgateway')) {
                 isHealthGatewayUser = true;
             }          
@@ -590,6 +619,10 @@ public with sharing class UserRegistrationService{
                 if (isHealthGatewayUser) {
                     existingUser.User_Provisioning_Role__c = USER_PROVISIONING_ROLE_HGW;
                     existingUser.User_Assigned_Role__c = USER_PROVISIONING_ROLE_HGW;
+                } else if (isBCeIDUser) {
+                    existingUser.User_Provisioning_Role__c = USER_PROVISIONING_ROLE_BCEID;
+                    existingUser.User_Assigned_Role__c = USER_PROVISIONING_ROLE_BCEID;
+                
                 } else {
                     if (fetchRoles.ProvidedExternalProvider.length() <= USER_PROVISIONING_ROLE_MAXLENGTH) {
                         if (existingUser.get('User_Provisioning_Role__c') != fetchRoles.ProvidedExternalProvider) {
@@ -610,7 +643,7 @@ public with sharing class UserRegistrationService{
                 existingUser.put('BCH_Medical_ID__c',mspIdvalue.remove('[').remove(']'));
             }
         }
-        if ((data.attributeMap.containsKey('roles') || data.attributeMap.containsKey('idp')) && processFieldcheck.isFieldExisting('CPSID__c', 'User')) {
+        if ((data.attributeMap.containsKey('roles') || data.attributeMap.containsKey(BCSC_IDP_KEY)) && processFieldcheck.isFieldExisting('CPSID__c', 'User')) {
             //keycloakRole = data.attributeMap.get('roles'); 
             List<IDP_User_Registration_User_Mapping__mdt>  matchingRole_list = new List<IDP_User_Registration_User_Mapping__mdt>();
             
@@ -644,7 +677,7 @@ public with sharing class UserRegistrationService{
                 if (processFieldcheck.isFieldExisting('OneHealthID_Name__c','Contact')) {
                     qryString += ', Contact.OneHealthID_Name__c ';
                 }
-                qryString += 'FROM User WHERE Id = \'' + userId + '\'';
+                qryString += 'FROM User WHERE Id = \'' + escapeSoql(String.valueOf(userId)) + '\'';
 
                 existingPortalUser = Database.query(qryString);
             }
@@ -733,8 +766,20 @@ public with sharing class UserRegistrationService{
         }
 
           
+        // Successful BCeID response is authoritative over token/fallback names.
+        if (bceidProvisioningName != null) {
+            existingUser.FirstName = bceidProvisioningName.firstName;
+            existingUser.LastName = bceidProvisioningName.lastName;
+        }
+
         try {
             update(existingUser);
+
+            if (bceidProvisioningName != null && existingUser.ContactId != null) {
+                System.enqueueJob(new BceidContactUpdateJob(
+                    existingUser.ContactId, existingUser.Id,
+                    bceidProvisioningName.firstName, bceidProvisioningName.lastName, false));
+            }
 
         } 
         catch (Exception e) {
@@ -769,16 +814,23 @@ public with sharing class UserRegistrationService{
         } else {
             return newCommUser;
         }
-        String queryFilter = String.join(new List<String>(keyvalues), '\',\'');        
+        List<String> escapedKeyValues = new List<String>();
+        for (String keyValue : keyvalues) {
+            escapedKeyValues.add(escapeSoql(keyValue));
+        }
+        String queryFilter = String.join(escapedKeyValues, '\',\'');        
         String qryString = '';
         String hcSourceSystemId = 'SourceSystemIdentifier';
 
         qryString = 'SELECT Id,  ';
         qryString += 'RecordTypeId, SourceSystemIdentifier ';
         if (isPersonAccountExist) {
-            qryString += ', FirstName, LastName, PersonEmail, PersonContactId';
+            qryString += ', FirstName, LastName, PersonEmail, PersonContactId ';
         } else {
-            qryString += ', Name, Email';
+            qryString += ', Name ';
+            if (utilityTool.isFieldExisting('email', 'Account')) {
+                qryString += ', Email ';
+            }
         }
         if (isIsActiveOnAccountExist) {
             qryString += ', isActive ';
@@ -798,15 +850,45 @@ public with sharing class UserRegistrationService{
         } else {
             qryString += 'WHERE ' + hcSourceSystemId + ' IN (\'' + queryFilter + '\')';
         }
-        existingAccount = Database.query(qryString);
         System.debug('qryString: ' + qryString);
-
+        existingAccount = Database.query(qryString);
 
         return existingAccount;
     }
 
-    private static String manageContactByBceid(Auth.UserData data, String optionalRecordType, 
-            Boolean isContactSetActive, String accountId) 
+    private static BceidProvisioningName fetchBceidProvisioningName(Auth.UserData data, String fallbackUserGuid) {
+        if (data == null || data.attributeMap == null || data.attributeMap.get(BCEID_IDP_KEY) != USER_PROVISIONING_ROLE_BCEID) return null;
+        String userGuid = data.attributeMap.get('bceid_user_guid');
+        if (String.isBlank(userGuid)) userGuid = fallbackUserGuid;
+        if (String.isBlank(userGuid)) {
+            System.debug(LoggingLevel.WARN, 'BCeID name sync skipped: no BCeID User GUID.');
+            return null;
+        }
+        try {
+            String onlineServiceId = System.Label.BCeID_Online_Service_Id;
+            if (String.isBlank(onlineServiceId)) {
+                System.debug(LoggingLevel.ERROR, 'BCeID name sync skipped: Custom Label BCeID_Online_Service_Id is blank.');
+                return null;
+            }
+
+            BceidConfig cfg = BceidConfig.forNamedCredential('BCeID_ws', 'http://www.bceid.ca/webservices/Client/V10/', 120000);
+            BceidSoapClient.SoapResult result = BceidServiceFacade.getAccountDetail(
+                cfg, onlineServiceId, 'Business', '', userGuid, '', userGuid, 'Business');
+            if (result == null || result.httpStatus == null || result.httpStatus < 200 || result.httpStatus >= 300 ||
+                result.hasSoapFault == true || result.responseCode != 'Success' ||
+                String.isBlank(result.firstName) || String.isBlank(result.lastName)) {
+                System.debug(LoggingLevel.ERROR, 'BCeID provisioning name sync returned a non-success result.');
+                return null;
+            }
+            return new BceidProvisioningName(result.firstName, result.lastName);
+        } catch (Exception e) {
+            System.debug(LoggingLevel.ERROR, 'BCeID provisioning name sync failed: ' + e.getMessage());
+            return null;
+        }
+    }
+
+    private static String manageContactByBceid(Auth.UserData data, String optionalRecordType,
+            Boolean isContactSetActive, String accountId, BceidProvisioningName bceidProvisioningName)
     {
         UserRegistrationCustomMetadataUtility processRoles = new UserRegistrationCustomMetadataUtility();
         System.debug('optionalRecordType: ' + optionalRecordType);
@@ -817,8 +899,39 @@ public with sharing class UserRegistrationService{
         Id newCommUser = null;
         String searchBceid = '';
         
-        if (optionalRecordType != '') {
-            isRecordTypeAvailable = processRoles.checkForRecordType('Contact', optionalRecordType);
+        Id contactRecordTypeId = null;
+        if (String.isNotBlank(optionalRecordType)) {
+            List<RecordType> contactRecordTypes = [
+                SELECT Id, DeveloperName, Name, IsActive
+                FROM RecordType
+                WHERE SObjectType = 'Contact'
+                AND DeveloperName = :optionalRecordType
+                LIMIT 1
+            ];
+
+            if (contactRecordTypes.isEmpty()) {
+                throw new Auth.AuthProviderPluginException(
+                    'Configured Contact Record Type was not found. DeveloperName=' +
+                    optionalRecordType
+                );
+            }
+
+            RecordType contactRecordType = contactRecordTypes[0];
+            if (!contactRecordType.IsActive) {
+                throw new Auth.AuthProviderPluginException(
+                    'Configured Contact Record Type is inactive. DeveloperName=' +
+                    optionalRecordType + ', RecordTypeId=' + contactRecordType.Id
+                );
+            }
+
+            contactRecordTypeId = contactRecordType.Id;
+            isRecordTypeAvailable = true;
+
+            System.debug(
+                LoggingLevel.INFO,
+                'BCeID Contact Record Type resolved: DeveloperName=' +
+                optionalRecordType + ', RecordTypeId=' + contactRecordTypeId
+            );
         }
         if (data.attributeMap.containsKey('bceid_user_guid')) {
             isContainBceid = true;
@@ -830,9 +943,9 @@ public with sharing class UserRegistrationService{
                 && processRoles.isFieldExisting('BCeIDGUID__c','Contact')) {
             qryString = 'SELECT Id, FirstName, LastName, Email, RecordTypeId, ';
             qryString += 'isBCeIDUsername__c, AccountId from Contact ';
-            qryString += 'where BCeIDGUID__c = \'' + searchBceid + '\'';
-            if (optionalRecordType != '') {
-                qryString += ' AND RecordType.DeveloperName = \'' + optionalRecordType + '\'';
+            qryString += 'where BCeIDGUID__c = \'' + escapeSoql(searchBceid) + '\'';
+            if (String.isNotBlank(optionalRecordType)) {
+                qryString += ' AND RecordType.DeveloperName = \'' + escapeSoql(optionalRecordType) + '\'';
             }
         } 
         List<Contact> existingContact = new List<Contact>();         
@@ -845,24 +958,14 @@ public with sharing class UserRegistrationService{
         if (existingContact.size() == 0) 
         {
             isNewContact = true;
-            Id contactRecordTypeId;
-            if (processRoles.isFieldExisting('RecordTypeId', 'Contact')
-                    && isRecordTypeAvailable && optionalRecordType != '') {
-                contactRecordTypeId =  Schema.SObjectType.Contact.getRecordTypeInfosByDeveloperName().get(optionalRecordType).getRecordTypeId();
-            }
 
-            if (data.lastName != null) {
-                newContact.put('LastName', data.lastName); //.LastName = data.lastName;
+            if (bceidProvisioningName != null) {
+                newContact.FirstName = bceidProvisioningName.firstName;
+                newContact.LastName = bceidProvisioningName.lastName;
             } else {
-                String extractLastName = data.attributeMap.get('bceid_username');
-                newContact.put('LastName', extractLastName); //.LastName = extractLastName; //extractLastName.substring(extractLastName.indexOf(' ') + 1);
+                newContact.LastName = data.lastName != null ? data.lastName : data.attributeMap.get('bceid_username');
+                newContact.FirstName = data.firstName != null ? data.firstName : data.attributeMap.get('bceid_username');
             }
-            if (data.firstName != null) {
-                newContact.put('FirstName', data.firstName); //.firstName = data.firstName;
-            } else {
-                String extractFirstName = data.attributeMap.get('bceid_username');
-                newContact.put('FirstName', extractFirstName); //.firstName = extractFirstName; //extractFirstName.substring(0, extractFirstName.indexOf(' '));
-            }            
 
             if(data.email!= null) {
                 String emailaddress = data.email;
@@ -872,9 +975,9 @@ public with sharing class UserRegistrationService{
             } else if (data.attributeMap.containsKey('email')) {
                 newContact.Email = data.attributeMap.get('email');
             }
-            if (processRoles.isFieldExisting('RecordTypeId', 'Contact') && isRecordTypeAvailable) {
-                newContact.put('RecordTypeId', contactRecordTypeId);
-            } 
+            if (processRoles.isFieldExisting('RecordTypeId', 'Contact') && contactRecordTypeId != null) {
+                newContact.RecordTypeId = contactRecordTypeId;
+            }
 
             newContact.AccountId = accountId;
             if (processRoles.isFieldExisting('BCeIDUsername__c', 'Contact')) {
@@ -916,10 +1019,40 @@ public with sharing class UserRegistrationService{
         Id newCommUser = null;
         String searchBusinessId = '';
         
-        if (optionalRecordType != '') {
-            isRecordTypeAvailable = processRoles.checkForRecordType('Account', optionalRecordType);
-        }
+        Id accountRecordTypeId = null;
+        if (String.isNotBlank(optionalRecordType)) {
+            List<RecordType> accountRecordTypes = [
+                SELECT Id, DeveloperName, Name, IsActive
+                FROM RecordType
+                WHERE SObjectType = 'Account'
+                AND DeveloperName = :optionalRecordType
+                LIMIT 1
+            ];
 
+            if (accountRecordTypes.isEmpty()) {
+                throw new Auth.AuthProviderPluginException(
+                    'Configured Account Record Type was not found. DeveloperName=' +
+                    optionalRecordType
+                );
+            }
+
+            RecordType accountRecordType = accountRecordTypes[0];
+            if (!accountRecordType.IsActive) {
+                throw new Auth.AuthProviderPluginException(
+                    'Configured Account Record Type is inactive. DeveloperName=' +
+                    optionalRecordType + ', RecordTypeId=' + accountRecordType.Id
+                );
+            }
+
+            accountRecordTypeId = accountRecordType.Id;
+            isRecordTypeAvailable = true;
+
+            System.debug(
+                LoggingLevel.INFO,
+                'BCeID Account Record Type resolved: DeveloperName=' +
+                optionalRecordType + ', RecordTypeId=' + accountRecordTypeId
+            );
+        }
         if (data.attributeMap.containsKey('bceid_business_id')) {
             searchBusinessId = data.attributeMap.get('bceid_business_id');
         } 
@@ -928,29 +1061,24 @@ public with sharing class UserRegistrationService{
         if (processRoles.isFieldExisting('BCeIDGUID__c','Account')) {
             qryString = 'SELECT Id, RecordTypeId, BCeIDGUID__c ';
             qryString += 'from Account ';
-            qryString += 'where BCeIDGUID__c = \'' + searchBusinessId + '\'';
-            if (optionalRecordType != '') {
-                qryString += ' AND RecordType.DeveloperName = \'' + optionalRecordType + '\'';
+            qryString += 'where BCeIDGUID__c = \'' + escapeSoql(searchBusinessId) + '\'';
+            if (String.isNotBlank(optionalRecordType)) {
+                qryString += ' AND RecordType.DeveloperName = \'' + escapeSoql(optionalRecordType) + '\'';
             }
         }
         system.debug('qryString: ' + qryString);
         system.debug('searchBusinessId: ' + searchBusinessId);
-        system.debug('optionalRecordType:');
+        system.debug('optionalRecordType:' + optionalRecordType );
         List<Account> existingAccount = new List<Account>();
         if (qryString.length() > 0) {
             existingAccount = Database.query(qryString);
         }
         
         Account newAccount = new Account();
-        Id accountRecordTypeId = null;
         
         if (existingAccount.size() == 0) 
         {
             isNewAccount = true;
-            if (isRecordTypeAvailable) {
-                accountRecordTypeId =  Schema.SObjectType.Account.getRecordTypeInfosByDeveloperName().get(optionalRecordType).getRecordTypeId();
-            }
-
             if (data.attributeMap.containsKey('bceid_business_legalName')) {
                 newAccount.Name = data.attributeMap.get('bceid_business_legalName');
             } 
@@ -965,9 +1093,9 @@ public with sharing class UserRegistrationService{
                     newAccount.put('ExternalId__c', data.attributeMap.get('bceid_business_id'));
                 }
             }      
-            if (processRoles.isFieldExisting('RecordTypeId', 'Account') && isRecordTypeAvailable) {
-                newAccount.put('RecordTypeId', accountRecordTypeId);
-            }            
+            if (processRoles.isFieldExisting('RecordTypeId', 'Account') && accountRecordTypeId != null) {
+                newAccount.RecordTypeId = accountRecordTypeId;
+            }
 
             insert newAccount;
 
@@ -1009,16 +1137,16 @@ public with sharing class UserRegistrationService{
             if (processRoles.isFieldExisting('OneHealthID_Name__c','Contact')) {
                 qryString = 'SELECT Id, PersonContactId, FirstName, LastName, PersonEmail, RecordTypeId, ';
                 qryString += 'isActive, OneHealthID_Name__pc  from Account ';
-                qryString += 'where PersonEmail = \'' + searchEmail + '\'';
-                if (optionalRecordType != '') {
-                    qryString += ' AND RecordType.DeveloperName = \'' + optionalRecordType + '\'';
+                qryString += 'where PersonEmail = \'' + escapeSoql(searchEmail) + '\'';
+                if (String.isNotBlank(optionalRecordType)) {
+                    qryString += ' AND RecordType.DeveloperName = \'' + escapeSoql(optionalRecordType) + '\'';
                 }
             } else {
                 qryString = 'SELECT Id, PersonContactId, FirstName, LastName, PersonEmail, RecordTypeId, ';
                 qryString += 'isActive from Account ';
-                qryString += 'where PersonEmail = \'' + searchEmail + '\'';
-                if (optionalRecordType != '') {
-                    qryString += ' AND RecordType.DeveloperName = \'' + optionalRecordType + '\'';
+                qryString += 'where PersonEmail = \'' + escapeSoql(searchEmail) + '\'';
+                if (String.isNotBlank(optionalRecordType)) {
+                    qryString += ' AND RecordType.DeveloperName = \'' + escapeSoql(optionalRecordType) + '\'';
                 }            
             }
 
@@ -1029,7 +1157,8 @@ public with sharing class UserRegistrationService{
             {
                 isNewAccount = true;
                 Id personAccountRecordTypeId =  Schema.SObjectType.Account.getRecordTypeInfosByDeveloperName().get(optionalRecordType).getRecordTypeId();
-
+                System.debug('optionalRecordType:' + optionalRecordType);
+                System.debug('personAccountRecordTypeId:' + personAccountRecordTypeId);
                 if (data.attributeMap.containsKey('family_name')) {
                     lastName = data.attributeMap.get('family_name');
                 } else {
@@ -1131,11 +1260,11 @@ public with sharing class UserRegistrationService{
         }
         if (userGroups.size() > 0)
         {
-            list<groupMember> groupList = new list<groupMember>();
-            list<Group> grp = [select id from Group where DeveloperName in : userGroups];
+            List<GroupMember> groupList = new List<GroupMember>();
+            List<Group> grp = [SELECT Id FROM Group WHERE DeveloperName IN :userGroups];
             
-            for(group g : grp){
-                groupMember gp = new groupMember(groupId = g.Id);
+            for (Group g : grp) {
+                GroupMember gp = new GroupMember(GroupId = g.Id);
                 gp.UserOrGroupId = userId;
                 groupList.add(gp);
             }
@@ -1171,16 +1300,20 @@ public with sharing class UserRegistrationService{
         List<IDP_User_Registration_User_Mapping__mdt> roles = new List<IDP_User_Registration_User_Mapping__mdt>();
         UserRegistrationCustomMetadataUtility processRoles = new UserRegistrationCustomMetadataUtility();
 
+        System.debug('data.attributeMap.get(BCEID_IDP_KEY): ' + data.attributeMap.get(BCEID_IDP_KEY));
         //Determine source IDP
-        if (data.attributeMap.containsKey('idp')) {
+        if (data.attributeMap.containsKey(BCSC_IDP_KEY)) {
             // BCSC
-            processRoles = new UserRegistrationCustomMetadataUtility(data.attributeMap.get('idp'));
+            processRoles = new UserRegistrationCustomMetadataUtility(data.attributeMap.get(BCSC_IDP_KEY));
             roles = processRoles.userMapping;
-        } else if (data.attributemap.containsKey('roles')) {
+        } else if (data.attributeMap.containsKey(BCEID_IDP_KEY) && data.attributeMap.get(BCEID_IDP_KEY) == USER_PROVISIONING_ROLE_BCEID)  {
+            //BCEID - 
+            processRoles = new UserRegistrationCustomMetadataUtility(data.attributeMap.get(BCEID_IDP_KEY));
+            roles = processRoles.userMapping;  
+        } else if (data.attributeMap.containsKey('roles')) {
             // MoH
             processRoles = new UserRegistrationCustomMetadataUtility(data.attributeMap.get('roles'));
-            roles = processRoles.userMapping;
-            
+            roles = processRoles.userMapping;   
         }
         
         return roles;
@@ -1190,10 +1323,14 @@ public with sharing class UserRegistrationService{
     {
         String mappingKey = '';
         //Determine source IDP
-        if (data.attributeMap.containsKey('idp')) {
+        if (data.attributeMap.containsKey(BCSC_IDP_KEY)) {
             // BCSC
-            mappingKey = 'idp';
-        } else if (data.attributemap.containsKey('roles')) {
+            mappingKey = BCSC_IDP_KEY;
+        } else if (data.attributeMap.containsKey(BCEID_IDP_KEY) && data.attributeMap.get(BCEID_IDP_KEY) == USER_PROVISIONING_ROLE_BCEID) {
+            //BCEID {
+            mappingKey = BCEID_IDP_KEY;
+            System.debug('BCEID_IDP_KEY: ' + BCEID_IDP_KEY);
+        } else if (data.attributeMap.containsKey('roles')) {
             //MoH
             mappingKey = 'roles';
         }
@@ -1214,13 +1351,13 @@ public with sharing class UserRegistrationService{
                 licenseType = foundRoleMaping_rec.Salesforce_User_License__c;
             }
         }
-        Return licenseType;
+        return licenseType;
     }
     public static AttributeMapping fetchAttributeValue(Auth.UserData data, String sourceAttribute, String defaultAttributeValue)
     {
         UserRegistrationCustomMetadataUtility userAttribute = new UserRegistrationCustomMetadataUtility();
         AttributeMapping mapping = new AttributeMapping();
-        if (userAttribute.userAttributeMapping_map <> null && 
+        if (userAttribute.userAttributeMapping_map != null && 
                 userAttribute.userAttributeMapping_map.containsKey(sourceAttribute) && 
                 data.attributeMap.containsKey(sourceAttribute)) {
             IDP_User_Registration_Attribute_Mapping__mdt foundAttributes = userAttribute.userAttributeMapping_map.get(sourceAttribute);
@@ -1255,7 +1392,7 @@ public with sharing class UserRegistrationService{
                         .toExternalForm()
                         .substringAfter('https://')
                         .substringBefore('.');
-        suffixName = CustomDomain.substringAfter('--');
+        suffixName = customDomain.substringAfter('--');
         if (String.isEmpty(suffixName)) {
             suffixName = customDomain;
         }
@@ -1304,7 +1441,7 @@ public with sharing class UserRegistrationService{
         * 
         */
         integer unique_num = Math.mod(Math.abs(Crypto.getRandomInteger()), 10);
-        return String.valueof(data.username.left(4) + '_' + String.Valueof(unique_num)).left(8);
+        return String.valueOf(data.username.left(4) + '_' + String.valueOf(unique_num)).left(8);
     }
     
     public static Boolean checkAvailableLicense(String licenseType) 
@@ -1317,24 +1454,17 @@ public with sharing class UserRegistrationService{
         *     String: Boolean
         * 
         */           
-        Boolean isLicenseAvailable = false;
-        UserLicense[] availableLicense_list =
-            [SELECT CreatedDate,Id,LastModifiedDate,LicenseDefinitionKey,MasterLabel,Name,Status,
-                SystemModstamp,TotalLicenses,UsedLicenses,UsedLicensesLastUpdated 
-            FROM UserLicense where Name =: licenseType];
-            
-        if (availableLicense_list.size() > 0)
-        {
-            for(UserLicense availableLicense_rec : availableLicense_list)
-            {
-                if (availableLicense_rec.TotalLicenses > availableLicense_rec.UsedLicenses)
-                {
-                    isLicenseAvailable = true;
-                }
-            }
-            
+        List<UserLicense> availableLicense_list = [
+            SELECT TotalLicenses, UsedLicenses
+            FROM UserLicense
+            WHERE Name = :licenseType
+            LIMIT 1
+        ];
+
+        if (!availableLicense_list.isEmpty()) {
+            return availableLicense_list[0].TotalLicenses > availableLicense_list[0].UsedLicenses;
         }
-        return isLicenseAvailable;
+        return false;
         
     }
 
@@ -1348,40 +1478,30 @@ public with sharing class UserRegistrationService{
         *     String: String
         * 
         */           
-        String isValidIdp = '';
         String currentHost = URL.getCurrentRequestUrl().getHost();
-        String currentIdp = '';
-        Boolean matchfoundIdp = false;
-        List<IDP_User_Registration_Domain_Setting__mdt> availableDomain_list = new List<IDP_User_Registration_Domain_Setting__mdt>();
-        availableDomain_list =
-            [SELECT Id, DeveloperName, Domain__c, Token_Source__c, Token_Attribute__c
-            FROM IDP_User_Registration_Domain_Setting__mdt WHERE Domain__c =: currentHost];
-            
-        if (availableDomain_list.size() > 0)
-        {
-            for(IDP_User_Registration_Domain_Setting__mdt domainSetting_rec : availableDomain_list)
-            {
-                if(data.attributeMap.containsKey(domainSetting_rec.Token_Attribute__c)) {
-                    currentIdp = data.attributeMap.get(domainSetting_rec.Token_Attribute__c);
-                    matchfoundIdp = true;
-                } else {
-                    currentIdp = '';
-                }
+        List<IDP_User_Registration_Domain_Setting__mdt> availableDomainList = [
+            SELECT Id, DeveloperName, Domain__c, Token_Source__c, Token_Attribute__c
+            FROM IDP_User_Registration_Domain_Setting__mdt
+            WHERE Domain__c = :currentHost
+        ];
 
-                if(currentIdp == domainSetting_rec.Token_Source__c  && matchfoundIdp == true)
-                {
-                    isValidIdp = 'YES';
-                } else {
-                    isValidIdp = 'NO';
+        if (availableDomainList.isEmpty()) {
+            System.debug('isValidIdp: NA');
+            return 'NA';
+        }
+
+        for (IDP_User_Registration_Domain_Setting__mdt domainSettingRec : availableDomainList) {
+            if (data.attributeMap.containsKey(domainSettingRec.Token_Attribute__c)) {
+                String currentIdp = data.attributeMap.get(domainSettingRec.Token_Attribute__c);
+                if (currentIdp == domainSettingRec.Token_Source__c) {
+                    System.debug('isValidIdp: YES');
+                    return 'YES';
                 }
             }
-
-        } else {
-            isValidIdp = 'NA';
         }
-        System.debug('isValidIdp: ' + isValidIdp);
-        return isValidIdp;
-        
+
+        System.debug('isValidIdp: NO');
+        return 'NO';
     }
 
     private class CommunityUserContact

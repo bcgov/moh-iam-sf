@@ -2,7 +2,7 @@
  * @description       : 
  * @author            : ChangeMeIn@UserSettingsUnder.SFDoc
  * @group             : 
- * @last modified on  : 06-18-2026
+ * @last modified on  : 07-27-2026
  * @last modified by  : ChangeMeIn@UserSettingsUnder.SFDoc
 **/
 public with sharing class UserRegistrationPermission {
@@ -14,6 +14,7 @@ public with sharing class UserRegistrationPermission {
     public static final String EMAIL_ASPERAND_SIGN = '@';
     public static final String ACCOUNT_PERSONACCOUNT_RECORDTYPE = 'PersonAccount';
     public static final String BCSC_IDP_KEY = 'idp';
+    public static final String BCEID_IDP_KEY = 'identity_provider';
     public static final String MOH_IDP_KEY = 'roles';
     public static final String USER_USERNAME_REFERENCE = 'data.username';
     public static final String EMAIL_ENCODING_KEY = 'UTF-8';
@@ -307,27 +308,25 @@ public with sharing class UserRegistrationPermission {
     {
         List<String> userGroups = new List<String>();
         Boolean isPublicGroupIgnoreReset = false;
-        
+
         UserRegistrationCustomMetadataUtility processRoles = new UserRegistrationCustomMetadataUtility(userProvisioningRole);
 
         Boolean isHealthCloudInstalled = processRoles.isHealthCloudInstalled();
 
-        //is_Ignore_Public_Group_Reset__c
-        // 
+        // is_Ignore_Public_Group_Reset__c
         List<String> filterPublicGroupByRoleId = new List<String>();
         if (isHealthCloudInstalled) {
 
         }
+
         Boolean hcfnFieldExisting = false;
         List<SObject> hcfn = processRoles.safeNewSObjectList('HealthcareFacilityNetwork');
         List<SObject> hcfnList = new List<SObject>();
         if (hcfn != null) {
-            
             hcfnFieldExisting = processRoles.isFieldExisting('Clinic_Panel_Group_ID__c','HealthcareFacilityNetwork');
         }
-        
+
         Id accountIdMatch = [SELECT AccountId FROM User WHERE Id =: userId].AccountId;
-        
 
         for (IDP_User_Registration_User_Mapping__mdt userRegistrationRec: processRoles.userMapping)
         {
@@ -335,7 +334,7 @@ public with sharing class UserRegistrationPermission {
             {
                 isPublicGroupIgnoreReset = true;
             }
-            if (userRegistrationRec.is_Process_HCFN_Groups__c && hcfnFieldExisting) 
+            if (userRegistrationRec.is_Process_HCFN_Groups__c && hcfnFieldExisting)
             {
                 if (userRegistrationRec.Salesforce_User_License__c == SALESFORCE_USER_LICENSE_COMMUNITY)
                 {
@@ -343,64 +342,135 @@ public with sharing class UserRegistrationPermission {
                     qryString = 'select Id, Clinic_Panel_Group_ID__c, Practitioner.Account.Id from HealthcareFacilityNetwork WHERE Clinic_Panel_Group_ID__c <> null And Practitioner.Account.Id = \'' + accountIdMatch + '\'';
                     hcfnList = Database.query(qryString);
                 }
-
             }
         }
-        List<groupMember> existingGroupList = new List<groupMember>();
-        if (!isPublicGroupIgnoreReset) 
-        {
-            existingGroupList = [SELECT Id from groupMember 
-            WHERE UserOrGroupId =: userId];
-        }
 
-        if (existingGroupList != null && existingGroupList.size() > 0)
+        // Preserve the existing reset behavior when the role does not request that
+        // public-group memberships be retained.
+        if (!isPublicGroupIgnoreReset)
         {
-            delete existingGroupList;
+            List<GroupMember> existingGroupList = [
+                SELECT Id
+                FROM GroupMember
+                WHERE UserOrGroupId = :userId
+            ];
+
+            if (!existingGroupList.isEmpty())
+            {
+                delete existingGroupList;
+            }
         }
 
         for (IDP_User_Registration_Permission_Set__mdt userGroupRec : processRoles.userPermissionSet)
         {
             if (userGroupRec.Assignment_Type__c == USER_ASSIGNMENT_TYPE_PUBLICGROUP)
             {
-                userGroups.add(userGroupRec.Salesforce_Public_Group__c);
-            } 
-                 else 
+                if (String.isNotBlank(userGroupRec.Salesforce_Public_Group__c))
+                {
+                    userGroups.add(userGroupRec.Salesforce_Public_Group__c);
+                }
+            }
+            else if (userGroupRec.Assignment_Type__c == USER_ASSIGNMENT_TYPE_QUEUE)
             {
-                if (userGroupRec.Assignment_Type__c == USER_ASSIGNMENT_TYPE_QUEUE)
+                if (String.isNotBlank(userGroupRec.Salesforce_Queue__c))
                 {
                     userGroups.add(userGroupRec.Salesforce_Queue__c);
                 }
             }
-            
         }
-        //Add Groups for is_Process_HCFN_Groups__c flag set to true
-        if (userGroups.size() > 0)
+
+        Set<Id> targetGroupIds = new Set<Id>();
+
+        if (!userGroups.isEmpty())
         {
-            list<groupMember> groupList = new list<groupMember>();
-            list<Group> grp = [select id from Group where DeveloperName in : userGroups];
-            
-            for(group g : grp){
-                groupMember gp = new groupMember(groupId = g.Id);
-                gp.UserOrGroupId = userId;
-                groupList.add(gp);
-            }
-            if (hcfnFieldExisting) 
+            for (Group g : [
+                SELECT Id, DeveloperName, Type
+                FROM Group
+                WHERE DeveloperName IN :userGroups
+            ])
             {
-                for(SObject hcfn_rec : hcfnList) {
-                    groupMember gp = new groupMember(groupId = (String)hcfn_rec.get('Clinic_Panel_Group_ID__c'));
-                    gp.UserOrGroupId = userId;
-                    groupList.add(gp);                
+                targetGroupIds.add(g.Id);
+            }
+        }
+
+        // Add HCFN groups for is_Process_HCFN_Groups__c mappings.
+        if (hcfnFieldExisting)
+        {
+            for (SObject hcfnRec : hcfnList)
+            {
+                Object groupIdValue = hcfnRec.get('Clinic_Panel_Group_ID__c');
+                if (groupIdValue != null && String.isNotBlank(String.valueOf(groupIdValue)))
+                {
+                    try
+                    {
+                        targetGroupIds.add((Id)String.valueOf(groupIdValue));
+                    }
+                    catch (Exception e)
+                    {
+                        System.debug(LoggingLevel.ERROR,
+                            'Ignoring invalid HCFN public group Id [' + groupIdValue + ']: ' + e.getMessage());
+                    }
                 }
             }
-                
-            if(groupList.size() > 0)
-            {
-                insert groupList;
-            }
-
-            System.debug('GroupList: ' + groupList);
         }
-    }        
+
+        if (targetGroupIds.isEmpty())
+        {
+            System.debug('No target public groups or queues found for user: ' + userId);
+            return;
+        }
+
+        // Always query the memberships for the target groups.  This is separate
+        // from the reset behavior above and prevents duplicate GroupMember DML
+        // when is_Ignore_Public_Group_Reset__c is true.
+        Set<Id> existingTargetGroupIds = new Set<Id>();
+        for (GroupMember existingMember : [
+            SELECT Id, GroupId, UserOrGroupId
+            FROM GroupMember
+            WHERE UserOrGroupId = :userId
+            AND GroupId IN :targetGroupIds
+        ])
+        {
+            existingTargetGroupIds.add(existingMember.GroupId);
+        }
+
+        List<GroupMember> groupList = new List<GroupMember>();
+        for (Id targetGroupId : targetGroupIds)
+        {
+            if (!existingTargetGroupIds.contains(targetGroupId))
+            {
+                groupList.add(new GroupMember(
+                    GroupId = targetGroupId,
+                    UserOrGroupId = userId
+                ));
+            }
+        }
+
+        if (!groupList.isEmpty())
+        {
+            // Public-group maintenance must not abort a login.  Partial DML lets
+            // valid memberships succeed while logging any membership Salesforce
+            // refuses because of access or group-type restrictions.
+            Database.SaveResult[] results = Database.insert(groupList, false);
+
+            for (Integer i = 0; i < results.size(); i++)
+            {
+                if (!results[i].isSuccess())
+                {
+                    for (Database.Error err : results[i].getErrors())
+                    {
+                        System.debug(LoggingLevel.ERROR,
+                            'Unable to add user ' + userId +
+                            ' to group ' + groupList[i].GroupId +
+                            '. Status=' + err.getStatusCode() +
+                            ', Message=' + err.getMessage());
+                    }
+                }
+            }
+        }
+
+        System.debug('GroupList: ' + groupList);
+    }
 
     private static void insertPermissionSetAssignment(String permissionsets, Id userId) {
 
