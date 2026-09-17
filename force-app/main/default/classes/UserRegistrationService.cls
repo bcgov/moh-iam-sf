@@ -186,11 +186,27 @@ public with sharing class UserRegistrationService{
 
                         }
                     }
+                    String mspIdvalue = '';
+                    if (data.attributeMap.containsKey('roles') && processRoles.isFieldExisting('Medical_ID__c', 'User') &&
+                            data.attributeMap.containsKey('msp_id')) {
+                        mspIdvalue = data.attributeMap.get('msp_id');
+                        if (!String.isBlank(mspIdvalue.remove('[').remove(']').trim())) {
+                            newUser.put('Medical_ID__c',mspIdvalue.remove('[').remove(']'));
+                        }
+                    }    
                     if (userTokenRole == true && processRoles.isFieldExisting('BCH_Medical_ID__c', 'User') &&
                             data.attributeMap.containsKey('msp_id')) {
-                        String mspIdvalue = data.attributeMap.get('msp_id');
+                        mspIdvalue = data.attributeMap.get('msp_id');
                         if (!String.isBlank(mspIdvalue.remove('[').remove(']').trim())) {
                             newUser.put('BCH_Medical_ID__c',mspIdvalue.remove('[').remove(']'));
+                        }
+                    }
+                    // College_ID__c
+                    if (data.attributeMap.containsKey('roles') && processRoles.isFieldExisting('College_ID__c', 'User') &&
+                            data.attributeMap.containsKey('college_id')) {
+                        mspIdvalue = data.attributeMap.get('college_id');
+                        if (!String.isBlank(mspIdvalue.remove('[').remove(']').trim())) {
+                            newUser.put('College_ID__c',mspIdvalue.remove('[').remove(']'));
                         }
                     }
 
@@ -603,13 +619,30 @@ public with sharing class UserRegistrationService{
                 }
             }
         }
+        String mspIdvalue = '';
+        if (data.attributeMap.containsKey('roles') && processFieldcheck.isFieldExisting('Medical_ID__c', 'User') &&
+                data.attributeMap.containsKey('msp_id')) {
+            mspIdvalue = data.attributeMap.get('msp_id');
+            if (!String.isBlank(mspIdvalue.remove('[').remove(']').trim())) {
+                existingUser.put('Medical_ID__c',mspIdvalue.remove('[').remove(']'));
+            }
+        }        
         if (data.attributeMap.containsKey('roles') && processFieldcheck.isFieldExisting('BCH_Medical_ID__c', 'User') &&
                 data.attributeMap.containsKey('msp_id')) {
-            String mspIdvalue = data.attributeMap.get('msp_id');
+            mspIdvalue = data.attributeMap.get('msp_id');
             if (!String.isBlank(mspIdvalue.remove('[').remove(']').trim())) {
                 existingUser.put('BCH_Medical_ID__c',mspIdvalue.remove('[').remove(']'));
             }
         }
+        // College_ID__c
+        if (data.attributeMap.containsKey('roles') && processFieldcheck.isFieldExisting('College_ID__c', 'User') &&
+                data.attributeMap.containsKey('college_id')) {
+            mspIdvalue = data.attributeMap.get('college_id');
+            if (!String.isBlank(mspIdvalue.remove('[').remove(']').trim())) {
+                existingUser.put('College_ID__c',mspIdvalue.remove('[').remove(']'));
+            }
+        }
+
         if ((data.attributeMap.containsKey('roles') || data.attributeMap.containsKey('idp')) && processFieldcheck.isFieldExisting('CPSID__c', 'User')) {
             //keycloakRole = data.attributeMap.get('roles'); 
             List<IDP_User_Registration_User_Mapping__mdt>  matchingRole_list = new List<IDP_User_Registration_User_Mapping__mdt>();

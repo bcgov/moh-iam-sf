@@ -31,6 +31,7 @@ public with sharing class UserRegistrationPermission {
         List<IDP_User_Registration_User_Mapping__mdt>  matchingRole_list = new List<IDP_User_Registration_User_Mapping__mdt>();
         List<IDP_User_Registration_User_Mapping__mdt>  matchingRoles = new List<IDP_User_Registration_User_Mapping__mdt>();
         Boolean isPortalEnabled = true;
+        Map<Id, String> deferredSetupAssignments = new Map<Id, String>();
 
         for (User processUser: processUserList) {
             if (oldUserMap != null) {
@@ -66,22 +67,9 @@ public with sharing class UserRegistrationPermission {
                         if (isIsActiveOnAccount && oldUserMap_rec.get('IsActive') == true && processUser.get('IsActive') == false) {
                             isInactiveUser = true;
                         }
-                        if (!isTestUser)
-                        {
-                            List<PermissionSetAssignment> removeOtherPerms = new List<PermissionSetAssignment>();
-                            for(PermissionSetAssignment existingPSAByUser_rec : [SELECT AssigneeId,Id,PermissionSetId,PermissionSet.Name 
-                                                                                    FROM PermissionSetAssignment 
-                                                                                    WHERE AssigneeId =: processUser.Id
-                                                                                    AND PermissionSet.ProfileId = null  
-                                                                                    ORDER BY AssigneeId ASC])
-                            {
-                                removeOtherPerms.add(existingPSAByUser_rec);
-                            } 
-                            
-                            if(removeOtherPerms.size() > 0) {
-                                delete removeOtherPerms;
-                            }
-                        }
+                        // PermissionSetAssignment and GroupMember are setup objects.
+                        // Do not perform their DML in this transaction because user registration
+                        // can also create/update Account (a non-setup object), which causes MIXED_DML_OPERATION.
                     }
                 }
             }
@@ -98,20 +86,13 @@ public with sharing class UserRegistrationPermission {
                         (System.Trigger.isUpdate || 
                         System.Trigger.isInsert) &&
                         isRoleRequireLoginFlow) ) {
-                    try {
-                
-                        // add/update any new permission sets
-                        managePermissionSet(processUser.Id, processUser.User_Assigned_Role__c);
-                        // add user to Public Group
-                        manageGroups(processUser.Id, processUser.User_Assigned_Role__c);
-                        
-                        } catch (Exception e) {
-                            system.debug('exception caught:' + e);
-                        }
+                    deferredSetupAssignments.put(processUser.Id, processUser.User_Assigned_Role__c);
                 }
             }
 
         }
+
+        enqueueSetupAssignments(deferredSetupAssignments);
     }
 
     public class InputVariables {
@@ -132,23 +113,13 @@ public with sharing class UserRegistrationPermission {
         //UserRegistrationCustomMetadataUtility processRoles = new UserRegistrationCustomMetadataUtility();
         List<IDP_User_Registration_User_Mapping__mdt>  matchingRole_list = new List<IDP_User_Registration_User_Mapping__mdt>();
         IDP_User_Registration_User_Mapping__mdt  matchingRole = new IDP_User_Registration_User_Mapping__mdt();   
+        Map<Id, String> deferredSetupAssignments = new Map<Id, String>();
         for (User processUser: userList) {
             if (processUser.User_Assigned_Role__c != null) {
-                String userProvisioningRole = processUser.User_Assigned_Role__c;
-                try {
-                    // add/update any new permission sets
-                    managePermissionSet(processUser.Id, userProvisioningRole);
-                    
-                    // add user to Public Group
-                    //manageGroups(processUser.Id, userProvisioningRole);
-                    manageGroups(processUser.Id, userProvisioningRole);
-                    } catch (Exception e) {
-                        system.debug('exception caught:' + e);
-                    }
-                    
+                deferredSetupAssignments.put(processUser.Id, processUser.User_Assigned_Role__c);
             }
-
         }
+        enqueueSetupAssignments(deferredSetupAssignments);
         List<String> addedPermissions = new List<String>();
 
         List<ReturnVariables> returnVarsList = new List<ReturnVariables>();
@@ -157,6 +128,42 @@ public with sharing class UserRegistrationPermission {
         returnVarsList.add(returnVars);
         return returnVarsList;
     } 
+
+
+    /**
+     * Defers setup-object DML (PermissionSetAssignment and GroupMember) to a
+     * separate transaction so registration can safely create/update Account first.
+     */
+    @TestVisible
+    private static void enqueueSetupAssignments(Map<Id, String> userRoleById) {
+        if (userRoleById == null || userRoleById.isEmpty()) {
+            return;
+        }
+        System.enqueueJob(new SetupAssignmentQueueable(userRoleById));
+    }
+
+    public class SetupAssignmentQueueable implements Queueable {
+        private Map<Id, String> userRoleById;
+
+        public SetupAssignmentQueueable(Map<Id, String> userRoleById) {
+            this.userRoleById = new Map<Id, String>(userRoleById);
+        }
+
+        public void execute(QueueableContext context) {
+            for (Id userId : userRoleById.keySet()) {
+                String userProvisioningRole = userRoleById.get(userId);
+                try {
+                    managePermissionSet(userId, userProvisioningRole);
+                    manageGroups(userId, userProvisioningRole);
+                } catch (Exception e) {
+                    System.debug(LoggingLevel.ERROR,
+                        'Setup assignment failed for user ' + userId + ': ' +
+                        e.getTypeName() + ': ' + e.getMessage() +
+                        ' at line ' + e.getLineNumber());
+                }
+            }
+        }
+    }
 
     private static void managePermissionSet(Id userId, String keyCloakRole)
     {
