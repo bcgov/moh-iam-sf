@@ -1,3 +1,10 @@
+/**
+ * @description       : 
+ * @author            : Roy Poystila
+ * @group             : 
+ * @last modified on  : 09-28-2026
+ * @last modified by  : Roy Poystila
+**/
 public without sharing class BceidLoginNameSyncJob implements Queueable, Database.AllowsCallouts {
     private Id userId;
     private String onlineServiceId;
@@ -28,15 +35,9 @@ public without sharing class BceidLoginNameSyncJob implements Queueable, Databas
         if (users.isEmpty() || users[0].ContactId == null) return;
 
         Id contactId = users[0].ContactId;
-        List<Contact> contacts = [
-            SELECT Id, BCeIDGUID__c
-            FROM Contact
-            WHERE Id = :contactId
-            LIMIT 1
-        ];
-        if (contacts.isEmpty() || String.isBlank(contacts[0].BCeIDGUID__c)) return;
+        String bceidUserGuid = getContactBceidIdentifier(contactId);
+        if (String.isBlank(bceidUserGuid)) return;
 
-        String bceidUserGuid = contacts[0].BCeIDGUID__c;
         String requesterType = String.isBlank(requesterAccountTypeCode)
             ? 'Business' : requesterAccountTypeCode;
         String targetType = String.isBlank(accountTypeCode)
@@ -57,9 +58,72 @@ public without sharing class BceidLoginNameSyncJob implements Queueable, Databas
             BceidIdentityService.sync(result, userId, contactId);
         } catch (Exception e) {
             // Login-safe asynchronous boundary. A synchronization failure must not affect login.
-            System.debug(LoggingLevel.ERROR,
-                'BCeID asynchronous name synchronization failed for User ' + userId +
-                ': ' + e.getMessage());
+            System.debug(
+                LoggingLevel.ERROR,
+                'BCeID asynchronous name synchronization failed for User ' +
+                userId + ': ' + e.getMessage()
+            );
+        }
+    }
+
+    /*
+     * BCeIDGUID__c and ExternalId__c are optional across target orgs.
+     * Do not statically reference either field so unlocked-package compilation
+     * does not require them to exist.
+     */
+    private static String getContactBceidIdentifier(Id contactId) {
+        if (contactId == null) return null;
+
+        Map<String, Schema.SObjectField> contactFields =
+            Schema.SObjectType.Contact.fields.getMap();
+
+        String identifier = queryOptionalContactField(
+            contactId,
+            contactFields,
+            'bceidguid__c'
+        );
+
+        if (String.isBlank(identifier)) {
+            identifier = queryOptionalContactField(
+                contactId,
+                contactFields,
+                'externalid__c'
+            );
+        }
+
+        return identifier;
+    }
+
+    private static String queryOptionalContactField(
+        Id contactId,
+        Map<String, Schema.SObjectField> contactFields,
+        String fieldKey
+    ) {
+        if (contactFields == null || !contactFields.containsKey(fieldKey)) {
+            return null;
+        }
+
+        String fieldName =
+            contactFields.get(fieldKey).getDescribe().getName();
+
+        try {
+            List<SObject> contacts = Database.query(
+                'SELECT Id, ' + fieldName +
+                ' FROM Contact WHERE Id = :contactId LIMIT 1'
+            );
+
+            if (contacts.isEmpty()) return null;
+
+            Object value = contacts[0].get(fieldName);
+            return value == null ? null : String.valueOf(value);
+        } catch (QueryException e) {
+            System.debug(
+                LoggingLevel.WARN,
+                'Optional Contact field ' + fieldName +
+                ' is not queryable in this org/package context: ' +
+                e.getMessage()
+            );
+            return null;
         }
     }
 }

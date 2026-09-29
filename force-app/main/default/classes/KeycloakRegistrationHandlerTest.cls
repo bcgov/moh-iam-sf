@@ -1,3 +1,10 @@
+/**
+ * @description       : 
+ * @author            : Roy Poystila
+ * @group             : 
+ * @last modified on  : 09-29-2026
+ * @last modified by  : Roy Poystila
+**/
 @isTest
 public class KeycloakRegistrationHandlerTest {
   private static final String OAUTH_TOKEN = 'testToken';
@@ -31,7 +38,7 @@ public class KeycloakRegistrationHandlerTest {
               '"http://www.bceid.ca/webservices/Client/V10/getAccountDetail"',
               req.getHeader('SOAPAction')
           );
-          System.assert(req.getBody().contains('64510436D6CF4EE68B1DFE39111FFE74'));
+          System.assert(req.getBody().contains('getAccountDetail')); // GUID varies by test to avoid unique-field collisions
 
           HttpResponse res = new HttpResponse();
           res.setStatusCode(200);
@@ -305,11 +312,46 @@ public class KeycloakRegistrationHandlerTest {
 
         newPersonAccounts.Add(newPersonAccount5);      
 
+        // Strip fields that are not creatable in the current org before DML.
+        // This keeps the test portable across orgs with different Account schemas/FLS.
+        SObjectAccessDecision accountAccessDecision = Security.stripInaccessible(
+            AccessType.CREATABLE,
+            newPersonAccounts
+        );
+        newPersonAccounts = (List<Account>) accountAccessDecision.getRecords();
         insert newPersonAccounts;
+
+        // Person Accounts automatically provide PersonContactId. In orgs where
+        // Person Accounts are not enabled, create equivalent Contacts so the
+        // community-user tests exercise the same Account -> Contact -> User model.
+        if (!isPersonAccountsAvailable) {
+            List<Contact> businessContacts = new List<Contact>();
+            String[] firstNames = new String[]{
+                'TESTONLY_ZERO', 'TESTONLY_FIRST', 'TESTONLYBCSC3_FIRST',
+                'TESTONLYBCSC2_FIRST', 'TESTONLYBCSC4_FIRST', 'TESTONLYBCSC5_FIRST'
+            };
+            String[] lastNames = new String[]{
+                'TESTONLY_LAST', 'TESTONLY_LAST', 'TESTONLYBCSC3_LAST',
+                'TESTONLYBCSC2_LAST', 'TESTONLYBCSC4_LAST', 'TESTONLYBCSC5_LAST'
+            };
+            String[] emails = new String[]{
+                'TESTONLY0@EMAIL.com', 'TESTONLY@EMAIL.com', 'testusername3@me.com',
+                'testusername2@me.com', 'TESTONLYBCSC4@EMAIL.com', 'TESTONLYBCSC5@EMAIL.com'
+            };
+            for (Integer i = 0; i < newPersonAccounts.size(); i++) {
+                businessContacts.add(new Contact(
+                    AccountId = newPersonAccounts[i].Id,
+                    FirstName = firstNames[i],
+                    LastName = lastNames[i],
+                    Email = emails[i]
+                ));
+            }
+            insert businessContacts;
+        }
         
-        Group testGroup = new Group();
-        testGroup.Name = 'Test_Group';
-        insert testGroup;    
+        // No Group test data is required by this class. Group is a setup object;
+        // inserting it here after Account/Contact DML causes MIXED_DML_OPERATION
+        // in orgs that use the Business Account + Contact test-data path.
     }
   }
 
@@ -756,12 +798,22 @@ public class KeycloakRegistrationHandlerTest {
         attribmap.put('identity_provider', 'bceid_business');
         attribmap.put('email', 'testonly@bcsc.ca');
         attribmap.put('preferred_username', 'testuser@bceid_business');
-        attribmap.put('bceid_business_id','64550CDAB0C245D5B428C4A88D7D84DB');
+        // These fields are unique/external IDs in some target orgs. Generate values for
+        // this test instead of reusing fixture IDs that may already exist in the org.
+        String uniqueSeed = String.valueOf(DateTime.now().getTime()) + ':' + String.valueOf(Crypto.getRandomLong());
+        String uniqueUserGuid = EncodingUtil.convertToHex(
+            Crypto.generateDigest('MD5', Blob.valueOf('USER:' + uniqueSeed))
+        ).toUpperCase();
+        String uniqueBusinessGuid = EncodingUtil.convertToHex(
+            Crypto.generateDigest('MD5', Blob.valueOf('BUSINESS:' + uniqueSeed))
+        ).toUpperCase();
+
+        attribmap.put('bceid_business_id', uniqueBusinessGuid);
         attribmap.put('bceid_username', 'TestCaseOperator1');
         attribmap.put('email_verified', 'false');
         attribmap.put('bceid_displayName', 'Test Case Operator 1');
         attribmap.put('bceid_business_name', 'TestOnlyLast');
-        attribmap.put('bceid_user_guid', '64510436D6CF4EE68B1DFE39111FFE74');
+        attribmap.put('bceid_user_guid', uniqueUserGuid);
         attribmap.put('sub','a9b8a8e4-e2a2-46ef-8dc5-fa8d40c24ddd');
         attribmap.put('bceid_business_legalName','Test Case BELN-1');
 
@@ -787,7 +839,7 @@ public class KeycloakRegistrationHandlerTest {
             System.assertNotEquals(null, savedUser.ContactId);
 
             Contact savedContact = [
-                SELECT Id, FirstName, LastName, BCeIDGUID__c
+                SELECT Id, FirstName, LastName
                 FROM Contact WHERE Id = :savedUser.ContactId LIMIT 1
             ];
             System.assertEquals('BCeID First', savedContact.FirstName);
@@ -800,17 +852,27 @@ public class KeycloakRegistrationHandlerTest {
         User runtimeUser = [
             SELECT Id FROM User WHERE Email = 'systemuser@testorg.com' LIMIT 1
         ];
-        Account businessAccount = [
-            SELECT Id FROM Account WHERE AccountNumber = 'newPersonAccount' LIMIT 1
-        ];
-
-        Contact c = new Contact(
-            AccountId = businessAccount.Id,
-            FirstName = 'Old Contact',
-            LastName = 'Old Name',
-            BCeIDGUID__c = '64510436D6CF4EE68B1DFE39111FFE74'
+        Account bceidAccount = new Account(
+            Name = 'BCeID Authoritative Name Test'
         );
-        insert c;
+        Contact c;
+        System.runAs(runtimeUser) {
+            insert bceidAccount;
+
+            c = new Contact(
+                AccountId = bceidAccount.Id,
+                FirstName = 'Old Contact',
+                LastName = 'Old Name',
+                Email = 'bceid-authoritative@testorg.com'
+            );
+            if (Schema.SObjectType.Contact.fields.getMap().containsKey('bceidguid__c')) {
+                c.put('BCeIDGUID__c', '64510436D6CF4EE68B1DFE39111FFE74');
+            }
+            if (Schema.SObjectType.Contact.fields.getMap().containsKey('externalid__c')) {
+                c.put('ExternalId__c', '64510436D6CF4EE68B1DFE39111FFE74');
+            }
+            insert c;
+        }
 
         Profile communityProfile = [
             SELECT Id FROM Profile
@@ -1332,10 +1394,36 @@ public class KeycloakRegistrationHandlerTest {
     }
     @Future
     public static void verifyTestUser() {
+        // @TestSetup already creates this user for every test method. Static
+        // variables are reset between test setup and the individual test, so
+        // RUN_TIME_USER alone cannot be used to determine whether it exists.
+        // Query first to make repeated calls idempotent and avoid duplicate
+        // UserRole/User setup DML in tests that call this helper again.
+        List<User> existingRuntimeUsers = [
+            SELECT Id
+            FROM User
+            WHERE Email = 'systemuser@testorg.com'
+            LIMIT 1
+        ];
+        if (!existingRuntimeUsers.isEmpty()) {
+            RUN_TIME_USER = existingRuntimeUsers[0];
+            return;
+        }
 
         if (RUN_TIME_USER.Id == null) {
-            UserRole userRole = new UserRole(Name='TestRoleOnly');
-            Insert userRole;
+            List<UserRole> existingRoles = [
+                SELECT Id
+                FROM UserRole
+                WHERE Name = 'TestRoleOnly'
+                LIMIT 1
+            ];
+            UserRole userRole;
+            if (existingRoles.isEmpty()) {
+                userRole = new UserRole(Name='TestRoleOnly');
+                insert userRole;
+            } else {
+                userRole = existingRoles[0];
+            }
             //runningUser.UserRoleId = userRole.Id;
 
             String uniqueUserName =

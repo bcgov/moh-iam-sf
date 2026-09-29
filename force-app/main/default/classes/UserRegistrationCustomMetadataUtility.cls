@@ -279,11 +279,17 @@ public class UserRegistrationCustomMetadataUtility{
         if (cachedPersonAccountsEnabled != null) return cachedPersonAccountsEnabled;
 
         try {
-            Schema.DescribeSObjectResult acctDescribe = Account.sObjectType.getDescribe();
-            // check for the special Person Account fields
-            Map<String, Schema.SObjectField> fieldMap = acctDescribe.fields.getMap();
-            cachedPersonAccountsEnabled = fieldMap.containsKey('IsPersonAccount')
-                                        || fieldMap.containsKey('PersonContactId');
+            Map<String, Schema.SObjectField> fieldMap =
+                Schema.SObjectType.Account.fields.getMap();
+
+            cachedPersonAccountsEnabled = false;
+            for (String fieldName : fieldMap.keySet()) {
+                if ('IsPersonAccount'.equalsIgnoreCase(fieldName)
+                        || 'PersonContactId'.equalsIgnoreCase(fieldName)) {
+                    cachedPersonAccountsEnabled = true;
+                    break;
+                }
+            }
         } catch (Exception e) {
             // defensive: if describe fails for some reason, treat as not enabled
             cachedPersonAccountsEnabled = false;

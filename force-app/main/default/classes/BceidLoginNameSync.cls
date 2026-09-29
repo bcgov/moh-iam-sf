@@ -76,21 +76,23 @@ public with sharing class BceidLoginNameSync {
             try {
                 validateRequest(request);
 
-                List<Contact> contacts = [
-                    SELECT Id, BCeIDGUID__c
-                    FROM Contact
-                    WHERE Id = :request.contactId
-                    LIMIT 1
-                ];
+                GuidLookupResult guidLookup = getBceidGuid(request.contactId);
 
-                if (contacts.isEmpty()) {
+                if (!guidLookup.contactFound) {
                     response.skipped = true;
                     response.errorMessage = 'BCeID name synchronization skipped: Contact was not found.';
                     responses.add(response);
                     continue;
                 }
 
-                String bceidUserGuid = contacts[0].BCeIDGUID__c;
+                if (!guidLookup.fieldAvailable) {
+                    response.skipped = true;
+                    response.errorMessage = 'BCeID name synchronization skipped: Contact BCeIDGUID__c is not available in this org.';
+                    responses.add(response);
+                    continue;
+                }
+
+                String bceidUserGuid = guidLookup.guid;
 
                 if (String.isBlank(bceidUserGuid)) {
                     response.skipped = true;
@@ -152,6 +154,45 @@ public with sharing class BceidLoginNameSync {
         }
 
         return responses;
+    }
+
+    private class GuidLookupResult {
+        Boolean contactFound = false;
+        Boolean fieldAvailable = false;
+        String guid;
+    }
+
+    private static GuidLookupResult getBceidGuid(Id contactId) {
+        GuidLookupResult result = new GuidLookupResult();
+        Map<String, Schema.SObjectField> contactFields =
+            Schema.SObjectType.Contact.fields.getMap();
+
+        String guidFieldName;
+        for (String fieldName : contactFields.keySet()) {
+            if ('BCeIDGUID__c'.equalsIgnoreCase(fieldName)) {
+                guidFieldName = contactFields.get(fieldName).getDescribe().getName();
+                break;
+            }
+        }
+
+        result.fieldAvailable = guidFieldName != null;
+
+        String queryText = 'SELECT Id';
+        if (result.fieldAvailable) {
+            queryText += ', ' + guidFieldName;
+        }
+        queryText += ' FROM Contact WHERE Id = :contactId LIMIT 1';
+
+        List<SObject> contacts = Database.query(queryText);
+        if (contacts.isEmpty()) {
+            return result;
+        }
+
+        result.contactFound = true;
+        if (result.fieldAvailable) {
+            result.guid = (String) contacts[0].get(guidFieldName);
+        }
+        return result;
     }
 
     private static void validateRequest(Request request) {
