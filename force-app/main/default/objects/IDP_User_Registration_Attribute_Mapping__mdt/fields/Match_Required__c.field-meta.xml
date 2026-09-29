@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Match_Required__c</fullName>
+    <defaultValue>true</defaultValue>
+    <description>Determines if lookup match between source and target value is required.</description>
+    <externalId>false</externalId>
+    <fieldManageability>SubscriberControlled</fieldManageability>
+    <label>Match Required</label>
+    <type>Checkbox</type>
+</CustomField>

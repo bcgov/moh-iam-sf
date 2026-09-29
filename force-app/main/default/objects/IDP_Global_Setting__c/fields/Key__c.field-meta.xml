@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Key__c</fullName>
+    <businessOwnerUser>admin.user@phsa.ca.hlthbcdevn</businessOwnerUser>
+    <businessStatus>Active</businessStatus>
+    <description>Value used during runtime</description>
+    <encryptionScheme>None</encryptionScheme>
+    <externalId>false</externalId>
+    <label>Key</label>
+    <length>255</length>
+    <required>true</required>
+    <securityClassification>Public</securityClassification>
+    <trackTrending>false</trackTrending>
+    <type>Text</type>
+    <unique>false</unique>
+</CustomField>

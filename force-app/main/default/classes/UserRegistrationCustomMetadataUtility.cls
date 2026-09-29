@@ -38,8 +38,16 @@ public class UserRegistrationCustomMetadataUtility{
     public Map<String,IDP_User_Registration_Permission_Set__mdt> userPermissionSetGroupByName_map;
 
     public Map<String,IDP_User_Registration_Permission_Set__mdt> userPublicGroupIgnoreByName_map;
+
+    public Map<String, IDP_User_Registration_Attribute_Mapping__mdt> userAttributeMapping_map;
     
     public List<String> userExternalProvider = new List<String>();
+
+    public String ProvidedExternalProvider = '';
+
+    private static Map<String, IDP_User_Registration_Trigger_Management__mdt> triggerSettingsCache;
+
+    private static Boolean cachedPersonAccountsEnabled;
     
     public UserRegistrationCustomMetadataUtility(String ExternalProvider){
         /*
@@ -54,6 +62,7 @@ public class UserRegistrationCustomMetadataUtility{
         system.debug('ExternalProvider:' + ExternalProvider);
         if (ExternalProvider != null)
         {
+            ProvidedExternalProvider = ExternalProvider;
             userExternalProvider.addAll(ExternalProvider.remove('[').remove(']').split(','));
         }
         List<String> userRoleFilter = new List<String>();
@@ -66,6 +75,21 @@ public class UserRegistrationCustomMetadataUtility{
             }
             
         }
+        //Fetch metadata for attribute mapping
+        List<IDP_User_Registration_Attribute_Mapping__mdt> userAttributeMapping = new List<IDP_User_Registration_Attribute_Mapping__mdt>();
+        userAttributeMapping = [SELECT Id, Source_Attribute_Value__c, Target_Object_and_Element__c, Match_Required__c, 
+                                    Effective_Start_Date__c, Effective_End_Date__c FROM IDP_User_Registration_Attribute_Mapping__mdt];
+                                    //WHERE Effective_Start_Date__c <= TODAY AND (Effective_End_Date__c = null OR Effective_End_Date__c >= TODAY)];
+
+        userAttributeMapping_map = new Map<String,IDP_User_Registration_Attribute_Mapping__mdt>();    
+        if (userAttributeMapping_map != null) 
+        {
+            for(IDP_User_Registration_Attribute_Mapping__mdt userAttributeMapping_rec : userAttributeMapping)
+            {
+                userAttributeMapping_map.put(userAttributeMapping_rec.Source_Attribute_Value__c, userAttributeMapping_rec);
+            }
+        }    
+                                 
         System.debug('userRoleFilter:' + userRoleFilter);
         //Fetch metadata for Role mapping
         userMapping = [SELECT Assurance_Level__c,DeveloperName,External_Provider_Role__c,Id,
@@ -75,19 +99,26 @@ public class UserRegistrationCustomMetadataUtility{
                             Username_Type__c, Non_Regulated_User_Record_Type__c, Account_Record_Type__c, Flow_User__c, 
                             isAccountSetActive__c, Requires_Login_Flow__c, Populate_Role_Filter__c, is_Ignore_Endorser_Data__c,
                             is_Ignore_License_Attribute__c, is_Ignore_Public_Group_Reset__c, is_Process_HCFN_Groups__c,
-                            is_Restrict_Beta_User_Only__c
+                            is_Restrict_Beta_User_Only__c, is_Existing_Account_Active_Required__c, Knowledge_User__c,
+                            Portal_User_Lookup__c, Contact_Record_Type__c, is_Prevent_Name_Update__c
                         FROM IDP_User_Registration_User_Mapping__mdt
                         WHERE External_Provider_Role__c IN: userRoleFilter
                         ORDER BY Sequence__c ASC
-                        LIMIT 1
                         ];
         
         // Load Map object for searching values
-        userMappingByRole_map = new Map<String,IDP_User_Registration_User_Mapping__mdt>();                     
+        userMappingByRole_map = new Map<String,IDP_User_Registration_User_Mapping__mdt>();
+        Integer userMappingbyRoleCount = 0;                     
         for(IDP_User_Registration_User_Mapping__mdt userMapping_rec : userMapping)
         {
-            userMappingByRole_map.put(userMapping_rec.External_Provider_Role__c, userMapping_rec);
+            userMappingbyRoleCount++;
+            if (userMappingbyRoleCount <= 1)
+            {
+                userMappingByRole_map.put(userMapping_rec.External_Provider_Role__c, userMapping_rec);
+            }
+            
         }
+        system.debug('userMapping: ' + userMapping);
         
         //Fetch metadata for PermissionSet mapping
         userPermissionSet = [SELECT DeveloperName,External_Provider_User_Mapping__c,Id,Label,Language,MasterLabel,
@@ -126,7 +157,7 @@ public class UserRegistrationCustomMetadataUtility{
         }
     }
     
-    public IDP_User_Registration_User_Mapping__mdt ReadMapping(String keycloakRole){
+    public List<IDP_User_Registration_User_Mapping__mdt> ReadMapping(String keycloakRole){
         /*
         * Description: ReadMapping method is used to retrieve matching records from custom metadata IDP_User_Registration_User_Mapping__mdt 
         * Parameters:
@@ -136,7 +167,7 @@ public class UserRegistrationCustomMetadataUtility{
         * 
         */        
         //Create single instance of Metadata
-        IDP_User_Registration_User_Mapping__mdt foundUserMapping_md = new IDP_User_Registration_User_Mapping__mdt();
+        List<IDP_User_Registration_User_Mapping__mdt> foundUserMapping_md = new List<IDP_User_Registration_User_Mapping__mdt>();
         //Find keycloakRole in userMapping
         String searchForRoleRec = keycloakRole;
         List<String> searchForRole = new List<String>();
@@ -167,7 +198,7 @@ public class UserRegistrationCustomMetadataUtility{
     
             if (userMappingByRole_map.containsKey(searchKey))
             {
-                foundUserMapping_md = userMappingByRole_map.get(searchKey);
+                foundUserMapping_md.add(userMappingByRole_map.get(searchKey));
             }
         }
 
@@ -223,5 +254,94 @@ public class UserRegistrationCustomMetadataUtility{
             }
          }
          return isFieldFound;
+    }
+
+    /**
+     * Checks if a trigger should execute based on Custom Metadata.
+     * @param triggerName - Unique identifier (e.g., 'Account_BeforeInsert')
+     * @return true if active (execute trigger), false if disabled
+     */
+    public Boolean isTriggerActive(String triggerName) {
+        if (triggerSettingsCache == null) {
+            triggerSettingsCache = new Map<String, IDP_User_Registration_Trigger_Management__mdt>();
+            for (IDP_User_Registration_Trigger_Management__mdt ts : IDP_User_Registration_Trigger_Management__mdt.getAll().values()) {
+                triggerSettingsCache.put(ts.Trigger_Name__c, ts);
+            }
+        }
+        IDP_User_Registration_Trigger_Management__mdt setting = triggerSettingsCache.get(triggerName);
+        return setting != null && setting.Is_Active__c;
+    }
+    /**
+     * Checks if Person Accounts are enabled.
+     * @return true if enabled, false if not
+     */
+    public Boolean isPersonAccountsEnabled() {
+        if (cachedPersonAccountsEnabled != null) return cachedPersonAccountsEnabled;
+
+        try {
+            Schema.DescribeSObjectResult acctDescribe = Account.sObjectType.getDescribe();
+            // check for the special Person Account fields
+            Map<String, Schema.SObjectField> fieldMap = acctDescribe.fields.getMap();
+            cachedPersonAccountsEnabled = fieldMap.containsKey('IsPersonAccount')
+                                        || fieldMap.containsKey('PersonContactId');
+        } catch (Exception e) {
+            // defensive: if describe fails for some reason, treat as not enabled
+            cachedPersonAccountsEnabled = false;
+        }
+        return cachedPersonAccountsEnabled;
+    }
+
+    public Boolean isHealthCloudInstalled() {
+        for (String key : Schema.getGlobalDescribe().keySet()) {
+            if (key.startsWith('hc__')) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public SObject safeNewSObject(String objectApiName) {
+        Map<String, Schema.SObjectType> g = Schema.getGlobalDescribe();
+
+        if (!g.containsKey(objectApiName)) {
+            // Object not installed → return null or throw exception depending on your needs
+            return null;
+        }
+
+        return g.get(objectApiName).newSObject();  // SAFE
+    }
+    public List<SObject> safeNewSObjectList(String objectApiName) {
+        Map<String, Schema.SObjectType> g = Schema.getGlobalDescribe();
+
+        if (!g.containsKey(objectApiName)) {
+            // Object not installed → return null or throw exception depending on your needs
+            return null;
+        }
+
+        Schema.SObjectType sType = Schema.getGlobalDescribe().get(objectApiName);
+        List<SObject> results = new List<SObject>();
+
+        SObject record = sType.newSObject();  // SAFE
+        results.add(record);
+        return results;
+    }
+    public Boolean checkForRecordType(String objectApiName, String recordTypeApiName) {
+
+        Id rtId;
+        Boolean isRecordTypeFound = false;
+        Map<String, Schema.RecordTypeInfo> rtMap;
+        if (objectApiName == 'Account')
+        {
+            rtMap = Schema.SObjectType.Account.getRecordTypeInfosByDeveloperName();
+        }
+        if (objectApiName == 'Contact')
+        {
+            rtMap = Schema.SObjectType.Contact.getRecordTypeInfosByDeveloperName();
+        }
+
+        if (rtMap.containsKey('recordTypeApiName')) {
+            isRecordTypeFound = true;
+        }
+        return isRecordTypeFound;
     }
 }

@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomObject xmlns="http://soap.sforce.com/2006/04/metadata">
+    <customSettingsType>List</customSettingsType>
+    <description>Setup of the global IDP runtime values, setup by org for any specific org values</description>
+    <enableFeeds>false</enableFeeds>
+    <label>IDP Global Setting</label>
+    <visibility>Public</visibility>
+</CustomObject>

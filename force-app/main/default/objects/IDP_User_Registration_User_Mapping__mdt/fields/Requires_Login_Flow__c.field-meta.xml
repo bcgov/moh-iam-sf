@@ -4,7 +4,6 @@
     <defaultValue>false</defaultValue>
     <deprecated>false</deprecated>
     <description>Identify whether the persona will use alternate provisioning flow for permissions</description>
-    <externalId>false</externalId>
     <fieldManageability>SubscriberControlled</fieldManageability>
     <label>Requires Login Flow</label>
     <type>Checkbox</type>

@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ListView xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Detail_View</fullName>
+    <columns>MasterLabel</columns>
+    <columns>DeveloperName</columns>
+    <columns>Effective_Start_Date__c</columns>
+    <columns>Effective_End_Date__c</columns>
+    <columns>Source_Attribute_Value__c</columns>
+    <columns>Target_Object_and_Element__c</columns>
+    <columns>Match_Required__c</columns>
+    <filterScope>Everything</filterScope>
+    <label>Detail View</label>
+</ListView>

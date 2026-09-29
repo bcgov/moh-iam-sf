@@ -1,0 +1,13 @@
+{
+  "orgName": "IAM Dev",
+  "edition": "Enterprise",
+  "hasSampleData": false,
+  "features": [
+    "HealthCloudAddOn",
+    "PersonAccounts",
+    "HealthCloudUser",
+    "CustomerCommunityPlusLogin",
+    "ContactsToMultipleAccounts",
+    "SalesforceIdentityForCommunities"
+  ]
+}

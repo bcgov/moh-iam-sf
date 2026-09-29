@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomMetadata xmlns="http://soap.sforce.com/2006/04/metadata" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+    <label>TestOnly_DoNotRemove</label>
+    <protected>false</protected>
+    <values>
+        <field>Base_URL__c</field>
+        <value xsi:type="xsd:string">healthbc--hlthbcdevn.sandbox.my.salesforce.com</value>
+    </values>
+    <values>
+        <field>Contact_Email__c</field>
+        <value xsi:type="xsd:string">support@example.com</value>
+    </values>
+    <values>
+        <field>Logo_URL__c</field>
+        <value xsi:type="xsd:string">https://example.com/logo.png</value>
+    </values>
+    <values>
+        <field>Logout_URL__c</field>
+        <value xsi:type="xsd:string">/secur/logout.jsp</value>
+    </values>
+    <values>
+        <field>Page_Title__c</field>
+        <value xsi:type="xsd:string">Test Exception Page</value>
+    </values>
+    <values>
+        <field>Reference_Code__c</field>
+        <value xsi:type="xsd:string">TEST_ERROR</value>
+    </values>
+    <values>
+        <field>Standard_Message_Body__c</field>
+        <value xsi:type="xsd:string">An unexpected error occurred. Please contact support.</value>
+    </values>
+</CustomMetadata>

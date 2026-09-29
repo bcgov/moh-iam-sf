@@ -4,7 +4,6 @@
     <defaultValue>&quot;Keycloak&quot;</defaultValue>
     <deprecated>false</deprecated>
     <description>Identity Provider</description>
-    <externalId>false</externalId>
     <fieldManageability>SubscriberControlled</fieldManageability>
     <label>Identity Provider</label>
     <required>true</required>
@@ -17,6 +16,11 @@
                 <fullName>Keycloak</fullName>
                 <default>true</default>
                 <label>Keycloak</label>
+            </value>
+            <value>
+                <fullName>Azure</fullName>
+                <default>false</default>
+                <label>Azure</label>
             </value>
         </valueSetDefinition>
     </valueSet>

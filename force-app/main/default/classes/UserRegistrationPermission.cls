@@ -1,3 +1,10 @@
+/**
+ * @description       : 
+ * @author            : ChangeMeIn@UserSettingsUnder.SFDoc
+ * @group             : 
+ * @last modified on  : 06-18-2026
+ * @last modified by  : ChangeMeIn@UserSettingsUnder.SFDoc
+**/
 public with sharing class UserRegistrationPermission {
     public static final String USER_ASSIGNMENT_TYPE_PERMISSIONSET = 'Permission Set';
     public static final String USER_ASSIGNMENT_TYPE_PERMISSIONSETGROUP = 'Permission Set Group';
@@ -12,40 +19,80 @@ public with sharing class UserRegistrationPermission {
     public static final String EMAIL_ENCODING_KEY = 'UTF-8';
     public static final String TIME_ZONE_SID_KEY = 'America/Vancouver';
     public static final String USER_ASSIGNMENT_TYPE_QUEUE = 'Queue';
+    public static final String USER_TITLE_FILTER = 'testuser';
     
-    public static void processPermissions(List<User> userList )
+    public static void processPermissions(List<User> userList, Map<Id, User> oldUserMap, Boolean isUpdate, Boolean isAfter)
     {
         System.debug('userList: ' + userList);
+
         List<User> processUserList = new List<User>();
         processUserList.addAll(userList);
 
         List<IDP_User_Registration_User_Mapping__mdt>  matchingRole_list = new List<IDP_User_Registration_User_Mapping__mdt>();
-        IDP_User_Registration_User_Mapping__mdt  matchingRole = new IDP_User_Registration_User_Mapping__mdt();   
+        List<IDP_User_Registration_User_Mapping__mdt>  matchingRoles = new List<IDP_User_Registration_User_Mapping__mdt>();
+        Boolean isPortalEnabled = true;
+        Map<Id, String> deferredSetupAssignments = new Map<Id, String>();
+
         for (User processUser: processUserList) {
-            UserRegistrationCustomMetadataUtility processRoles = new UserRegistrationCustomMetadataUtility(processUser.User_Provisioning_Role__c);
-
-            matchingRole = processRoles.ReadMapping(processUser.User_Provisioning_Role__c);  
-            matchingRole_list.add(matchingRole);  
-
-            if (processUser.User_Provisioning_Role__c != null) {
-                if (!matchingRole.Requires_Login_Flow__c || 
-                        (System.Trigger.isExecuting && 
-                        System.Trigger.isUpdate && 
-                        matchingRole.Requires_Login_Flow__c) ) {
-                    try {
+            if (oldUserMap != null) {
+                User oldUserMapInactivate_rec = oldUserMap.get(processUser.Id);
                 
-                        // add/update any new permission sets
-                        managePermissionSet(processUser.Id, processUser.User_Provisioning_Role__c);
-                        // add user to Public Group
-                        manageGroups(processUser.Id, processUser.User_Provisioning_Role__c);
-                        
-                        } catch (Exception e) {
-                            system.debug('exception caught:' + e);
+                if (oldUserMapInactivate_rec.IsPortalEnabled == true && processUser.IsPortalEnabled == false) {
+                    
+                    isPortalEnabled = false;
+                }
+            }
+
+            UserRegistrationCustomMetadataUtility processRoles = new UserRegistrationCustomMetadataUtility(processUser.User_Assigned_Role__c);
+
+            matchingRoles = processRoles.ReadMapping(processUser.User_Assigned_Role__c);  
+            Boolean isIsActiveOnAccount = processRoles.isPersonAccountsEnabled();
+            for(IDP_User_Registration_User_Mapping__mdt matchingRole_rec: matchingRoles)
+            {
+                matchingRole_list.addAll(matchingRoles);  
+            }
+            //matchingRole_list.add(matchingRole);  
+
+            String userTitle = processUser.Title != Null ? processUser.Title.toLowerCase(): '';
+            system.debug('processUser.Title.toLowerCase()' + userTitle);
+            Boolean isTestUser = userTitle == USER_TITLE_FILTER ? true : false;
+            Boolean isInactiveUser = false;
+
+            if (isUpdate == true && isAfter == true) {
+                if (processUser.User_Assigned_Role__c != null) {
+                
+                    if (oldUserMap.containsKey(processUser.Id)) {
+                        User oldUserMap_rec = oldUserMap.get(processUser.Id);
+
+                        if (isIsActiveOnAccount && oldUserMap_rec.get('IsActive') == true && processUser.get('IsActive') == false) {
+                            isInactiveUser = true;
                         }
+                        // PermissionSetAssignment and GroupMember are setup objects.
+                        // Do not perform their DML in this transaction because user registration
+                        // can also create/update Account (a non-setup object), which causes MIXED_DML_OPERATION.
+                    }
+                }
+            }
+            Boolean isRoleRequireLoginFlow = false;
+            for (IDP_User_Registration_User_Mapping__mdt matchingRole_rec : matchingRoles)
+            {
+                if (matchingRole_rec.Requires_Login_Flow__c) {
+                    isRoleRequireLoginFlow = true;
+                }
+            }
+            if (processUser.User_Assigned_Role__c != null && (!isInactiveUser && isPortalEnabled)) {
+                if (!isRoleRequireLoginFlow || 
+                        (System.Trigger.isExecuting && 
+                        (System.Trigger.isUpdate || 
+                        System.Trigger.isInsert) &&
+                        isRoleRequireLoginFlow) ) {
+                    deferredSetupAssignments.put(processUser.Id, processUser.User_Assigned_Role__c);
                 }
             }
 
         }
+
+        enqueueSetupAssignments(deferredSetupAssignments);
     }
 
     public class InputVariables {
@@ -66,23 +113,13 @@ public with sharing class UserRegistrationPermission {
         //UserRegistrationCustomMetadataUtility processRoles = new UserRegistrationCustomMetadataUtility();
         List<IDP_User_Registration_User_Mapping__mdt>  matchingRole_list = new List<IDP_User_Registration_User_Mapping__mdt>();
         IDP_User_Registration_User_Mapping__mdt  matchingRole = new IDP_User_Registration_User_Mapping__mdt();   
+        Map<Id, String> deferredSetupAssignments = new Map<Id, String>();
         for (User processUser: userList) {
-            if (processUser.User_Provisioning_Role__c != null) {
-                String userProvisioningRole = processUser.User_Provisioning_Role__c;
-                try {
-                    // add/update any new permission sets
-                    managePermissionSet(processUser.Id, userProvisioningRole);
-                    
-                    // add user to Public Group
-                    //manageGroups(processUser.Id, userProvisioningRole);
-                    manageGroups(processUser.Id, userProvisioningRole);
-                    } catch (Exception e) {
-                        system.debug('exception caught:' + e);
-                    }
-                    
+            if (processUser.User_Assigned_Role__c != null) {
+                deferredSetupAssignments.put(processUser.Id, processUser.User_Assigned_Role__c);
             }
-
         }
+        enqueueSetupAssignments(deferredSetupAssignments);
         List<String> addedPermissions = new List<String>();
 
         List<ReturnVariables> returnVarsList = new List<ReturnVariables>();
@@ -91,6 +128,42 @@ public with sharing class UserRegistrationPermission {
         returnVarsList.add(returnVars);
         return returnVarsList;
     } 
+
+
+    /**
+     * Defers setup-object DML (PermissionSetAssignment and GroupMember) to a
+     * separate transaction so registration can safely create/update Account first.
+     */
+    @TestVisible
+    private static void enqueueSetupAssignments(Map<Id, String> userRoleById) {
+        if (userRoleById == null || userRoleById.isEmpty()) {
+            return;
+        }
+        System.enqueueJob(new SetupAssignmentQueueable(userRoleById));
+    }
+
+    public class SetupAssignmentQueueable implements Queueable {
+        private Map<Id, String> userRoleById;
+
+        public SetupAssignmentQueueable(Map<Id, String> userRoleById) {
+            this.userRoleById = new Map<Id, String>(userRoleById);
+        }
+
+        public void execute(QueueableContext context) {
+            for (Id userId : userRoleById.keySet()) {
+                String userProvisioningRole = userRoleById.get(userId);
+                try {
+                    managePermissionSet(userId, userProvisioningRole);
+                    manageGroups(userId, userProvisioningRole);
+                } catch (Exception e) {
+                    System.debug(LoggingLevel.ERROR,
+                        'Setup assignment failed for user ' + userId + ': ' +
+                        e.getTypeName() + ': ' + e.getMessage() +
+                        ' at line ' + e.getLineNumber());
+                }
+            }
+        }
+    }
 
     private static void managePermissionSet(Id userId, String keyCloakRole)
     {
@@ -153,8 +226,8 @@ public with sharing class UserRegistrationPermission {
 
             if (userPerms.Assignment_Type__c == USER_ASSIGNMENT_TYPE_PERMISSIONSET)
             {
-                if (userRole.Id == userPerms.External_Provider_User_Mapping__c)
-                {
+                //if (userRole.Id == userPerms.External_Provider_User_Mapping__c)
+                //{
                     if (!userPerms.is_Beta_Only_User__c) 
                     {
                         associatedPermset.add(userPerms.Salesforce_Permission_Set__c);
@@ -163,11 +236,11 @@ public with sharing class UserRegistrationPermission {
                     {
                         associatedPermsetGroup.add(userPerms.Salesforce_Permission_Set_Group__c);
                     }                    
-                }
+                //}
             } else if (userPerms.Assignment_Type__c == USER_ASSIGNMENT_TYPE_PERMISSIONSETGROUP)
             {
-                if (userRole.Id == userPerms.External_Provider_User_Mapping__c)
-                {
+                //if (userRole.Id == userPerms.External_Provider_User_Mapping__c)
+                //{
                     if (!userPerms.is_Beta_Only_User__c)
                     {
                         associatedPermsetGroup.add(userPerms.Salesforce_Permission_Set_Group__c);
@@ -176,7 +249,7 @@ public with sharing class UserRegistrationPermission {
                     {
                         associatedPermsetGroup.add(userPerms.Salesforce_Permission_Set_Group__c);
                     }
-                } 
+                //} 
             }
 
         }
@@ -244,13 +317,24 @@ public with sharing class UserRegistrationPermission {
         
         UserRegistrationCustomMetadataUtility processRoles = new UserRegistrationCustomMetadataUtility(userProvisioningRole);
 
+        Boolean isHealthCloudInstalled = processRoles.isHealthCloudInstalled();
+
         //is_Ignore_Public_Group_Reset__c
         // 
         List<String> filterPublicGroupByRoleId = new List<String>();
-        List<HealthcareFacilityNetwork> hcfn = new List<HealthcareFacilityNetwork>();
+        if (isHealthCloudInstalled) {
+
+        }
+        Boolean hcfnFieldExisting = false;
+        List<SObject> hcfn = processRoles.safeNewSObjectList('HealthcareFacilityNetwork');
+        List<SObject> hcfnList = new List<SObject>();
+        if (hcfn != null) {
+            
+            hcfnFieldExisting = processRoles.isFieldExisting('Clinic_Panel_Group_ID__c','HealthcareFacilityNetwork');
+        }
+        
         Id accountIdMatch = [SELECT AccountId FROM User WHERE Id =: userId].AccountId;
-        Boolean hcfnFieldExisting;
-        hcfnFieldExisting = processRoles.isFieldExisting('Clinic_Panel_Group_ID__c','HealthcareFacilityNetwork');
+        
 
         for (IDP_User_Registration_User_Mapping__mdt userRegistrationRec: processRoles.userMapping)
         {
@@ -264,7 +348,7 @@ public with sharing class UserRegistrationPermission {
                 {
                     String qryString = '';
                     qryString = 'select Id, Clinic_Panel_Group_ID__c, Practitioner.Account.Id from HealthcareFacilityNetwork WHERE Clinic_Panel_Group_ID__c <> null And Practitioner.Account.Id = \'' + accountIdMatch + '\'';
-                    hcfn = Database.query(qryString);
+                    hcfnList = Database.query(qryString);
                 }
 
             }
@@ -287,13 +371,13 @@ public with sharing class UserRegistrationPermission {
             {
                 userGroups.add(userGroupRec.Salesforce_Public_Group__c);
             } 
-/*                 else 
+                 else 
             {
-                if (userPerms.Assignment_Type__c == USER_ASSIGNMENT_TYPE_QUEUE)
+                if (userGroupRec.Assignment_Type__c == USER_ASSIGNMENT_TYPE_QUEUE)
                 {
-                    userGroup.add(userPerms.Salesforce_Queue__c);
+                    userGroups.add(userGroupRec.Salesforce_Queue__c);
                 }
-            } */
+            }
             
         }
         //Add Groups for is_Process_HCFN_Groups__c flag set to true
@@ -309,7 +393,7 @@ public with sharing class UserRegistrationPermission {
             }
             if (hcfnFieldExisting) 
             {
-                for(HealthcareFacilityNetwork hcfn_rec : hcfn) {
+                for(SObject hcfn_rec : hcfnList) {
                     groupMember gp = new groupMember(groupId = (String)hcfn_rec.get('Clinic_Panel_Group_ID__c'));
                     gp.UserOrGroupId = userId;
                     groupList.add(gp);                

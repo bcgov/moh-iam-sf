@@ -1,0 +1,12 @@
+{
+  "orgName": "IAM Dev",
+  "edition": "Enterprise",
+  "hasSampleData": false,
+  "features": [
+    "Communities",
+    "ServiceCloud",
+    "CustomerCommunityPlusLogin",
+    "ContactsToMultipleAccounts",
+    "SalesforceIdentityForCommunities"
+  ]
+}

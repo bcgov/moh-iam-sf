@@ -3,7 +3,6 @@
     <fullName>Assurance_Level__c</fullName>
     <deprecated>false</deprecated>
     <description>Session Assurance Level</description>
-    <externalId>false</externalId>
     <fieldManageability>SubscriberControlled</fieldManageability>
     <label>Assurance Level</label>
     <required>true</required>

@@ -11,6 +11,10 @@
         <value xsi:type="xsd:string">3</value>
     </values>
     <values>
+        <field>Contact_Record_Type__c</field>
+        <value xsi:nil="true"/>
+    </values>
+    <values>
         <field>Default_Domain__c</field>
         <value xsi:type="xsd:string">testonly.com</value>
     </values>
@@ -25,6 +29,10 @@
     <values>
         <field>Identity_Provider__c</field>
         <value xsi:type="xsd:string">Keycloak</value>
+    </values>
+    <values>
+        <field>Knowledge_User__c</field>
+        <value xsi:type="xsd:boolean">false</value>
     </values>
     <values>
         <field>MFA_Flag__c</field>
@@ -51,6 +59,10 @@
         <value xsi:type="xsd:string">Test_Group</value>
     </values>
     <values>
+        <field>Salesforce_Queue__c</field>
+        <value xsi:nil="true"/>
+    </values>
+    <values>
         <field>Salesforce_User_License__c</field>
         <value xsi:type="xsd:string">Salesforce</value>
     </values>
@@ -75,6 +87,10 @@
         <value xsi:type="xsd:boolean">false</value>
     </values>
     <values>
+        <field>is_Existing_Account_Active_Required__c</field>
+        <value xsi:type="xsd:boolean">false</value>
+    </values>
+    <values>
         <field>is_Ignore_Endorser_Data__c</field>
         <value xsi:type="xsd:boolean">false</value>
     </values>
@@ -84,6 +100,10 @@
     </values>
     <values>
         <field>is_Ignore_Public_Group_Reset__c</field>
+        <value xsi:type="xsd:boolean">false</value>
+    </values>
+    <values>
+        <field>is_Prevent_Name_Update__c</field>
         <value xsi:type="xsd:boolean">false</value>
     </values>
     <values>

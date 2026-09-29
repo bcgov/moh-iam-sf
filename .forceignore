@@ -28,5 +28,5 @@ force-app/main/default/flows/Process_Community_User.flow-meta.xml
 force-app/main/default/classes/UserRegistrationCallSubflow.cls
 force-app/main/default/classes/UserRegistrationCallSubflow.cls-meta.xml
 **/tsconfig.json
-
+.sf
 **/*.ts
