@@ -2,13 +2,6 @@
   "packageDirectories": [
     {
       "path": "force-app",
-      "default": false,
-      "package": "Keycloak",
-      "versionName": "ver 1.0",
-      "versionNumber": "1.0.0.NEXT"
-    },
-    {
-      "path": "force-app",
       "package": "Keycloak.Community",
       "versionName": "ver 1.38",
       "versionNumber": "1.38.0.NEXT",
@@ -151,6 +144,7 @@
     "Keycloak.Community@1.35.0-2": "04tJQ000004QWUzYAO",
     "Keycloak.Community@1.35.0-3": "04tJQ000004QWZpYAO",
     "Keycloak.Community@1.36.0-1": "04tJQ000004VIj7YAG",
-    "Keycloak.Community@1.38.0-1": "04tJQ0000050DnBYAU"
+    "Keycloak.Community@1.38.0-1": "04tJQ0000050DnBYAU",
+    "Keycloak.Community@1.38.0-2": "04tJQ000005Cy8nYAC"
   }
 }

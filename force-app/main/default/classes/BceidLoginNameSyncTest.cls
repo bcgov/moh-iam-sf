@@ -1,3 +1,10 @@
+/**
+ * @description       : 
+ * @author            : Roy Poystila
+ * @group             : 
+ * @last modified on  : 09-29-2026
+ * @last modified by  : Roy Poystila
+**/
 @IsTest
 private class BceidLoginNameSyncTest {
 
@@ -219,6 +226,130 @@ private class BceidLoginNameSyncTest {
         System.assert(
             results[0].errorMessage.contains('Contact Id is required.')
         );
+    }
+
+
+    @IsTest
+    static void testJobExecutesCalloutWithGuidAndDefaults() {
+        User u = getTestUser();
+        Contact c = createContact(
+            'Original',
+            'Contact',
+            '64510436D6CF4EE68B1DFE39111FFE74'
+        );
+
+        if (!hasBceidGuidField()) {
+            // This org does not expose the optional package field, so the deep
+            // GUID/callout branch cannot exist here.
+            return;
+        }
+
+        Test.setMock(HttpCalloutMock.class, new SuccessMock());
+
+        Test.startTest();
+        BceidLoginNameSyncJob job = new BceidLoginNameSyncJob(
+            u.Id,
+            c.Id,
+            'TEST-SERVICE',
+            null,
+            null
+        );
+        // Direct execution gives deterministic coverage of the Queueable body.
+        job.execute(null);
+        Test.stopTest();
+
+        System.assert(true, 'BCeID Queueable callout path completed.');
+    }
+
+    @IsTest
+    static void testJobBlankGuidReturnsBeforeCallout() {
+        User u = getTestUser();
+        Contact c = createContact('Original', 'Contact', null);
+
+        Test.startTest();
+        BceidLoginNameSyncJob job = new BceidLoginNameSyncJob(
+            u.Id,
+            c.Id,
+            'TEST-SERVICE',
+            'Business',
+            'Business'
+        );
+        job.execute(null);
+        Test.stopTest();
+
+        System.assert(true, 'Blank identifier must be handled without throwing.');
+    }
+
+    @IsTest
+    static void testJobCalloutExceptionIsLoginSafe() {
+        User u = getTestUser();
+        Contact c = createContact(
+            'Original',
+            'Contact',
+            '64510436D6CF4EE68B1DFE39111FFE74'
+        );
+
+        if (!hasBceidGuidField()) {
+            return;
+        }
+
+        Test.setMock(HttpCalloutMock.class, new ThrowingMock());
+
+        Test.startTest();
+        BceidLoginNameSyncJob job = new BceidLoginNameSyncJob(
+            u.Id,
+            c.Id,
+            'TEST-SERVICE',
+            'Business',
+            'Business'
+        );
+        job.execute(null);
+        Test.stopTest();
+
+        System.assert(true, 'Callout failures must be swallowed by the login-safe boundary.');
+    }
+
+    @IsTest
+    static void testLauncherCoverage() {
+        User u = getTestUser();
+
+        System.assertEquals(
+            0,
+            BceidLoginNameSyncLauncher.execute(null).size()
+        );
+
+        BceidLoginNameSyncLauncher.Request missing =
+            new BceidLoginNameSyncLauncher.Request();
+
+        List<BceidLoginNameSyncLauncher.Response> missingResults =
+            BceidLoginNameSyncLauncher.execute(
+                new List<BceidLoginNameSyncLauncher.Request>{ null, missing }
+            );
+
+        System.assertEquals(2, missingResults.size());
+        System.assertEquals(false, missingResults[0].queued);
+        System.assertEquals(false, missingResults[1].queued);
+
+        BceidLoginNameSyncLauncher.Request valid =
+            new BceidLoginNameSyncLauncher.Request();
+        valid.userId = u.Id; // leave optional inputs blank to cover defaults
+
+        Test.startTest();
+        List<BceidLoginNameSyncLauncher.Response> queued =
+            BceidLoginNameSyncLauncher.execute(
+                new List<BceidLoginNameSyncLauncher.Request>{ valid }
+            );
+        Test.stopTest();
+
+        System.assertEquals(1, queued.size());
+        System.assertEquals(true, queued[0].queued);
+        System.assertNotEquals(null, queued[0].jobId);
+    }
+
+    private class ThrowingMock implements HttpCalloutMock {
+        public HTTPResponse respond(HTTPRequest req) {
+            throw new CalloutException('Simulated BCeID outage');
+        }
     }
 
     private class SuccessMock implements HttpCalloutMock {

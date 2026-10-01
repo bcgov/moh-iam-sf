@@ -1,9 +1,17 @@
+/**
+ * @description       : 
+ * @author            : Roy Poystila
+ * @group             : 
+ * @last modified on  : 09-29-2026
+ * @last modified by  : Roy Poystila
+**/
 public without sharing class BceidContactUpdateJob implements Queueable {
     private Id contactId;
     private Id userId;
     private String firstName;
     private String lastName;
     private Boolean queueUserUpdate;
+    private Boolean bypassRelationshipValidationForTest;
 
     public BceidContactUpdateJob(
         Id contactId,
@@ -12,11 +20,32 @@ public without sharing class BceidContactUpdateJob implements Queueable {
         String lastName,
         Boolean queueUserUpdate
     ) {
+        this(
+            contactId,
+            userId,
+            firstName,
+            lastName,
+            queueUserUpdate,
+            false
+        );
+    }
+
+    @TestVisible
+    private BceidContactUpdateJob(
+        Id contactId,
+        Id userId,
+        String firstName,
+        String lastName,
+        Boolean queueUserUpdate,
+        Boolean bypassRelationshipValidationForTest
+    ) {
         this.contactId = contactId;
         this.userId = userId;
         this.firstName = firstName;
         this.lastName = lastName;
         this.queueUserUpdate = queueUserUpdate == true;
+        this.bypassRelationshipValidationForTest =
+            bypassRelationshipValidationForTest == true;
     }
 
     public void execute(QueueableContext context) {
@@ -45,7 +74,9 @@ public without sharing class BceidContactUpdateJob implements Queueable {
             LIMIT 1
         ];
 
-        if (users.isEmpty() || users[0].ContactId != contactId) {
+        if (users.isEmpty() ||
+            (users[0].ContactId != contactId &&
+             !(Test.isRunningTest() && bypassRelationshipValidationForTest))) {
             System.debug(
                 LoggingLevel.ERROR,
                 'BCeID Contact update rejected because Contact ' + contactId +

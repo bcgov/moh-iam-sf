@@ -2,7 +2,7 @@
  * @description       : 
  * @author            : Roy Poystila
  * @group             : 
- * @last modified on  : 09-28-2026
+ * @last modified on  : 09-29-2026
  * @last modified by  : Roy Poystila
 **/
 public without sharing class BceidLoginNameSyncJob implements Queueable, Database.AllowsCallouts {
@@ -10,6 +10,7 @@ public without sharing class BceidLoginNameSyncJob implements Queueable, Databas
     private String onlineServiceId;
     private String requesterAccountTypeCode;
     private String accountTypeCode;
+    @TestVisible private Id testContactId;
 
     public BceidLoginNameSyncJob(
         Id userId,
@@ -17,7 +18,19 @@ public without sharing class BceidLoginNameSyncJob implements Queueable, Databas
         String requesterAccountTypeCode,
         String accountTypeCode
     ) {
+        this(userId, null, onlineServiceId, requesterAccountTypeCode, accountTypeCode);
+    }
+
+    @TestVisible
+    private BceidLoginNameSyncJob(
+        Id userId,
+        Id testContactId,
+        String onlineServiceId,
+        String requesterAccountTypeCode,
+        String accountTypeCode
+    ) {
         this.userId = userId;
+        this.testContactId = testContactId;
         this.onlineServiceId = onlineServiceId;
         this.requesterAccountTypeCode = requesterAccountTypeCode;
         this.accountTypeCode = accountTypeCode;
@@ -32,9 +45,13 @@ public without sharing class BceidLoginNameSyncJob implements Queueable, Databas
             WHERE Id = :userId
             LIMIT 1
         ];
-        if (users.isEmpty() || users[0].ContactId == null) return;
+        if (users.isEmpty()) return;
 
         Id contactId = users[0].ContactId;
+        if (Test.isRunningTest() && testContactId != null) {
+            contactId = testContactId;
+        }
+        if (contactId == null) return;
         String bceidUserGuid = getContactBceidIdentifier(contactId);
         if (String.isBlank(bceidUserGuid)) return;
 

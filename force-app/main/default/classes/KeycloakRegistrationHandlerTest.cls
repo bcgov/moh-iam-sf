@@ -319,6 +319,24 @@ public class KeycloakRegistrationHandlerTest {
             newPersonAccounts
         );
         newPersonAccounts = (List<Account>) accountAccessDecision.getRecords();
+
+        // Preserve the HDID test fixture after stripInaccessible(). In some target
+        // orgs the custom HDID field exists but the test-running profile does not
+        // have create FLS, so stripInaccessible removes the value and getUserHdId()
+        // later returns blank. Apex test DML runs in system context, so restore the
+        // fixture value dynamically when the field exists.
+        for (Integer i = 0; i < newPersonAccounts.size(); i++) {
+            String fixtureHdid = 'newPersonAccount' + i;
+            // The existing fixtures are numbered 0, 1, 3, 2, 4, 5. Preserve the
+            // exact SourceSystemIdentifier already assigned rather than relying on index.
+            fixtureHdid = String.valueOf(newPersonAccounts[i].get('SourceSystemIdentifier'));
+            if (ACCOUNT_HDID_EXISTS && String.isNotBlank(fixtureHdid)) {
+                newPersonAccounts[i].put('HDID__c', fixtureHdid);
+            } else if (String.isNotBlank(fixtureHdid)) {
+                newPersonAccounts[i].put('AccountNumber', fixtureHdid);
+            }
+        }
+
         insert newPersonAccounts;
 
         // Person Accounts automatically provide PersonContactId. In orgs where
