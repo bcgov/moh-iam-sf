@@ -1,3 +1,10 @@
+/**
+ * @description       : 
+ * @author            : Roy Poystila
+ * @group             : 
+ * @last modified on  : 10-06-2026
+ * @last modified by  : Roy Poystila
+**/
 public with sharing class BceidSoapClient {
     private static final String SOAP11_NS =
         'http://schemas.xmlsoap.org/soap/envelope/';
@@ -64,7 +71,7 @@ public with sharing class BceidSoapClient {
         System.debug('===== BCeID INBOUND RESPONSE =====');
         System.debug('HTTP Status : ' + res.getStatusCode());
         System.debug('Content-Type: ' + res.getHeader('Content-Type'));
-        System.debug('Response Body: ' + res.getBody());
+        System.debug('Response Body: ' + json.serializePretty(res.getBody()));
         System.debug('==================================');
 
         SoapResult out = new SoapResult();

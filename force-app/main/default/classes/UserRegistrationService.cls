@@ -1097,30 +1097,6 @@ public with sharing class UserRegistrationService{
             }
         }
 
-        // Portable fallback: limit the lookup to the already-resolved BCeID
-        // business Account and use stable standard Contact attributes.
-        if (existingContact.isEmpty() && String.isNotBlank(accountId)) {
-            String fallbackQuery =
-                'SELECT Id, FirstName, LastName, Email, RecordTypeId, AccountId ' +
-                'FROM Contact WHERE AccountId = \'' + escapeSoql(accountId) + '\'';
-
-            String lookupEmail = data.email;
-            if (String.isBlank(lookupEmail) && data.attributeMap.containsKey('email')) {
-                lookupEmail = data.attributeMap.get('email');
-            }
-            if (String.isNotBlank(lookupEmail)) {
-                fallbackQuery += ' AND Email = \'' + escapeSoql(lookupEmail) + '\'';
-            } else if (String.isNotBlank(data.lastName)) {
-                fallbackQuery += ' AND LastName = \'' + escapeSoql(data.lastName) + '\'';
-            }
-            if (String.isNotBlank(optionalRecordType)) {
-                fallbackQuery += ' AND RecordType.DeveloperName = \'' +
-                    escapeSoql(optionalRecordType) + '\'';
-            }
-            fallbackQuery += ' LIMIT 1';
-            existingContact = Database.query(fallbackQuery);
-        }
-
         if (existingContact.isEmpty()) {
             Contact newContact = new Contact();
 
