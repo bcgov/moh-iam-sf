@@ -326,22 +326,22 @@ public class UserRegistrationCustomMetadataUtility{
         return results;
     }
     public Boolean checkForRecordType(String objectApiName, String recordTypeApiName) {
-
-        Id rtId;
-        Boolean isRecordTypeFound = false;
-        Map<String, Schema.RecordTypeInfo> rtMap;
-        if (objectApiName == 'Account')
-        {
-            rtMap = Schema.SObjectType.Account.getRecordTypeInfosByDeveloperName();
-        }
-        if (objectApiName == 'Contact')
-        {
-            rtMap = Schema.SObjectType.Contact.getRecordTypeInfosByDeveloperName();
+        if (String.isBlank(objectApiName) || String.isBlank(recordTypeApiName)) {
+            return false;
         }
 
-        if (rtMap.containsKey('recordTypeApiName')) {
-            isRecordTypeFound = true;
+        Map<String, Schema.SObjectType> globalDescribe = Schema.getGlobalDescribe();
+        Schema.SObjectType objectType = globalDescribe.get(objectApiName);
+
+        if (objectType == null) {
+            return false;
         }
-        return isRecordTypeFound;
+
+        Map<String, Schema.RecordTypeInfo> recordTypeMap =
+            objectType.getDescribe().getRecordTypeInfosByDeveloperName();
+
+        Schema.RecordTypeInfo recordTypeInfo = recordTypeMap.get(recordTypeApiName);
+
+        return recordTypeInfo != null && recordTypeInfo.isAvailable();
     }
 }

@@ -7,12 +7,17 @@
       "versionNumber": "1.38.0.NEXT",
       "default": true,
       "versionDescription": "Keycloak User Provisioning, community enabled",
-      "definitionFile": "config/project-scratch-release.json"
+      "definitionFile": "config/project-scratch-release.json",
+      "apexTestAccess": {
+        "permissionSets": [
+          "Keycloak_Package_Test_Access"
+        ]
+      }
     }
   ],
   "namespace": "",
   "sfdcLoginUrl": "https://login.salesforce.com",
-  "sourceApiVersion": "66.0",
+  "sourceApiVersion": "65.0",
   "packageAliases": {
     "Keycloak": "0Ho5W000000003ZSAQ",
     "Keycloak@0.1.0-1": "04t5W0000000VjQQAU",
@@ -150,6 +155,8 @@
     "Keycloak.Community@1.38.0-4": "04tJQ000005CyITYA0",
     "Keycloak.Community@1.38.0-6": "04tJQ000005DIp3YAG",
     "Keycloak.Community@1.38.0-7": "04tJQ000005DXePYAW",
-    "Keycloak.Community@1.38.0-8": "04tJQ000005EFqjYAG"
+    "Keycloak.Community@1.38.0-8": "04tJQ000005EFqjYAG",
+    "Keycloak.Community@1.38.0-9": "04tJQ000005FzDBYA0",
+    "Keycloak.Community@1.38.0-10": "04tJQ000005G1OfYAK"
   }
 }
