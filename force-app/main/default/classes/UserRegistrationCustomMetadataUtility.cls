@@ -99,7 +99,7 @@ public class UserRegistrationCustomMetadataUtility{
                             Username_Type__c, Non_Regulated_User_Record_Type__c, Account_Record_Type__c, Flow_User__c, 
                             isAccountSetActive__c, Requires_Login_Flow__c, Populate_Role_Filter__c, is_Ignore_Endorser_Data__c,
                             is_Ignore_License_Attribute__c, is_Ignore_Public_Group_Reset__c, is_Process_HCFN_Groups__c,
-                            is_Restrict_Beta_User_Only__c, is_Existing_Account_Active_Required__c, Knowledge_User__c,
+                            is_Restrict_Beta_User_Only__c, is_Existing_Account_Active_Required__c, Knowledge_User__c, CRM_Content_User__c,
                             Portal_User_Lookup__c, Contact_Record_Type__c, is_Prevent_Name_Update__c
                         FROM IDP_User_Registration_User_Mapping__mdt
                         WHERE External_Provider_Role__c IN: userRoleFilter
@@ -279,17 +279,11 @@ public class UserRegistrationCustomMetadataUtility{
         if (cachedPersonAccountsEnabled != null) return cachedPersonAccountsEnabled;
 
         try {
-            Map<String, Schema.SObjectField> fieldMap =
-                Schema.SObjectType.Account.fields.getMap();
-
-            cachedPersonAccountsEnabled = false;
-            for (String fieldName : fieldMap.keySet()) {
-                if ('IsPersonAccount'.equalsIgnoreCase(fieldName)
-                        || 'PersonContactId'.equalsIgnoreCase(fieldName)) {
-                    cachedPersonAccountsEnabled = true;
-                    break;
-                }
-            }
+            Schema.DescribeSObjectResult acctDescribe = Account.sObjectType.getDescribe();
+            // check for the special Person Account fields
+            Map<String, Schema.SObjectField> fieldMap = acctDescribe.fields.getMap();
+            cachedPersonAccountsEnabled = fieldMap.containsKey('IsPersonAccount')
+                                        || fieldMap.containsKey('PersonContactId');
         } catch (Exception e) {
             // defensive: if describe fails for some reason, treat as not enabled
             cachedPersonAccountsEnabled = false;

@@ -20,6 +20,19 @@ public with sharing class BceidSoapClient {
         public String responseMessage;
         public String firstName;
         public String lastName;
+        // BCeID V10 <business> details, populated only when isAllowed="true".
+        // BCeID V10 <account><contact><telephone>, subject to isAllowed.
+        public String businessContactTelephone;
+        public String businessGuid;
+        public String businessLegalName;
+        public String businessNumber;
+        public String businessDoingBusinessAs;
+        public String businessAddressLine1;
+        public String businessAddressLine2;
+        public String businessCity;
+        public String businessPostal;
+        public String businessProvince;
+        public String businessCountry;
     }
 
     public static SoapResult invoke(
@@ -63,7 +76,7 @@ public with sharing class BceidSoapClient {
         System.debug('Endpoint    : ' + req.getEndpoint());
         System.debug('Content-Type: ' + req.getHeader('Content-Type'));
         System.debug('SOAPAction  : ' + req.getHeader('SOAPAction'));
-        System.debug('Request Body: ' + req.getBody());
+        System.debug('Request body length (bytes approximate): ' + req.getBody().length());
         System.debug('==================================');
 
         HttpResponse res = new Http().send(req);
@@ -71,8 +84,23 @@ public with sharing class BceidSoapClient {
         System.debug('===== BCeID INBOUND RESPONSE =====');
         System.debug('HTTP Status : ' + res.getStatusCode());
         System.debug('Content-Type: ' + res.getHeader('Content-Type'));
-        System.debug('Response Body: ' + json.serializePretty(res.getBody()));
+        System.debug('Response body length (chars): ' + (res.getBody() == null ? 0 : res.getBody().length()));
         System.debug('==================================');
+
+        // TEMPORARY DIAGNOSTIC OUTPUT: full SOAP responses may include PII,
+        // including values for which BCeID returned isAllowed="false".
+        // Only visible with an Apex Code = FINEST trace flag. Remove after use.
+        String responseContentType = res.getHeader('Content-Type');
+        if (!String.isBlank(res.getBody()) &&
+            !String.isBlank(responseContentType) &&
+            responseContentType.toLowerCase().contains('xml')) {
+            System.debug(
+                LoggingLevel.FINEST,
+                '===== BCeID FORMATTED SOAP RESPONSE =====\n' +
+                formatSoapXml(res.getBody()) +
+                '\n===== END BCeID FORMATTED SOAP RESPONSE ====='
+            );
+        }
 
         SoapResult out = new SoapResult();
         out.httpStatus = res.getStatusCode();
@@ -91,6 +119,45 @@ public with sharing class BceidSoapClient {
         }
         String normalizedNs = ns.endsWith('/') ? ns : ns + '/';
         return '"' + normalizedNs + operationName + '"';
+    }
+
+    /**
+     * Pretty-print diagnostic XML without modifying the SOAP payload.
+     * This is a lightweight formatter, not a full XML serializer; callers
+     * must continue using the original HttpResponse.getBody() for parsing.
+     */
+    @TestVisible
+    private static String formatSoapXml(String xml) {
+        if (String.isBlank(xml)) return '';
+
+        // Typical compact SOAP puts adjacent tags next to one another.
+        // Do not use this formatted representation for further processing.
+        String normalized = xml.replace('><', '>\n<');
+        List<String> formatted = new List<String>();
+        Integer depth = 0;
+
+        for (String part : normalized.split('\n')) {
+            String line = part.trim();
+            if (String.isBlank(line)) continue;
+
+            if (line.startsWith('</') && depth > 0) depth--;
+
+            String indent = '';
+            for (Integer i = 0; i < depth; i++) {
+                indent += '  ';
+            }
+            formatted.add(indent + line);
+
+            if (line.startsWith('<') &&
+                !line.startsWith('</') &&
+                !line.startsWith('<?') &&
+                !line.startsWith('<!') &&
+                !line.endsWith('/>') &&
+                !line.contains('</')) {
+                depth++;
+            }
+        }
+        return String.join(formatted, '\n');
     }
 
     private static String buildEnvelope(
@@ -159,6 +226,28 @@ public with sharing class BceidSoapClient {
 
             Dom.XmlNode account = detailResult.getChildElement('account', ns);
             if (account == null) return;
+
+            // Telephone is under <account><contact>, not <business>.
+            // Ignore fields that BCeID did not authorize or left empty.
+            Dom.XmlNode contact = account.getChildElement('contact', ns);
+            out.businessContactTelephone = bceidAllowedValue(contact, 'telephone', ns);
+
+            Dom.XmlNode business = account.getChildElement('business', ns);
+            if (business != null) {
+                out.businessGuid = bceidAllowedValue(business, 'guid', ns);
+                out.businessLegalName = bceidAllowedValue(business, 'legalName', ns);
+                out.businessNumber = bceidAllowedValue(business, 'businessNumber', ns);
+                out.businessDoingBusinessAs = bceidAllowedValue(business, 'doingBusinessAs', ns);
+                Dom.XmlNode address = business.getChildElement('address', ns);
+                if (address != null) {
+                    out.businessAddressLine1 = bceidAllowedValue(address, 'addressLine1', ns);
+                    out.businessAddressLine2 = bceidAllowedValue(address, 'addressLine2', ns);
+                    out.businessCity = bceidAllowedValue(address, 'city', ns);
+                    out.businessPostal = bceidAllowedValue(address, 'postal', ns);
+                    out.businessProvince = bceidAllowedValue(address, 'province', ns);
+                    out.businessCountry = bceidAllowedValue(address, 'country', ns);
+                }
+            }
             Dom.XmlNode individualIdentity = account.getChildElement('individualIdentity', ns);
             if (individualIdentity == null) return;
             Dom.XmlNode name = individualIdentity.getChildElement('name', ns);
@@ -169,6 +258,16 @@ public with sharing class BceidSoapClient {
         } catch (Exception e) {
             // Keep the raw response available to the caller if parsing fails.
         }
+    }
+
+    // Authorization on BCeID properties is per-field, not just per response.
+    // Do not expose / copy values with isAllowed=false, and never clear on blank.
+    private static String bceidAllowedValue(Dom.XmlNode parent, String propertyName, String ns) {
+        Dom.XmlNode property = parent == null ? null : parent.getChildElement(propertyName, ns);
+        if (property == null || property.getAttribute('isAllowed', null) != 'true') return null;
+        Dom.XmlNode value = property.getChildElement('value', ns);
+        String text = value == null ? null : value.getText();
+        return String.isBlank(text) ? null : text.trim();
     }
 
     private static String childText(Dom.XmlNode parent, String childName, String ns) {

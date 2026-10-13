@@ -125,4 +125,65 @@ private class BceidIdentityServiceTest {
             System.assert(e.getMessage().contains('first and last name'));
         }
     }
+    private static void expectInvalid(BceidSoapClient.SoapResult result, String marker) {
+        try {
+            BceidIdentityService.sync(result, UserInfo.getUserId(), UserInfo.getUserId());
+            System.assert(false, 'Expected BceidIdentityException for ' + marker);
+        } catch (BceidIdentityService.BceidIdentityException e) {
+            System.assert(e.getMessage().contains(marker), e.getMessage());
+        }
+    }
+
+    @IsTest
+    static void testUnsuccessfulResponseValidation() {
+        expectInvalid(null, 'cannot be null');
+        BceidSoapClient.SoapResult response = successfulResult();
+        response.httpStatus = null;
+        expectInvalid(response, 'HTTP status');
+        response.httpStatus = 500;
+        expectInvalid(response, 'HTTP status');
+        response.httpStatus = 300;
+        expectInvalid(response, 'HTTP status');
+        response.httpStatus = 200;
+        response.hasSoapFault = true;
+        response.faultString = 'SOAP validation failed';
+        expectInvalid(response, 'SOAP fault');
+        response.hasSoapFault = false;
+        response.responseCode = 'Failure';
+        response.failureCode = 'InvalidUser';
+        expectInvalid(response, 'not successful');
+        response.responseCode = 'Success';
+        response.firstName = '';
+        expectInvalid(response, 'first and last name');
+        response.firstName = 'Deepak';
+        response.lastName = '  ';
+        expectInvalid(response, 'first and last name');
+    }
+
+    @IsTest
+    static void testRequiredArgumentsAndCurrentUserWithoutContact() {
+        BceidSoapClient.SoapResult response = successfulResult();
+        try {
+            BceidIdentityService.sync(response, null, UserInfo.getUserId());
+            System.assert(false, 'Expected missing User Id exception.');
+        } catch (BceidIdentityService.BceidIdentityException e) {
+            System.assert(e.getMessage().contains('User Id is required'));
+        }
+        try {
+            BceidIdentityService.sync(response, UserInfo.getUserId(), null);
+            System.assert(false, 'Expected missing Contact Id exception.');
+        } catch (BceidIdentityService.BceidIdentityException e) {
+            System.assert(e.getMessage().contains('Contact Id is required'));
+        }
+        User internalUser = getTestUser();
+        System.runAs(internalUser) {
+            try {
+                BceidIdentityService.syncCurrentUser(response);
+                System.assert(false, 'Expected no ContactId exception.');
+            } catch (BceidIdentityService.BceidIdentityException e) {
+                System.assert(e.getMessage().contains('ContactId'));
+            }
+        }
+    }
+
 }

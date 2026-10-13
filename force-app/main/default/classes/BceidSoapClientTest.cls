@@ -73,6 +73,29 @@ private class BceidSoapClientTest {
     }
 
     @IsTest
+    static void testFormattedSoapResponseIsReadableAndRawIsUnchanged() {
+        String rawXml =
+            '<?xml version="1.0"?>' +
+            '<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">' +
+            '<soap:Body><getAccountDetailResponse>' +
+            '<code>Success</code><value>A&amp;B</value><empty/>' +
+            '</getAccountDetailResponse></soap:Body></soap:Envelope>';
+
+        String formatted = BceidSoapClient.formatSoapXml(rawXml);
+        System.assert(formatted.contains(
+            '\n  <soap:Body>\n    <getAccountDetailResponse>\n'
+        ), 'The response should be indented by element nesting.');
+        System.assert(formatted.contains(
+            '\n      <code>Success</code>\n      <value>A&amp;B</value>\n      <empty/>\n'
+        ), 'Inline values and self-closing tags should remain readable.');
+        System.assert(formatted.endsWith('\n</soap:Envelope>'));
+        System.assertEquals(-1, rawXml.indexOf('\n'),
+            'Diagnostic formatting must not mutate the original XML.');
+        System.assertEquals('', BceidSoapClient.formatSoapXml(null));
+        System.assertEquals('', BceidSoapClient.formatSoapXml('  '));
+    }
+
+    @IsTest
     static void testBuildSoapAction() {
         System.assertEquals(
             '"http://www.bceid.ca/webservices/Client/V10/getAccountDetail"',
