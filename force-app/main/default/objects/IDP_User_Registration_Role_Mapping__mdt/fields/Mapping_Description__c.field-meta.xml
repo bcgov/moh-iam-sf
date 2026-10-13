@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Mapping_Description__c</fullName>
+    <description>Used to capture source information that determines the use case for the target field</description>
+    <fieldManageability>SubscriberControlled</fieldManageability>
+    <label>Mapping Description</label>
+    <length>10000</length>
+    <type>LongTextArea</type>
+    <visibleLines>5</visibleLines>
+</CustomField>

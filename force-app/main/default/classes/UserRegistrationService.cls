@@ -78,7 +78,7 @@ public with sharing class UserRegistrationService{
      
         system.debug('data:'+ json.serializePretty(data));
         
-        String qryString = 'SELECT Id, email, User_Provisioning_Role__c, User_Assigned_Role__c FROM User WHERE FederationIdentifier =';
+        String qryString = 'SELECT Id, email, User_Provisioning_Role__c, User_Assigned_Role__c, User_Source_Role__c FROM User WHERE FederationIdentifier =';
 
         User newUser = new User();
 
@@ -181,6 +181,10 @@ public with sharing class UserRegistrationService{
                                 }
                                 if (newUser.User_Assigned_Role__c != fetchRoles.ProvidedExternalProvider) {
                                     newUser.User_Assigned_Role__c = fetchRoles.ProvidedExternalProvider;
+                                }
+                                if (fetchRoles.ExternalProviderRemapped.length() != 0 &&  
+                                            newUser.User_Source_Role__c != fetchRoles.ExternalProviderRemapped) {
+                                        newUser.User_Source_Role__c = fetchRoles.ExternalProviderRemapped;
                                 }
                             }
 
@@ -532,8 +536,9 @@ public with sharing class UserRegistrationService{
         }
 
         if (processFieldcheck.isFieldExisting('User_Provisioning_Role__c', 'User') &&
-            processFieldcheck.isFieldExisting('User_Assigned_Role__c', 'User')) {
-            qryUserString += ', User_Provisioning_Role__c, User_Assigned_Role__c';
+            processFieldcheck.isFieldExisting('User_Assigned_Role__c', 'User') &&
+            processFieldcheck.isFieldExisting('User_Source_Role__c', 'User')) {
+            qryUserString += ', User_Provisioning_Role__c, User_Assigned_Role__c, User_Source_Role__c';
     
         }
 
@@ -592,7 +597,8 @@ public with sharing class UserRegistrationService{
 
         if ((data.attributeMap.containsKey('roles') || data.attributeMap.containsKey('idp')) &&
                 processFieldcheck.isFieldExisting('User_Provisioning_Role__c', 'User') &&
-                processFieldcheck.isFieldExisting('User_Assigned_Role__c', 'User')) {
+                processFieldcheck.isFieldExisting('User_Assigned_Role__c', 'User') &&
+                processFieldcheck.isFieldExisting('User_Source_Role__c', 'User')) {
             //keycloakRole = data.attributeMap.get('roles'); 
             currentHost = URL.getCurrentRequestUrl().getHost();
             List<IDP_User_Registration_User_Mapping__mdt>  matchingRole_list = new List<IDP_User_Registration_User_Mapping__mdt>();
@@ -606,6 +612,7 @@ public with sharing class UserRegistrationService{
                 if (isHealthGatewayUser) {
                     existingUser.User_Provisioning_Role__c = USER_PROVISIONING_ROLE_HGW;
                     existingUser.User_Assigned_Role__c = USER_PROVISIONING_ROLE_HGW;
+                    existingUser.User_Source_Role__c = USER_PROVISIONING_ROLE_HGW;
                 } else {
                     if (fetchRoles.ProvidedExternalProvider.length() <= USER_PROVISIONING_ROLE_MAXLENGTH) {
                         if (existingUser.get('User_Provisioning_Role__c') != fetchRoles.ProvidedExternalProvider) {
@@ -616,6 +623,10 @@ public with sharing class UserRegistrationService{
                     if (existingUser.get('User_Assigned_Role__c') != fetchRoles.ProvidedExternalProvider) {
                         existingUser.put('User_Assigned_Role__c', fetchRoles.ProvidedExternalProvider);
                     }
+                    if (fetchRoles.ExternalProviderRemapped.length() != 0 &&  
+                                existingUser.User_Source_Role__c != fetchRoles.ExternalProviderRemapped) {
+                            existingUser.User_Source_Role__c = fetchRoles.ExternalProviderRemapped;
+                    }                    
                 }
             }
         }

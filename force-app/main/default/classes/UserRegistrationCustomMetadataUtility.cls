@@ -43,7 +43,11 @@ public class UserRegistrationCustomMetadataUtility{
     
     public List<String> userExternalProvider = new List<String>();
 
+    public List<String> userRoleRemapped = new List<String>();
+
     public String ProvidedExternalProvider = '';
+
+    public String ExternalProviderRemapped = '';
 
     private static Map<String, IDP_User_Registration_Trigger_Management__mdt> triggerSettingsCache;
 
@@ -63,6 +67,7 @@ public class UserRegistrationCustomMetadataUtility{
         if (ExternalProvider != null)
         {
             ProvidedExternalProvider = ExternalProvider;
+            ExternalProviderRemapped = ExternalProvider;
             userExternalProvider.addAll(ExternalProvider.remove('[').remove(']').split(','));
         }
         List<String> userRoleFilter = new List<String>();
@@ -75,6 +80,29 @@ public class UserRegistrationCustomMetadataUtility{
             }
             
         }
+        Boolean isRoleReMap = false;
+        String searchableRoleFilter;    
+        // use userExternalProvider to fetch role mapping records from 'User Registration Role Mappings'
+        List<IDP_User_Registration_Role_Mapping__mdt> userRoleRemap = new List<IDP_User_Registration_Role_Mapping__mdt>();
+        userRoleRemap = [SELECT Id, Role_Sequence__c,Source_Role_Name__c,User_Registration_User_Mapping__r.External_Provider_Role__c 
+                            FROM IDP_User_Registration_Role_Mapping__mdt 
+                            WHERE Source_Role_Name__c IN: userRoleFilter
+                            ORDER BY Role_Sequence__c ASC
+                            LIMIT 1];
+             
+        for (IDP_User_Registration_Role_Mapping__mdt userRoleListmapper: userRoleRemap) 
+        {
+            searchableRoleFilter = userRoleListmapper.User_Registration_User_Mapping__r.External_Provider_Role__c;
+            userRoleRemapped.add(searchableRoleFilter);
+            isRoleReMap = true;
+            ProvidedExternalProvider = searchableRoleFilter;
+        }
+        if (isRoleReMap == true)
+        {
+            userRoleFilter = new List<String>();
+            userRoleFilter.addAll(userRoleRemapped);
+        }
+        
         //Fetch metadata for attribute mapping
         List<IDP_User_Registration_Attribute_Mapping__mdt> userAttributeMapping = new List<IDP_User_Registration_Attribute_Mapping__mdt>();
         userAttributeMapping = [SELECT Id, Source_Attribute_Value__c, Target_Object_and_Element__c, Match_Required__c, 
@@ -173,26 +201,30 @@ public class UserRegistrationCustomMetadataUtility{
         List<String> searchForRole = new List<String>();
         List<String> userRoleFilter = new List<String>();
         System.debug('keycloakRole: ' + keycloakRole);
-        if (keycloakRole != null && keycloakRole.contains('[')) { 
-            searchForRole.addAll(keycloakRole.remove('[').remove(']').split(','));
-
-            for (String userRoleFilterRec: searchForRole)
-            {
-                userRoleFilter.add('[' + userRoleFilterRec.trim() + ']');
-            }           
-        } else {
-            if (keycloakRole != null )
-            {
-                searchForRole.addAll(keycloakRole.split(','));
+        if (userRoleRemapped.size() == 0) {
+            if (keycloakRole != null && keycloakRole.contains('[')) { 
+                searchForRole.addAll(keycloakRole.remove('[').remove(']').split(','));
 
                 for (String userRoleFilterRec: searchForRole)
                 {
-                    userRoleFilter.add(userRoleFilterRec.trim());
-                }  
-            }
+                    userRoleFilter.add('[' + userRoleFilterRec.trim() + ']');
+                }           
+            } else {
+                if (keycloakRole != null )
+                {
+                    searchForRole.addAll(keycloakRole.split(','));
 
+                    for (String userRoleFilterRec: searchForRole)
+                    {
+                        userRoleFilter.add(userRoleFilterRec.trim());
+                    }  
+                }
+
+            }
+        } else {
+            userRoleFilter = userRoleRemapped;
         }
-        System.debug('userRoleFilter: ' + userRoleFilter);
+        System.debug('userRoleFilter:: ' + userRoleFilter);
         for (String searchKey: userRoleFilter)
         {
     

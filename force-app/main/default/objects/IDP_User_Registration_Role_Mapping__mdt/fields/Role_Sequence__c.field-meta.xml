@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Role_Sequence__c</fullName>
+    <description>Use this field to determine the record to process based on  the sequence number, the lowest number determines the higher priority, e.g. records with sequence 10, 20, 30 the record with 10 will be selected.  if you want more than one record with 10, both records will be used.</description>
+    <externalId>false</externalId>
+    <fieldManageability>SubscriberControlled</fieldManageability>
+    <label>Role Sequence</label>
+    <precision>6</precision>
+    <required>false</required>
+    <scale>0</scale>
+    <type>Number</type>
+    <unique>false</unique>
+</CustomField>
