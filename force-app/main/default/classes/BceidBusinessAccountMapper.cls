@@ -59,7 +59,8 @@ public with sharing class BceidBusinessAccountMapper {
         } else {
             changed = setIfDifferent(record, available, 'Tradestyle', data.doingBusinessAs) || changed;
         }
-        changed = setIfDifferent(record, available, 'Business_Number__c', data.businessNumber) || changed;
+
+        changed = setIfDifferent(record, available, 'BCeIDBusinessNumber__c', data.businessNumber) || changed;
 
         String street = null;
         if (String.isNotBlank(data.addressLine1)) street = data.addressLine1.trim();

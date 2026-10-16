@@ -48,4 +48,26 @@ private class BceidUserUpdateJobTest {
         System.assertEquals('Completed', job.Status);
         System.assertEquals(0, job.NumberOfErrors);
     }
+
+    @IsTest
+    static void testQueueableMapsAuthorizedEmailAndMobile() {
+        User u = createUser('Original', 'Name');
+        Test.startTest();
+        new BceidUserUpdateJob(u.Id, 'Changed', 'Name',
+            'new.user@example.com', '+1 (438) 788-6958').execute(null);
+        Test.stopTest();
+        User changed = [SELECT FirstName, LastName, Email, MobilePhone
+            FROM User WHERE Id = :u.Id];
+        System.assertEquals('Changed', changed.FirstName);
+        System.assertEquals('new.user@example.com', changed.Email);
+        System.assertEquals('4387886958', changed.MobilePhone);
+    }
+
+    @IsTest
+    static void testNullUserIdSafelyIgnored() {
+        Test.startTest();
+        new BceidUserUpdateJob(null, 'First', 'Last',
+            'user@example.com', '4387886958').execute(null);
+        Test.stopTest();
+    }
 }

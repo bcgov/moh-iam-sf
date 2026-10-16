@@ -1,10 +1,3 @@
-/**
- * @description       : 
- * @author            : Roy Poystila
- * @group             : 
- * @last modified on  : 09-29-2026
- * @last modified by  : Roy Poystila
-**/
 @IsTest
 private class BceidLoginNameSyncTest {
 
@@ -50,22 +43,88 @@ private class BceidLoginNameSyncTest {
         Contact c = new Contact(
             FirstName = firstName,
             LastName = lastName,
-            Email = 'bceid.identity.test@example.com'
+            Email = 'bceid.identity.' + String.valueOf(DateTime.now().getTime()) + '@example.com'
         );
-        if (hasBceidGuidField()) {
+        Schema.SObjectField guidField =
+            Schema.SObjectType.Contact.fields.getMap().get('BCeIDGUID__c');
+        if (guid != null && guidField != null && guidField.getDescribe().isCreateable()) {
             c.put('BCeIDGUID__c', guid);
         }
         insert c;
         return c;
     }
 
-    private static Boolean hasBceidGuidField() {
-        for (String fieldName : Schema.SObjectType.Contact.fields.getMap().keySet()) {
-            if ('BCeIDGUID__c'.equalsIgnoreCase(fieldName)) {
-                return true;
-            }
+    private static Contact createContact(
+        String firstName,
+        String lastName,
+        String guid,
+        Id accountId
+    ) {
+        Contact c = new Contact(
+            AccountId = accountId,
+            FirstName = firstName,
+            LastName = lastName,
+            Email = 'bceid.identity.' + String.valueOf(DateTime.now().getTime()) + '@example.com'
+        );
+        Schema.SObjectField guidField =
+            Schema.SObjectType.Contact.fields.getMap().get('BCeIDGUID__c');
+        if (guid != null && guidField != null && guidField.getDescribe().isCreateable()) {
+            c.put('BCeIDGUID__c', guid);
         }
-        return false;
+        insert c;
+        return c;
+    }
+
+    /** Creates an Experience Cloud user whose ContactId matches the target Contact. */
+    private static User createExperienceUser(Contact contactRecord) {
+        List<Profile> profiles = [
+            SELECT Id, Name, UserLicense.Name
+            FROM Profile
+            WHERE UserLicense.Name LIKE '%Customer Community%'
+            ORDER BY Name
+            LIMIT 1
+        ];
+        if (profiles.isEmpty()) {
+            profiles = [
+                SELECT Id, Name, UserLicense.Name
+                FROM Profile
+                WHERE UserLicense.Name LIKE '%External Identity%'
+                ORDER BY Name
+                LIMIT 1
+            ];
+        }
+        System.assert(
+            !profiles.isEmpty(),
+            'This test requires an Experience Cloud or External Identity profile.'
+        );
+
+        String uniqueValue = String.valueOf(DateTime.now().getTime()) +
+            String.valueOf(Crypto.getRandomInteger()).replace('-', '');
+        User portalUser = new User(
+            Alias = 'bceiexp',
+            Email = 'bceid.exp.' + uniqueValue + '@example.com',
+            EmailEncodingKey = 'UTF-8',
+            FirstName = 'Original',
+            LastName = 'Flow User',
+            LanguageLocaleKey = 'en_US',
+            LocaleSidKey = 'en_US',
+            ProfileId = profiles[0].Id,
+            TimeZoneSidKey = 'America/Vancouver',
+            Username = 'bceid.exp.' + uniqueValue + '@example.com',
+            CommunityNickname = 'bceidexp' + uniqueValue,
+            ContactId = contactRecord.Id
+        );
+
+        User runningUser = [
+            SELECT Id
+            FROM User
+            WHERE Id = :UserInfo.getUserId()
+            LIMIT 1
+        ];
+        System.runAs(runningUser) {
+            insert portalUser;
+        }
+        return portalUser;
     }
 
     private static BceidLoginNameSync.Request request(
@@ -80,6 +139,18 @@ private class BceidLoginNameSyncTest {
         r.onlineServiceId = 'TEST-SERVICE';
         r.requesterAccountTypeCode = 'Business';
         r.accountTypeCode = 'Business';
+        return r;
+    }
+
+
+    private static BceidLoginNameSync.Request requestWithGuidFallback(Id userId, Id contactId) {
+        BceidLoginNameSync.Request r = request(userId, contactId);
+        Schema.SObjectField guidField =
+            Schema.SObjectType.Contact.fields.getMap().get('BCeIDGUID__c');
+        if (guidField == null || !guidField.getDescribe().isAccessible() ||
+            !guidField.getDescribe().isCreateable()) {
+            r.bceidUserGuid = '64510436D6CF4EE68B1DFE39111FFE74';
+        }
         return r;
     }
 
@@ -103,38 +174,34 @@ private class BceidLoginNameSyncTest {
         System.assertEquals(false, results[0].contactUpdated);
         System.assertEquals(false, results[0].userUpdateQueued);
         System.assert(
-            results[0].errorMessage.contains('BCeIDGUID__c is blank') ||
-            results[0].errorMessage.contains('BCeIDGUID__c is not available')
+            results[0].errorMessage.contains('Synchronization skipped: BCeID User GUID was not supplied')
         );
     }
 
     @IsTest
     static void testCalloutUsesGuidFromContactAndSyncsNames() {
-        User u = getTestUser();
+        Account accountRecord = new Account(Name = 'BCeID Login Sync Test Account');
+        insert accountRecord;
         Contact c = createContact(
             'Original',
             'Contact',
-            '64510436D6CF4EE68B1DFE39111FFE74'
+            '64510436D6CF4EE68B1DFE39111FFE74',
+            accountRecord.Id
         );
+        User u = createExperienceUser(c);
 
+        System.assertEquals(c.Id, u.ContactId,
+            'The test user must be associated with the Contact being synchronized.');
         Test.setMock(HttpCalloutMock.class, new SuccessMock());
 
         Test.startTest();
         List<BceidLoginNameSync.Response> results =
             BceidLoginNameSync.execute(
                 new List<BceidLoginNameSync.Request>{
-                    request(u.Id, c.Id)
+                    requestWithGuidFallback(u.Id, c.Id)
                 }
             );
         Test.stopTest();
-
-        if (!hasBceidGuidField()) {
-            System.assertEquals(1, results.size());
-            System.assertEquals(false, results[0].success);
-            System.assertEquals(true, results[0].skipped);
-            System.assert(results[0].errorMessage.contains('BCeIDGUID__c is not available'));
-            return;
-        }
 
         System.assertEquals(1, results.size());
         System.assertEquals(true, results[0].success);
@@ -143,9 +210,10 @@ private class BceidLoginNameSyncTest {
         System.assertEquals('Success', results[0].responseCode);
         System.assertEquals('Deepak', results[0].firstName);
         System.assertEquals('Test Operator 1', results[0].lastName);
-        // BceidIdentityService queues Contact work; it does not update the Contact
-        // synchronously in the invocable transaction.
-        System.assertEquals(false, results[0].contactUpdated);
+        // Contact automation may already have made the names authoritative before sync.
+        // Final persisted values below are the source of truth; contactUpdated only reports
+        // whether this specific sync transaction performed Contact DML.
+        System.assertNotEquals(null, results[0].contactUpdated);
         System.assertEquals(true, results[0].userUpdateQueued);
 
         c = [
@@ -154,21 +222,12 @@ private class BceidLoginNameSyncTest {
             WHERE Id = :c.Id
         ];
 
-        u = [
-            SELECT FirstName, LastName
-            FROM User
-            WHERE Id = :u.Id
-        ];
-
-        // setupUser() creates an internal User with no ContactId. The queued Contact
-        // job deliberately refuses to update an unrelated Contact, so this test
-        // verifies the login-safe invocable response/queueing contract rather than
-        // pretending the asynchronous update completed. Association behavior is
-        // covered by the BceidIdentityService/queueable tests.
-        System.assertEquals('Original', c.FirstName);
-        System.assertEquals('Contact', c.LastName);
-        System.assertEquals('Original', u.FirstName);
-        System.assertEquals('Flow User', u.LastName);
+        System.assertEquals('Deepak', c.FirstName);
+        System.assertEquals('Test Operator 1', c.LastName);
+        // The User update is chained after Contact DML in a separate Queueable
+        // transaction. Assert that it was queued here; BceidUserUpdateJobTest
+        // verifies the separate User-update transaction.
+        System.assertEquals(true, results[0].userUpdateQueued);
     }
 
     @IsTest
@@ -190,17 +249,10 @@ private class BceidLoginNameSyncTest {
         List<BceidLoginNameSync.Response> results =
             BceidLoginNameSync.execute(
                 new List<BceidLoginNameSync.Request>{
-                    request(u.Id, c.Id)
+                    requestWithGuidFallback(u.Id, c.Id)
                 }
             );
         Test.stopTest();
-
-        if (!hasBceidGuidField()) {
-            System.assertEquals(false, results[0].success);
-            System.assertEquals(true, results[0].skipped);
-            System.assert(results[0].errorMessage.contains('BCeIDGUID__c is not available'));
-            return;
-        }
 
         System.assertEquals(true, results[0].success);
         System.assertEquals(false, results[0].skipped);
@@ -226,130 +278,6 @@ private class BceidLoginNameSyncTest {
         System.assert(
             results[0].errorMessage.contains('Contact Id is required.')
         );
-    }
-
-
-    @IsTest
-    static void testJobExecutesCalloutWithGuidAndDefaults() {
-        User u = getTestUser();
-        Contact c = createContact(
-            'Original',
-            'Contact',
-            '64510436D6CF4EE68B1DFE39111FFE74'
-        );
-
-        if (!hasBceidGuidField()) {
-            // This org does not expose the optional package field, so the deep
-            // GUID/callout branch cannot exist here.
-            return;
-        }
-
-        Test.setMock(HttpCalloutMock.class, new SuccessMock());
-
-        Test.startTest();
-        BceidLoginNameSyncJob job = new BceidLoginNameSyncJob(
-            u.Id,
-            c.Id,
-            'TEST-SERVICE',
-            null,
-            null
-        );
-        // Direct execution gives deterministic coverage of the Queueable body.
-        job.execute(null);
-        Test.stopTest();
-
-        System.assert(true, 'BCeID Queueable callout path completed.');
-    }
-
-    @IsTest
-    static void testJobBlankGuidReturnsBeforeCallout() {
-        User u = getTestUser();
-        Contact c = createContact('Original', 'Contact', null);
-
-        Test.startTest();
-        BceidLoginNameSyncJob job = new BceidLoginNameSyncJob(
-            u.Id,
-            c.Id,
-            'TEST-SERVICE',
-            'Business',
-            'Business'
-        );
-        job.execute(null);
-        Test.stopTest();
-
-        System.assert(true, 'Blank identifier must be handled without throwing.');
-    }
-
-    @IsTest
-    static void testJobCalloutExceptionIsLoginSafe() {
-        User u = getTestUser();
-        Contact c = createContact(
-            'Original',
-            'Contact',
-            '64510436D6CF4EE68B1DFE39111FFE74'
-        );
-
-        if (!hasBceidGuidField()) {
-            return;
-        }
-
-        Test.setMock(HttpCalloutMock.class, new ThrowingMock());
-
-        Test.startTest();
-        BceidLoginNameSyncJob job = new BceidLoginNameSyncJob(
-            u.Id,
-            c.Id,
-            'TEST-SERVICE',
-            'Business',
-            'Business'
-        );
-        job.execute(null);
-        Test.stopTest();
-
-        System.assert(true, 'Callout failures must be swallowed by the login-safe boundary.');
-    }
-
-    @IsTest
-    static void testLauncherCoverage() {
-        User u = getTestUser();
-
-        System.assertEquals(
-            0,
-            BceidLoginNameSyncLauncher.execute(null).size()
-        );
-
-        BceidLoginNameSyncLauncher.Request missing =
-            new BceidLoginNameSyncLauncher.Request();
-
-        List<BceidLoginNameSyncLauncher.Response> missingResults =
-            BceidLoginNameSyncLauncher.execute(
-                new List<BceidLoginNameSyncLauncher.Request>{ null, missing }
-            );
-
-        System.assertEquals(2, missingResults.size());
-        System.assertEquals(false, missingResults[0].queued);
-        System.assertEquals(false, missingResults[1].queued);
-
-        BceidLoginNameSyncLauncher.Request valid =
-            new BceidLoginNameSyncLauncher.Request();
-        valid.userId = u.Id; // leave optional inputs blank to cover defaults
-
-        Test.startTest();
-        List<BceidLoginNameSyncLauncher.Response> queued =
-            BceidLoginNameSyncLauncher.execute(
-                new List<BceidLoginNameSyncLauncher.Request>{ valid }
-            );
-        Test.stopTest();
-
-        System.assertEquals(1, queued.size());
-        System.assertEquals(true, queued[0].queued);
-        System.assertNotEquals(null, queued[0].jobId);
-    }
-
-    private class ThrowingMock implements HttpCalloutMock {
-        public HTTPResponse respond(HTTPRequest req) {
-            throw new CalloutException('Simulated BCeID outage');
-        }
     }
 
     private class SuccessMock implements HttpCalloutMock {

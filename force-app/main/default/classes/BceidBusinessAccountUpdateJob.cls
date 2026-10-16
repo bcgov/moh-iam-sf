@@ -6,7 +6,7 @@
 public without sharing class BceidBusinessAccountUpdateJob implements Queueable {
     private Id userId;
     private BceidBusinessAccountMapper.BusinessData business;
-    private Boolean configuredAccountActive;
+    private Boolean configuredAccountActive; // Legacy constructor compatibility; existing Accounts always activate.
 
     // Retained for existing integrations and tests that do not supply a status.
     public BceidBusinessAccountUpdateJob(Id userId,
@@ -59,17 +59,32 @@ public without sharing class BceidBusinessAccountUpdateJob implements Queueable 
         };
         for (String optionalField : new List<String>{
             'BCeIDGUID__c', 'ExternalId__c', 'Doing_Business_As__c',
-            'Tradestyle', 'Business_Number__c', 'BillingCountry', 'BillingState',
+            // The canonical business number matches BceidBusinessAccountMapper.apply().
+            'Tradestyle', 'BCeIDBusinessNumber__c', 'BillingCountry', 'BillingState',
             'ShippingCountry', 'ShippingState', 'BillingCountryCode', 'BillingStateCode',
             'ShippingCountryCode', 'ShippingStateCode'
         }) {
-            if (fields.containsKey(optionalField)) columns.add(optionalField);
+            if (fields.containsKey(optionalField) &&
+                    fields.get(optionalField).getDescribe().isAccessible()) columns.add(optionalField);
         }
-        // Optional status field is not in every Salesforce org. Only query it
+        // Status__c is optional in package target orgs. Only query it
         // if it is exposed to the executing user; update FLS is enforced below.
-        if (configuredAccountActive != null && fields.containsKey('isActive') &&
-                fields.get('isActive').getDescribe().isAccessible()) {
-            columns.add('isActive');
+        if (fields.containsKey('Status__c') &&
+                fields.get('Status__c').getDescribe().isAccessible()) {
+            columns.add('Status__c');
+        }
+        // Avoid querying fields hidden by FLS in unlocked-package target orgs.
+        List<String> readableColumns = new List<String>{ 'Id' };
+        for (String col : columns) {
+            if (col != 'Id' && fields.containsKey(col) &&
+                    fields.get(col).getDescribe().isAccessible()) {
+                readableColumns.add(col);
+            }
+        }
+        columns = readableColumns;
+        if (!columns.contains('BCeIDGUID__c') && !columns.contains('ExternalId__c')) {
+            System.debug(LoggingLevel.WARN, 'BCeID Account sync skipped: no readable business identifier.');
+            return;
         }
         List<Account> accounts;
         try {
@@ -80,7 +95,7 @@ public without sharing class BceidBusinessAccountUpdateJob implements Queueable 
             // Optional fields can be present in Describe but not queryable in
             // some unlocked-package target orgs; keep this job non-blocking.
             System.debug(LoggingLevel.ERROR,
-                'BCeID Account sync skipped: Account fields could not be queried.');
+                'BCeID Account sync skipped: Account fields could not be queried. ' + e.getMessage());
             return;
         }
         if (accounts.isEmpty()) return;
@@ -94,7 +109,7 @@ public without sharing class BceidBusinessAccountUpdateJob implements Queueable 
         }
         Boolean identityMatch = false;
         for (String idField : new List<String>{ 'BCeIDGUID__c', 'ExternalId__c' }) {
-            if (!fields.containsKey(idField)) continue;
+            if (!columns.contains(idField)) continue;
             String currentGuid = (String) current.get(idField);
             if (String.isNotBlank(currentGuid) &&
                     !currentGuid.equalsIgnoreCase(business.guid)) {
@@ -108,13 +123,13 @@ public without sharing class BceidBusinessAccountUpdateJob implements Queueable 
             return;
         }
         Boolean changed = BceidBusinessAccountMapper.apply(current, business);
-        // Apply the same mapped Active status on subsequent BCeID logins.
-        // Identity verification above must succeed before status can change.
-        if (columns.contains('isActive')) {
-            Boolean currentActive = (Boolean) current.get('isActive');
-            Boolean desiredActive = configuredAccountActive == true;
-            if (currentActive != desiredActive) {
-                current.put('isActive', desiredActive);
+        // A verified BCeID business Account must have Status__c = Active.
+        // Never update status for an unverified business GUID.
+        if (columns.contains('Status__c') &&
+                fields.get('Status__c').getDescribe().isUpdateable()) {
+            String currentStatus = (String) current.get('Status__c');
+            if (currentStatus != 'Active') {
+                current.put('Status__c', 'Active');
                 changed = true;
             }
         }

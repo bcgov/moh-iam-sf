@@ -1,66 +1,48 @@
-public without sharing class BceidUserUpdateJob implements Queueable {
+/** Apply BCeID person attributes to the linked User in a separate transaction. */
+public with sharing class BceidUserUpdateJob implements Queueable {
     private Id userId;
     private String firstName;
     private String lastName;
+    private String email;
+    private String mobile;
 
+    // Retain existing callers that update only the name.
     public BceidUserUpdateJob(Id userId, String firstName, String lastName) {
+        this(userId, firstName, lastName, null, null);
+    }
+
+    public BceidUserUpdateJob(Id userId, String firstName, String lastName,
+            String email, String mobile) {
         this.userId = userId;
         this.firstName = firstName;
         this.lastName = lastName;
+        this.email = email;
+        this.mobile = mobile;
     }
 
     public void execute(QueueableContext context) {
-        if (userId == null || String.isBlank(firstName) || String.isBlank(lastName)) {
-            System.debug(
-                LoggingLevel.WARN,
-                'BCeID User update skipped because required input is missing.'
-            );
-            return;
-        }
-
-        List<User> users = [
-            SELECT Id, FirstName, LastName
-            FROM User
-            WHERE Id = :userId
-            LIMIT 1
+        if (userId == null) return;
+        List<User> matchingUsers = [
+            SELECT Id, FirstName, LastName, Email, MobilePhone
+            FROM User WHERE Id = :userId LIMIT 1
         ];
-
-        if (users.isEmpty()) {
-            System.debug(
-                LoggingLevel.WARN,
-                'BCeID User update skipped because User ' + userId + ' was not found.'
-            );
-            return;
-        }
-
-        User currentUser = users[0];
-
-        if (currentUser.FirstName == firstName &&
-            currentUser.LastName == lastName) {
-            System.debug(
-                LoggingLevel.INFO,
-                'BCeID User name already matches for User ' + userId +
-                '; no User DML required.'
-            );
-            return;
-        }
-
-        currentUser.FirstName = firstName;
-        currentUser.LastName = lastName;
+        if (matchingUsers.isEmpty()) return;
+        User currentUser = matchingUsers[0];
+        BceidPersonData data = new BceidPersonData(
+            firstName, lastName, email, mobile);
+        if (!BceidUserMapper.apply(currentUser, data)) return;
 
         try {
-            update currentUser;
-
-            System.debug(
-                LoggingLevel.INFO,
-                'BCeID User name updated successfully for User ' + userId + '.'
+            SObjectAccessDecision accessDecision = Security.stripInaccessible(
+                AccessType.UPDATABLE, new List<User>{ currentUser }
             );
+            User sanitized = (User) accessDecision.getRecords()[0];
+            update sanitized;
+            System.debug(LoggingLevel.INFO, 'BCeID User person attributes updated.');
         } catch (DmlException e) {
-            System.debug(
-                LoggingLevel.ERROR,
-                'BCeID User name update failed for User ' +
-                userId + ': ' + e.getMessage()
-            );
+            // User update must not interrupt completed Contact work or SSO.
+            System.debug(LoggingLevel.ERROR,
+                'BCeID User update failed. Status=' + e.getDmlStatusCode(0));
         }
     }
 }

@@ -161,6 +161,95 @@ private class BceidBusinessAccountMapperTest {
         System.assertEquals('6045550199', accountRecord.Phone);
     }
 
+
+    @IsTest
+    static void testSpreadsheetTargetsFromAllowedSoap() {
+        // Synthetic fixture reproduces the structure of the supplied V10 SOAP
+        // example, using nonblank business number / phone for mapping coverage.
+        BceidSoapClient.SoapResult result = new BceidSoapClient.SoapResult();
+        result.rawResponse =
+            '<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">' +
+            '<soap:Body><getAccountDetailResponse xmlns="' + NS + '">' +
+            '<getAccountDetailResult><code>Success</code><account>' +
+            '<contact><telephone isAllowed="true"><value>604-555-0199</value></telephone></contact>' +
+            '<business>' +
+            '<guid isAllowed="true"><value>BUSINESS-MAPPING-123</value></guid>' +
+            '<legalName isAllowed="true"><value>Example Business Incorporated</value></legalName>' +
+            '<businessNumber isAllowed="true"><value>123456789</value></businessNumber>' +
+            '<address>' +
+            '<addressLine1 isAllowed="true"><value>100 Example Street</value></addressLine1>' +
+            '<addressLine2 isAllowed="true"><value>Unit 200</value></addressLine2>' +
+            '<city isAllowed="true"><value>Vancouver</value></city>' +
+            '<postal isAllowed="true"><value>V6B 1A1</value></postal>' +
+            // Country/province are omitted in this portable test because
+            // State/Country picklist configuration differs between target orgs.
+            '</address></business></account></getAccountDetailResult>' +
+            '</getAccountDetailResponse></soap:Body></soap:Envelope>';
+
+        BceidSoapClient.parseGetAccountDetailResponse(result, NS);
+        BceidBusinessAccountMapper.BusinessData data =
+            BceidBusinessAccountMapper.fromSoapResult(result);
+        System.assertEquals('123456789', data.businessNumber,
+            'The V10 parser must read allowed business/businessNumber/value.');
+
+        Account created = new Account(Name = 'Pending BCeID business');
+        System.assertEquals(true, BceidBusinessAccountMapper.apply(created, data));
+        System.assertEquals('Example Business Incorporated', created.Name);
+        System.assertEquals('6045550199', created.Phone);
+        System.assertEquals('100 Example Street\nUnit 200', created.BillingStreet);
+        System.assertEquals(created.BillingStreet, created.ShippingStreet);
+        System.assertEquals('Vancouver', created.BillingCity);
+        System.assertEquals(created.BillingCity, created.ShippingCity);
+        System.assertEquals('V6B 1A1', created.BillingPostalCode);
+        System.assertEquals(created.BillingPostalCode, created.ShippingPostalCode);
+
+        Map<String, Schema.SObjectField> fields = Schema.SObjectType.Account.fields.getMap();
+        if (fields.containsKey('BCeIDGUID__c')) {
+            System.assertEquals(data.guid, created.get('BCeIDGUID__c'));
+        }
+        if (fields.containsKey('ExternalId__c')) {
+            System.assertEquals(data.guid, created.get('ExternalId__c'));
+        }
+        if (fields.containsKey('BCeIDBusinessNumber__c')) {
+            System.assertEquals('123456789', created.get('BCeIDBusinessNumber__c'),
+                'The spreadsheet requires the canonical BCeIDBusinessNumber__c target.');
+        }
+        System.assertEquals(false, BceidBusinessAccountMapper.apply(created, data),
+            'Reapplying identical BCeID values must not cause an update.');
+
+        // Updating the already-mapped record uses exactly the same field mapping.
+        data.businessNumber = '987654321';
+        Boolean expectsBusinessNumberChange = fields.containsKey('BCeIDBusinessNumber__c');
+        System.assertEquals(expectsBusinessNumberChange,
+            BceidBusinessAccountMapper.apply(created, data));
+        if (expectsBusinessNumberChange) {
+            System.assertEquals('987654321', created.get('BCeIDBusinessNumber__c'));
+        }
+    }
+
+    @IsTest
+    static void testUnauthorizedBusinessNumberNeverOverwritesExistingValue() {
+        BceidSoapClient.SoapResult result = new BceidSoapClient.SoapResult();
+        result.rawResponse =
+            '<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">' +
+            '<soap:Body><getAccountDetailResponse xmlns="' + NS + '">' +
+            '<getAccountDetailResult><code>Success</code><account><business>' +
+            '<businessNumber isAllowed="false"><value>999999999</value></businessNumber>' +
+            '</business></account></getAccountDetailResult></getAccountDetailResponse>' +
+            '</soap:Body></soap:Envelope>';
+        BceidSoapClient.parseGetAccountDetailResponse(result, NS);
+        System.assertEquals(null, result.businessNumber,
+            'Unauthorized BCeID fields must not be mapped.');
+        BceidBusinessAccountMapper.BusinessData data =
+            BceidBusinessAccountMapper.fromSoapResult(result);
+        Account existing = new Account(Name = 'Existing business');
+        if (Schema.SObjectType.Account.fields.getMap().containsKey('BCeIDBusinessNumber__c')) {
+            existing.put('BCeIDBusinessNumber__c', '111111111');
+            System.assertEquals(false, BceidBusinessAccountMapper.apply(existing, data));
+            System.assertEquals('111111111', existing.get('BCeIDBusinessNumber__c'));
+        }
+    }
+
     @IsTest
     static void testTwoLineStreetAndUnchangedValues() {
         BceidBusinessAccountMapper.BusinessData data =

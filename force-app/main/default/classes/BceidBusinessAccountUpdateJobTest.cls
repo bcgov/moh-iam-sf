@@ -96,50 +96,78 @@ private class BceidBusinessAccountUpdateJobTest {
         System.assertEquals(afterSync.BillingCity, afterSync.ShippingCity);
     }
 
+
     @IsTest
-    static void testExistingAccountStatusFollowsConfiguration() {
-        Map<String, Schema.SObjectField> accountFields =
-            Schema.SObjectType.Account.fields.getMap();
-        if (supportedGuidField() == null || !accountFields.containsKey('isActive')) return;
-        Schema.DescribeFieldResult statusField = accountFields.get('isActive').getDescribe();
-        if (!statusField.isAccessible() || !statusField.isUpdateable()) return;
+    static void testBusinessNumberUpdatesCanonicalAccountField() {
+        Map<String, Schema.SObjectField> fields = Schema.SObjectType.Account.fields.getMap();
+        if (supportedGuidField() == null || !fields.containsKey('BCeIDBusinessNumber__c')) return;
+        Schema.DescribeFieldResult numberField =
+            fields.get('BCeIDBusinessNumber__c').getDescribe();
+        if (!numberField.isAccessible() || !numberField.isUpdateable()) return;
+
+        Account account = businessAccount('BUSINESS-NUMBER-GUID', 'Original business');
+        BceidBusinessAccountMapper.BusinessData business = data('BUSINESS-NUMBER-GUID');
+        business.businessNumber = '123456789';
+
+        Test.startTest();
+        BceidBusinessAccountUpdateJob.syncLinkedAccount(account.Id, business);
+        Test.stopTest();
+
+        Id accountId = account.Id;
+        Account updated = Database.query(
+            'SELECT Id, BCeIDBusinessNumber__c FROM Account WHERE Id = :accountId LIMIT 1'
+        );
+        System.assertEquals('123456789', updated.get('BCeIDBusinessNumber__c'),
+            'Account sync must update the spreadsheet-defined BCeID business number field.');
+    }
+
+    @IsTest
+    static void testExistingAccountStatusBecomesActive() {
+        Map<String, Schema.SObjectField> fields = Schema.SObjectType.Account.fields.getMap();
+        if (supportedGuidField() == null || !fields.containsKey('Status__c')) return;
+        Schema.DescribeFieldResult statusDescribe = fields.get('Status__c').getDescribe();
+        if (!statusDescribe.isAccessible() || !statusDescribe.isUpdateable()) return;
 
         Account account = businessAccount('GUID-ACTIVE-TEST', 'Original business');
-        BceidBusinessAccountMapper.BusinessData business = data('GUID-ACTIVE-TEST');
-        // First transition is chosen as the opposite of the current value,
-        // so this test exercises an actual status-only change on every org.
-        Account stored = Database.query('SELECT Id, isActive FROM Account WHERE Id = :account.Id');
-        Boolean initialActive = (Boolean) stored.get('isActive');
-        Boolean firstDesired = initialActive != true;
-        Test.startTest();
-        BceidBusinessAccountUpdateJob.syncLinkedAccount(account.Id, business, firstDesired);
-        Test.stopTest();
-        Account afterFirst = Database.query('SELECT Id, isActive FROM Account WHERE Id = :account.Id');
-        System.assertEquals(firstDesired, afterFirst.get('isActive'),
-            'BCeID business Account must follow configured status.');
+        Id accountId = account.Id;
+        Account initial = Database.query('SELECT Id, Status__c FROM Account WHERE Id = :accountId');
+        if (String.valueOf(initial.get('Status__c')) != 'Inactive') {
+            Account inactive = new Account(Id = accountId);
+            inactive.put('Status__c', 'Inactive');
+            update inactive;
+        }
 
-        // A second invocation updates only the status while SOAP business
-        // attributes are unchanged and verified GUID identity still matches.
-        BceidBusinessAccountUpdateJob.syncLinkedAccount(account.Id, business, !firstDesired);
-        Account afterSecond = Database.query('SELECT Id, isActive FROM Account WHERE Id = :account.Id');
-        System.assertEquals(!firstDesired, afterSecond.get('isActive'),
-            'A subsequent BCeID login must apply a changed configured status.');
+        BceidBusinessAccountMapper.BusinessData business = data('GUID-ACTIVE-TEST');
+        // Even when the legacy configured flag is false, verified accounts become Active.
+        Test.startTest();
+        BceidBusinessAccountUpdateJob.syncLinkedAccount(accountId, business, false);
+        Test.stopTest();
+        Account afterSync = Database.query('SELECT Id, Status__c FROM Account WHERE Id = :accountId');
+        System.assertEquals('Active', afterSync.get('Status__c'));
+
+        // A second sync must not change the already Active status.
+        BceidBusinessAccountUpdateJob.syncLinkedAccount(accountId, business, false);
+        Account again = Database.query('SELECT Id, Status__c FROM Account WHERE Id = :accountId');
+        System.assertEquals('Active', again.get('Status__c'));
     }
 
     @IsTest
     static void testGuidMismatchNeverChangesAccountStatus() {
-        Map<String, Schema.SObjectField> accountFields =
-            Schema.SObjectType.Account.fields.getMap();
-        if (supportedGuidField() == null || !accountFields.containsKey('isActive')) return;
-        if (!accountFields.get('isActive').getDescribe().isAccessible()) return;
+        Map<String, Schema.SObjectField> fields = Schema.SObjectType.Account.fields.getMap();
+        if (supportedGuidField() == null || !fields.containsKey('Status__c')) return;
+        if (!fields.get('Status__c').getDescribe().isAccessible() ||
+                !fields.get('Status__c').getDescribe().isUpdateable()) return;
         Account account = businessAccount('GUID-SAFE', 'Original business');
-        Account beforeSync = Database.query('SELECT Id, isActive FROM Account WHERE Id = :account.Id');
-        Boolean previous = (Boolean) beforeSync.get('isActive');
+        Id accountId = account.Id;
+        Account inactive = new Account(Id = accountId);
+        inactive.put('Status__c', 'Inactive');
+        update inactive;
+
         BceidBusinessAccountUpdateJob.syncLinkedAccount(
-            account.Id, data('GUID-DIFFERENT'), previous != true);
-        Account afterSync = Database.query('SELECT Id, isActive FROM Account WHERE Id = :account.Id');
-        System.assertEquals(previous, afterSync.get('isActive'),
-            'Unverified BCeID business identities cannot change Account status.');
+            accountId, data('GUID-DIFFERENT'), true);
+        Account afterSync = Database.query('SELECT Id, Status__c FROM Account WHERE Id = :accountId');
+        System.assertEquals('Inactive', afterSync.get('Status__c'),
+            'A GUID mismatch must not activate the Account.');
     }
 
     @IsTest
@@ -167,5 +195,42 @@ private class BceidBusinessAccountUpdateJobTest {
         System.assertEquals(beforeDml, afterDml,
             'Identical BCeID values should not write an Account.');
         Test.stopTest();
+    }
+
+    @IsTest
+    static void testPopulatedAddressesUpdateAndBlankAddressesPreserve() {
+        if (supportedGuidField() == null) return;
+        Account a = businessAccount('GUID-ADDRESS', 'Existing business');
+        a.BillingStreet = 'Old Billing Street';
+        a.ShippingStreet = 'Old Shipping Street';
+        a.BillingCity = 'Old Billing City';
+        a.ShippingCity = 'Old Shipping City';
+        update a;
+
+        BceidBusinessAccountMapper.BusinessData populated = data('GUID-ADDRESS');
+        populated.addressLine1 = '456 Updated Road';
+        populated.city = 'Victoria';
+        BceidBusinessAccountUpdateJob.syncLinkedAccount(a.Id, populated);
+        Account updated = [SELECT BillingStreet, ShippingStreet, BillingCity, ShippingCity
+                           FROM Account WHERE Id = :a.Id];
+        System.assertEquals('456 Updated Road', updated.BillingStreet);
+        System.assertEquals('456 Updated Road', updated.ShippingStreet);
+        System.assertEquals('Victoria', updated.BillingCity);
+        System.assertEquals('Victoria', updated.ShippingCity);
+
+        BceidBusinessAccountMapper.BusinessData blank = data('GUID-ADDRESS');
+        blank.addressLine1 = null;
+        blank.addressLine2 = null;
+        blank.city = null;
+        blank.postal = null;
+        blank.province = null;
+        blank.country = null;
+        BceidBusinessAccountUpdateJob.syncLinkedAccount(a.Id, blank);
+        Account preserved = [SELECT BillingStreet, ShippingStreet, BillingCity, ShippingCity
+                             FROM Account WHERE Id = :a.Id];
+        System.assertEquals(updated.BillingStreet, preserved.BillingStreet);
+        System.assertEquals(updated.ShippingStreet, preserved.ShippingStreet);
+        System.assertEquals(updated.BillingCity, preserved.BillingCity);
+        System.assertEquals(updated.ShippingCity, preserved.ShippingCity);
     }
 }

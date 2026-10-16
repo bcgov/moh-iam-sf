@@ -10,6 +10,8 @@ public without sharing class BceidContactUpdateJob implements Queueable {
     private Id userId;
     private String firstName;
     private String lastName;
+    private String email;
+    private String mobile;
     private Boolean queueUserUpdate;
     private Boolean bypassRelationshipValidationForTest;
 
@@ -20,14 +22,24 @@ public without sharing class BceidContactUpdateJob implements Queueable {
         String lastName,
         Boolean queueUserUpdate
     ) {
-        this(
-            contactId,
-            userId,
-            firstName,
-            lastName,
-            queueUserUpdate,
-            false
-        );
+        this(contactId, userId, firstName, lastName,
+            null, null, queueUserUpdate, false);
+    }
+
+    /** New constructor: map names, email and mobile; optionally chain User DML. */
+    public BceidContactUpdateJob(Id contactId, Id userId,
+            String firstName, String lastName, String email, String mobile,
+            Boolean queueUserUpdate) {
+        this(contactId, userId, firstName, lastName, email, mobile,
+            queueUserUpdate, false);
+    }
+
+    @TestVisible
+    private BceidContactUpdateJob(Id contactId, Id userId,
+            String firstName, String lastName, Boolean queueUserUpdate,
+            Boolean bypassRelationshipValidationForTest) {
+        this(contactId, userId, firstName, lastName, null, null,
+            queueUserUpdate, bypassRelationshipValidationForTest);
     }
 
     @TestVisible
@@ -36,6 +48,8 @@ public without sharing class BceidContactUpdateJob implements Queueable {
         Id userId,
         String firstName,
         String lastName,
+        String email,
+        String mobile,
         Boolean queueUserUpdate,
         Boolean bypassRelationshipValidationForTest
     ) {
@@ -43,6 +57,8 @@ public without sharing class BceidContactUpdateJob implements Queueable {
         this.userId = userId;
         this.firstName = firstName;
         this.lastName = lastName;
+        this.email = email;
+        this.mobile = mobile;
         this.queueUserUpdate = queueUserUpdate == true;
         this.bypassRelationshipValidationForTest =
             bypassRelationshipValidationForTest == true;
@@ -86,7 +102,7 @@ public without sharing class BceidContactUpdateJob implements Queueable {
         }
 
         List<Contact> contacts = [
-            SELECT Id, FirstName, LastName
+            SELECT Id, FirstName, LastName, Email, MobilePhone
             FROM Contact
             WHERE Id = :contactId
             LIMIT 1
@@ -102,42 +118,34 @@ public without sharing class BceidContactUpdateJob implements Queueable {
         }
 
         Contact currentContact = contacts[0];
-
-        if (currentContact.FirstName != firstName ||
-            currentContact.LastName != lastName) {
-
-            currentContact.FirstName = firstName;
-            currentContact.LastName = lastName;
-
+        BceidPersonData person = new BceidPersonData(
+            firstName, lastName, email, mobile);
+        if (BceidContactMapper.apply(currentContact, person)) {
             try {
-                update currentContact;
-
-                System.debug(
-                    LoggingLevel.INFO,
-                    'BCeID Contact name updated successfully for Contact ' +
-                    contactId + '.'
+                // Retain only the fields the executing context can update.
+                SObjectAccessDecision accessDecision = Security.stripInaccessible(
+                    AccessType.UPDATABLE, new List<Contact>{ currentContact }
                 );
+                Contact sanitized = (Contact) accessDecision.getRecords()[0];
+                update sanitized;
+                System.debug(LoggingLevel.INFO,
+                    'BCeID Contact fields updated for linked Contact.');
             } catch (DmlException e) {
-                System.debug(
-                    LoggingLevel.ERROR,
-                    'BCeID Contact name update failed for Contact ' +
-                    contactId + ': ' + e.getMessage()
-                );
+                System.debug(LoggingLevel.ERROR,
+                    'BCeID Contact update failed. Status=' +
+                    e.getDmlStatusCode(0));
                 return;
             }
         } else {
-            System.debug(
-                LoggingLevel.INFO,
-                'BCeID Contact name already matches for Contact ' +
-                contactId + '; no Contact DML required.'
-            );
+            System.debug(LoggingLevel.INFO,
+                'BCeID Contact values already match or were empty; no DML.');
         }
 
         // Queue User DML only after the Contact transaction has completed its
         // Contact work. This keeps User and Contact DML in separate transactions.
         if (queueUserUpdate) {
             Id userJobId = System.enqueueJob(
-                new BceidUserUpdateJob(userId, firstName, lastName)
+                new BceidUserUpdateJob(userId, firstName, lastName, email, mobile)
             );
 
             System.debug(

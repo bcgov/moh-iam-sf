@@ -311,4 +311,37 @@ private class BceidSoapClientTest {
             result.rawResponse.contains('Internal Server Error')
         );
     }
+
+    @IsTest
+    static void testPersonMappingsRespectAllowedFlags() {
+        String ns = 'http://www.bceid.ca/webservices/Client/V10/';
+        BceidSoapClient.SoapResult result = new BceidSoapClient.SoapResult();
+        result.rawResponse =
+            '<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">' +
+            '<soap:Body><getAccountDetailResponse xmlns="' + ns + '">' +
+            '<getAccountDetailResult><code>Success</code><account>' +
+            '<contact>' +
+            '<email isAllowed="true"><value>allowed@example.com</value></email>' +
+            '<telephone isAllowed="false"><value>9999999999</value></telephone>' +
+            '</contact><individualIdentity><name>' +
+            '<firstname isAllowed="true"><value>Example</value></firstname>' +
+            '<surname isAllowed="true"><value>Person</value></surname>' +
+            '</name></individualIdentity></account>' +
+            '</getAccountDetailResult></getAccountDetailResponse></soap:Body>' +
+            '</soap:Envelope>';
+        BceidSoapClient.parseGetAccountDetailResponse(result, ns);
+        System.assertEquals('Example', result.firstName);
+        System.assertEquals('Person', result.lastName);
+        System.assertEquals('allowed@example.com', result.contactEmail);
+        System.assertEquals(null, result.contactTelephone);
+        System.assertEquals(null, result.businessContactTelephone);
+
+        BceidPersonData data = BceidPersonData.fromSoapResult(result);
+        System.assertEquals('allowed@example.com', data.email);
+        System.assertEquals(null, data.mobile);
+        System.assertEquals('4387886958',
+            BceidPersonData.normalizedMobile('+1 (438) 788-6958'));
+        System.assertEquals(null,
+            BceidPersonData.normalizedMobile('438-788-6958 ext 99'));
+    }
 }

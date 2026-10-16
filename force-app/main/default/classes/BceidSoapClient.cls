@@ -20,6 +20,9 @@ public with sharing class BceidSoapClient {
         public String responseMessage;
         public String firstName;
         public String lastName;
+        // BCeID V10 <account><contact> fields, only if isAllowed="true".
+        public String contactEmail;
+        public String contactTelephone;
         // BCeID V10 <business> details, populated only when isAllowed="true".
         // BCeID V10 <account><contact><telephone>, subject to isAllowed.
         public String businessContactTelephone;
@@ -230,7 +233,10 @@ public with sharing class BceidSoapClient {
             // Telephone is under <account><contact>, not <business>.
             // Ignore fields that BCeID did not authorize or left empty.
             Dom.XmlNode contact = account.getChildElement('contact', ns);
-            out.businessContactTelephone = bceidAllowedValue(contact, 'telephone', ns);
+            out.contactEmail = bceidAllowedValue(contact, 'email', ns);
+            out.contactTelephone = bceidAllowedValue(contact, 'telephone', ns);
+            // Retain this alias for the existing Account.Phone mapper.
+            out.businessContactTelephone = out.contactTelephone;
 
             Dom.XmlNode business = account.getChildElement('business', ns);
             if (business != null) {
@@ -253,8 +259,9 @@ public with sharing class BceidSoapClient {
             Dom.XmlNode name = individualIdentity.getChildElement('name', ns);
             if (name == null) return;
 
-            out.firstName = bceidStringValue(name, 'firstname', ns);
-            out.lastName = bceidStringValue(name, 'surname', ns);
+            // Names must also respect each element's isAllowed flag.
+            out.firstName = bceidAllowedValue(name, 'firstname', ns);
+            out.lastName = bceidAllowedValue(name, 'surname', ns);
         } catch (Exception e) {
             // Keep the raw response available to the caller if parsing fails.
         }

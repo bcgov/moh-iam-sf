@@ -73,11 +73,16 @@ public with sharing class UserRegistrationService{
     private class BceidProvisioningName {
         String firstName;
         String lastName;
+        String email;
+        String mobile;
         BceidBusinessAccountMapper.BusinessData business;
         BceidProvisioningName(String firstName, String lastName,
+                String email, String mobile,
                 BceidBusinessAccountMapper.BusinessData business) {
             this.firstName = firstName;
             this.lastName = lastName;
+            this.email = email;
+            this.mobile = mobile;
             this.business = business;
         }
     }
@@ -184,6 +189,12 @@ public with sharing class UserRegistrationService{
                     if (bceidProvisioningName != null) {
                         newUser.FirstName = bceidProvisioningName.firstName;
                         newUser.LastName = bceidProvisioningName.lastName;
+                        if (String.isNotBlank(bceidProvisioningName.email)) {
+                            newUser.Email = bceidProvisioningName.email;
+                        }
+                        String soapMobile = BceidPersonData.normalizedMobile(
+                            bceidProvisioningName.mobile);
+                        if (soapMobile != null) newUser.MobilePhone = soapMobile;
                     } else {
                         if (data.attributeMap.containsKey('family_name')) newUser.LastName = data.attributeMap.get('family_name');
                         else if (data.lastName != null) newUser.LastName = data.lastName;
@@ -368,7 +379,7 @@ public with sharing class UserRegistrationService{
                         if (!Test.isRunningTest()) {
                             fieldExisting = fetchRoles.isFieldExisting('HDID__c','Account');
                         } else {
-                            fieldExisting = fetchRoles.isFieldExisting('SourceSystemIdentifier','Account');
+                            fieldExisting = fetchRoles.isFieldExisting('AccountNumber','Account');
                         }
                         searchValue = data.attributeMap.get('hdid');
                     }                        
@@ -388,7 +399,7 @@ public with sharing class UserRegistrationService{
                         if (!Test.isRunningTest()) {
                             qryString += ' FROM Account WHERE HDID__c = \'' + escapeSoql(searchValue) + '\'';
                         } else {
-                            qryString += ' FROM Account WHERE SourceSystemIdentifier = \'' + searchValue + '\'';
+                            qryString += ' FROM Account WHERE AccountNumber = \'' + searchValue + '\'';
                         }
                         if (isExistingAccountRequiredActive == true && isIsActiveOnAccountExist) {
                             qryString += ' AND isActive = true';
@@ -613,7 +624,8 @@ public with sharing class UserRegistrationService{
             if (bceidProvisioningName != null && newUser.ContactId != null) {
                 System.enqueueJob(new BceidContactUpdateJob(
                     newUser.ContactId, newUser.Id,
-                    bceidProvisioningName.firstName, bceidProvisioningName.lastName, false));
+                    bceidProvisioningName.firstName, bceidProvisioningName.lastName,
+                    bceidProvisioningName.email, bceidProvisioningName.mobile, true));
                 // Works for existing business Accounts and is a no-op if a newly
                 // created Account already contains the authoritative values.
                 if (bceidProvisioningName.business != null) {
@@ -952,7 +964,8 @@ public with sharing class UserRegistrationService{
             if (bceidProvisioningName != null && existingUser.ContactId != null) {
                 System.enqueueJob(new BceidContactUpdateJob(
                     existingUser.ContactId, existingUser.Id,
-                    bceidProvisioningName.firstName, bceidProvisioningName.lastName, false));
+                    bceidProvisioningName.firstName, bceidProvisioningName.lastName,
+                    bceidProvisioningName.email, bceidProvisioningName.mobile, true));
                 if (bceidProvisioningName.business != null) {
                     System.enqueueJob(new BceidBusinessAccountUpdateJob(
                         existingUser.Id, bceidProvisioningName.business,
@@ -1072,7 +1085,8 @@ public with sharing class UserRegistrationService{
                     'BCeID business sync skipped: response/token business GUID did not match.');
                 business = null;
             }
-            return new BceidProvisioningName(result.firstName, result.lastName, business);
+            return new BceidProvisioningName(result.firstName, result.lastName,
+                result.contactEmail, result.contactTelephone, business);
         } catch (Exception e) {
             System.debug(LoggingLevel.ERROR, 'BCeID provisioning name sync failed: ' + e.getMessage());
             return null;
@@ -1183,6 +1197,15 @@ public with sharing class UserRegistrationService{
                 newContact.Email = data.email;
             } else if (data.attributeMap.containsKey('email')) {
                 newContact.Email = data.attributeMap.get('email');
+            }
+            // SOAP-authorized values supersede token values for a new Contact.
+            if (bceidProvisioningName != null) {
+                if (String.isNotBlank(bceidProvisioningName.email)) {
+                    newContact.Email = bceidProvisioningName.email;
+                }
+                String soapMobile = BceidPersonData.normalizedMobile(
+                    bceidProvisioningName.mobile);
+                if (soapMobile != null) newContact.MobilePhone = soapMobile;
             }
 
             if (processRoles.isFieldExisting('RecordTypeId', 'Contact') && contactRecordTypeId != null) {

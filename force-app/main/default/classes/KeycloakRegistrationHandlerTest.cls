@@ -1,10 +1,3 @@
-/**
- * @description       : 
- * @author            : Roy Poystila
- * @group             : 
- * @last modified on  : 09-29-2026
- * @last modified by  : Roy Poystila
-**/
 @isTest
 public class KeycloakRegistrationHandlerTest {
   private static final String OAUTH_TOKEN = 'testToken';
@@ -31,6 +24,16 @@ public class KeycloakRegistrationHandlerTest {
   private static Boolean HC_SOURCESYSTEMID_PC_EXISTS = false;
 
   private class BceidGetAccountDetailMock implements HttpCalloutMock {
+      private String expectedGuid;
+
+      private BceidGetAccountDetailMock() {
+          this('64510436D6CF4EE68B1DFE39111FFE74');
+      }
+
+      private BceidGetAccountDetailMock(String expectedGuid) {
+          this.expectedGuid = expectedGuid;
+      }
+
       public HttpResponse respond(HttpRequest req) {
           System.assertEquals('POST', req.getMethod());
           System.assert(req.getEndpoint().contains('BCeID_ws'));
@@ -38,7 +41,7 @@ public class KeycloakRegistrationHandlerTest {
               '"http://www.bceid.ca/webservices/Client/V10/getAccountDetail"',
               req.getHeader('SOAPAction')
           );
-          System.assert(req.getBody().contains('getAccountDetail')); // GUID varies by test to avoid unique-field collisions
+          System.assert(req.getBody().contains(expectedGuid), 'SOAP request should contain the test GUID.');
 
           HttpResponse res = new HttpResponse();
           res.setStatusCode(200);
@@ -50,8 +53,8 @@ public class KeycloakRegistrationHandlerTest {
               '<soap:Body><v10:getAccountDetailResponse><v10:getAccountDetailResult>' +
               '<v10:code>Success</v10:code><v10:failureCode>Void</v10:failureCode>' +
               '<v10:message></v10:message><v10:account><v10:individualIdentity><v10:name>' +
-              '<v10:firstname><v10:value>BCeID First</v10:value></v10:firstname>' +
-              '<v10:surname><v10:value>BCeID Last</v10:value></v10:surname>' +
+              '<v10:firstname isAllowed="true"><v10:value>BCeID First</v10:value></v10:firstname>' +
+              '<v10:surname isAllowed="true"><v10:value>BCeID Last</v10:value></v10:surname>' +
               '</v10:name></v10:individualIdentity></v10:account>' +
               '</v10:getAccountDetailResult></v10:getAccountDetailResponse></soap:Body></soap:Envelope>'
           );
@@ -142,12 +145,10 @@ public class KeycloakRegistrationHandlerTest {
             newPersonAccount0.put('SourceSystemIdentifier', 'CPN.TSTP00000.CPSID.GS');
         }
 
-        if (ACCOUNT_HDID_EXISTS)
-        {
+        if (ACCOUNT_HDID_EXISTS) {
             newPersonAccount0.put('HDID__c', 'newPersonAccount0');
-        } else {
-            newPersonAccount0.put('AccountNumber', 'newPersonAccount0');
         }
+        newPersonAccount0.put('AccountNumber', 'newPersonAccount0');
         
         newPersonAccounts.Add(newPersonAccount0);
 
@@ -174,12 +175,10 @@ public class KeycloakRegistrationHandlerTest {
             newPersonAccount.put('SourceSystemIdentifier', 'CPN.TSTP00015.CPSID.GS');
         }
 
-        if (ACCOUNT_HDID_EXISTS)
-        {
+        if (ACCOUNT_HDID_EXISTS) {
             newPersonAccount.put('HDID__c', 'newPersonAccount');
-        } else {
-            newPersonAccount.put('AccountNumber', 'newPersonAccount');
         }
+        newPersonAccount.put('AccountNumber', 'newPersonAccount');
 
         newPersonAccounts.Add(newPersonAccount);
         
@@ -207,12 +206,10 @@ public class KeycloakRegistrationHandlerTest {
             newPersonAccount3.put('SourceSystemIdentifier', 'CPN.TSTP00016.CPSID.GS');
         }
 
-        if (ACCOUNT_HDID_EXISTS)
-        {
+        if (ACCOUNT_HDID_EXISTS) {
             newPersonAccount3.put('HDID__c', 'newPersonAccount3');
-        } else {
-            newPersonAccount3.put('AccountNumber', 'newPersonAccount3');
         }
+        newPersonAccount3.put('AccountNumber', 'newPersonAccount3');
         
         newPersonAccounts.Add(newPersonAccount3);
 
@@ -239,12 +236,10 @@ public class KeycloakRegistrationHandlerTest {
             newPersonAccount2.put('SourceSystemIdentifier', 'GUID01');
         }
 
-        if (ACCOUNT_HDID_EXISTS)
-        {
+        if (ACCOUNT_HDID_EXISTS) {
             newPersonAccount2.put('HDID__c', 'newPersonAccount2');
-        } else {
-            newPersonAccount2.put('AccountNumber', 'newPersonAccount2');
         }
+        newPersonAccount2.put('AccountNumber', 'newPersonAccount2');
 
         newPersonAccounts.Add(newPersonAccount2);        
 
@@ -271,12 +266,10 @@ public class KeycloakRegistrationHandlerTest {
             newPersonAccount4.put('SourceSystemIdentifier', 'newPersonAccount4');
         }
 
-        if (ACCOUNT_HDID_EXISTS)
-        {
+        if (ACCOUNT_HDID_EXISTS) {
             newPersonAccount4.put('HDID__c', 'newPersonAccount4');
-        } else {
-            newPersonAccount4.put('AccountNumber', 'newPersonAccount4');
         }
+        newPersonAccount4.put('AccountNumber', 'newPersonAccount4');
 
         newPersonAccounts.Add(newPersonAccount4);  
 
@@ -303,73 +296,18 @@ public class KeycloakRegistrationHandlerTest {
             newPersonAccount5.put('SourceSystemIdentifier', 'newPersonAccount5');
         }
 
-        if (ACCOUNT_HDID_EXISTS)
-        {
+        if (ACCOUNT_HDID_EXISTS) {
             newPersonAccount5.put('HDID__c', 'newPersonAccount5');
-        } else {
-            newPersonAccount5.put('AccountNumber', 'newPersonAccount5');
         }
+        newPersonAccount5.put('AccountNumber', 'newPersonAccount5');
 
         newPersonAccounts.Add(newPersonAccount5);      
 
-        // Strip fields that are not creatable in the current org before DML.
-        // This keeps the test portable across orgs with different Account schemas/FLS.
-        SObjectAccessDecision accountAccessDecision = Security.stripInaccessible(
-            AccessType.CREATABLE,
-            newPersonAccounts
-        );
-        newPersonAccounts = (List<Account>) accountAccessDecision.getRecords();
-
-        // Preserve the HDID test fixture after stripInaccessible(). In some target
-        // orgs the custom HDID field exists but the test-running profile does not
-        // have create FLS, so stripInaccessible removes the value and getUserHdId()
-        // later returns blank. Apex test DML runs in system context, so restore the
-        // fixture value dynamically when the field exists.
-        for (Integer i = 0; i < newPersonAccounts.size(); i++) {
-            String fixtureHdid = 'newPersonAccount' + i;
-            // The existing fixtures are numbered 0, 1, 3, 2, 4, 5. Preserve the
-            // exact SourceSystemIdentifier already assigned rather than relying on index.
-            fixtureHdid = String.valueOf(newPersonAccounts[i].get('SourceSystemIdentifier'));
-            if (ACCOUNT_HDID_EXISTS && String.isNotBlank(fixtureHdid)) {
-                newPersonAccounts[i].put('HDID__c', fixtureHdid);
-            } else if (String.isNotBlank(fixtureHdid)) {
-                newPersonAccounts[i].put('AccountNumber', fixtureHdid);
-            }
-        }
-
         insert newPersonAccounts;
-
-        // Person Accounts automatically provide PersonContactId. In orgs where
-        // Person Accounts are not enabled, create equivalent Contacts so the
-        // community-user tests exercise the same Account -> Contact -> User model.
-        if (!isPersonAccountsAvailable) {
-            List<Contact> businessContacts = new List<Contact>();
-            String[] firstNames = new String[]{
-                'TESTONLY_ZERO', 'TESTONLY_FIRST', 'TESTONLYBCSC3_FIRST',
-                'TESTONLYBCSC2_FIRST', 'TESTONLYBCSC4_FIRST', 'TESTONLYBCSC5_FIRST'
-            };
-            String[] lastNames = new String[]{
-                'TESTONLY_LAST', 'TESTONLY_LAST', 'TESTONLYBCSC3_LAST',
-                'TESTONLYBCSC2_LAST', 'TESTONLYBCSC4_LAST', 'TESTONLYBCSC5_LAST'
-            };
-            String[] emails = new String[]{
-                'TESTONLY0@EMAIL.com', 'TESTONLY@EMAIL.com', 'testusername3@me.com',
-                'testusername2@me.com', 'TESTONLYBCSC4@EMAIL.com', 'TESTONLYBCSC5@EMAIL.com'
-            };
-            for (Integer i = 0; i < newPersonAccounts.size(); i++) {
-                businessContacts.add(new Contact(
-                    AccountId = newPersonAccounts[i].Id,
-                    FirstName = firstNames[i],
-                    LastName = lastNames[i],
-                    Email = emails[i]
-                ));
-            }
-            insert businessContacts;
-        }
         
-        // No Group test data is required by this class. Group is a setup object;
-        // inserting it here after Account/Contact DML causes MIXED_DML_OPERATION
-        // in orgs that use the Business Account + Contact test-data path.
+        Group testGroup = new Group();
+        testGroup.Name = 'Test_Group';
+        insert testGroup;    
     }
   }
 
@@ -809,6 +747,8 @@ public class KeycloakRegistrationHandlerTest {
   @isTest
     public static void testCreateBCeIDUser() {
         KeycloakRegistrationHandler handler = new KeycloakRegistrationHandler();
+        // Avoid colliding with a User created by shared test setup.
+        String testBceidGuid = 'F994F200490343D283F1EC4C0A8F1E51';
 
         Map<String,String> attribmap = new Map<String,String>();
         attribmap.put('sfdc_networkid', '0DBbZ0000001H8T');
@@ -816,22 +756,12 @@ public class KeycloakRegistrationHandlerTest {
         attribmap.put('identity_provider', 'bceid_business');
         attribmap.put('email', 'testonly@bcsc.ca');
         attribmap.put('preferred_username', 'testuser@bceid_business');
-        // These fields are unique/external IDs in some target orgs. Generate values for
-        // this test instead of reusing fixture IDs that may already exist in the org.
-        String uniqueSeed = String.valueOf(DateTime.now().getTime()) + ':' + String.valueOf(Crypto.getRandomLong());
-        String uniqueUserGuid = EncodingUtil.convertToHex(
-            Crypto.generateDigest('MD5', Blob.valueOf('USER:' + uniqueSeed))
-        ).toUpperCase();
-        String uniqueBusinessGuid = EncodingUtil.convertToHex(
-            Crypto.generateDigest('MD5', Blob.valueOf('BUSINESS:' + uniqueSeed))
-        ).toUpperCase();
-
-        attribmap.put('bceid_business_id', uniqueBusinessGuid);
+        attribmap.put('bceid_business_id','64550CDAB0C245D5B428C4A88D7D84DB');
         attribmap.put('bceid_username', 'TestCaseOperator1');
         attribmap.put('email_verified', 'false');
         attribmap.put('bceid_displayName', 'Test Case Operator 1');
         attribmap.put('bceid_business_name', 'TestOnlyLast');
-        attribmap.put('bceid_user_guid', uniqueUserGuid);
+        attribmap.put('bceid_user_guid', testBceidGuid);
         attribmap.put('sub','a9b8a8e4-e2a2-46ef-8dc5-fa8d40c24ddd');
         attribmap.put('bceid_business_legalName','Test Case BELN-1');
 
@@ -843,7 +773,7 @@ public class KeycloakRegistrationHandlerTest {
 
         User runtimeUser = [SELECT Id FROM User WHERE Email = 'systemuser@testorg.com' LIMIT 1];
         System.runAs(runtimeUser) {
-            Test.setMock(HttpCalloutMock.class, new BceidGetAccountDetailMock());
+            Test.setMock(HttpCalloutMock.class, new BceidGetAccountDetailMock(testBceidGuid));
             Test.startTest();
             User u = handler.createUser(null, sampleData);
             Test.stopTest();
@@ -870,27 +800,23 @@ public class KeycloakRegistrationHandlerTest {
         User runtimeUser = [
             SELECT Id FROM User WHERE Email = 'systemuser@testorg.com' LIMIT 1
         ];
-        Account bceidAccount = new Account(
-            Name = 'BCeID Authoritative Name Test'
-        );
-        Contact c;
-        System.runAs(runtimeUser) {
-            insert bceidAccount;
+        Account businessAccount = [
+            SELECT Id FROM Account WHERE AccountNumber = 'newPersonAccount' LIMIT 1
+        ];
 
-            c = new Contact(
-                AccountId = bceidAccount.Id,
-                FirstName = 'Old Contact',
-                LastName = 'Old Name',
-                Email = 'bceid-authoritative@testorg.com'
-            );
-            if (Schema.SObjectType.Contact.fields.getMap().containsKey('bceidguid__c')) {
-                c.put('BCeIDGUID__c', '64510436D6CF4EE68B1DFE39111FFE74');
-            }
-            if (Schema.SObjectType.Contact.fields.getMap().containsKey('externalid__c')) {
-                c.put('ExternalId__c', '64510436D6CF4EE68B1DFE39111FFE74');
-            }
-            insert c;
+        Contact c = new Contact(
+            AccountId = businessAccount.Id,
+            FirstName = 'Old Contact',
+            LastName = 'Old Name',
+            Email = 'bceid-contact-update@example.com'
+        );
+        // Optional org-specific GUID field: assign only when it exists and is createable.
+        Schema.SObjectField contactGuidField =
+            Schema.SObjectType.Contact.fields.getMap().get('BCeIDGUID__c');
+        if (contactGuidField != null && contactGuidField.getDescribe().isCreateable()) {
+            c.put('BCeIDGUID__c', '64510436D6CF4EE68B1DFE39111FFE74');
         }
+        insert c;
 
         Profile communityProfile = [
             SELECT Id FROM Profile
@@ -1412,36 +1338,10 @@ public class KeycloakRegistrationHandlerTest {
     }
     @Future
     public static void verifyTestUser() {
-        // @TestSetup already creates this user for every test method. Static
-        // variables are reset between test setup and the individual test, so
-        // RUN_TIME_USER alone cannot be used to determine whether it exists.
-        // Query first to make repeated calls idempotent and avoid duplicate
-        // UserRole/User setup DML in tests that call this helper again.
-        List<User> existingRuntimeUsers = [
-            SELECT Id
-            FROM User
-            WHERE Email = 'systemuser@testorg.com'
-            LIMIT 1
-        ];
-        if (!existingRuntimeUsers.isEmpty()) {
-            RUN_TIME_USER = existingRuntimeUsers[0];
-            return;
-        }
 
         if (RUN_TIME_USER.Id == null) {
-            List<UserRole> existingRoles = [
-                SELECT Id
-                FROM UserRole
-                WHERE Name = 'TestRoleOnly'
-                LIMIT 1
-            ];
-            UserRole userRole;
-            if (existingRoles.isEmpty()) {
-                userRole = new UserRole(Name='TestRoleOnly');
-                insert userRole;
-            } else {
-                userRole = existingRoles[0];
-            }
+            UserRole userRole = new UserRole(Name='TestRoleOnly');
+            Insert userRole;
             //runningUser.UserRoleId = userRole.Id;
 
             String uniqueUserName =

@@ -177,4 +177,22 @@ private class BceidContactUpdateJobTest {
         System.assertEquals('Queued First', afterUser.FirstName);
         System.assertEquals('Queued Last', afterUser.LastName);
     }
+
+    @IsTest
+    static void testContactEmailAndMobileMapping() {
+        User u = getUser();
+        Contact c = getContact();
+        // Exercise all four SOAP-driven fields on the existing Contact.
+        Test.startTest();
+        new BceidContactUpdateJob(c.Id, u.Id, 'Updated', 'Person',
+            'authorized@example.com', '+1 (438) 788-6958', false, true)
+            .execute(null);
+        Test.stopTest();
+        Contact actual = [SELECT FirstName, LastName, Email, MobilePhone
+            FROM Contact WHERE Id = :c.Id];
+        System.assertEquals('Updated', actual.FirstName);
+        System.assertEquals('Person', actual.LastName);
+        System.assertEquals('authorized@example.com', actual.Email);
+        System.assertEquals('4387886958', actual.MobilePhone);
+    }
 }
