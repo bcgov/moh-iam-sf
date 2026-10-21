@@ -26,7 +26,7 @@ public with sharing class BceidLoginNameSyncLauncher {
 
     @InvocableMethod(
         label='Queue BCeID Login Name Synchronization'
-        description='Queues BCeID name synchronization in a separate transaction so login does not wait for the BCeID callout.'
+        description='Queues BCeID person and business synchronization in a separate transaction so login does not wait for the BCeID callout.'
     )
     public static List<Response> execute(List<Request> requests) {
         List<Response> responses = new List<Response>();
@@ -43,7 +43,12 @@ public with sharing class BceidLoginNameSyncLauncher {
             }
 
             String serviceId = String.isBlank(request.onlineServiceId)
-                ? '9E80-25B6-6297-428E' : request.onlineServiceId;
+                ? System.Label.BCeID_Online_Service_Id : request.onlineServiceId;
+            if (String.isBlank(serviceId)) {
+                response.message = 'BCeID synchronization was not queued because Custom Label BCeID_Online_Service_Id is blank.';
+                responses.add(response);
+                continue;
+            }
             String requesterType = String.isBlank(request.requesterAccountTypeCode)
                 ? 'Business' : request.requesterAccountTypeCode;
             String targetType = String.isBlank(request.accountTypeCode)

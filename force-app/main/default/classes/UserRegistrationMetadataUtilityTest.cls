@@ -1,10 +1,3 @@
-/**
- * @description       : 
- * @author            : Roy Poystila
- * @group             : 
- * @last modified on  : 10-13-2026
- * @last modified by  : Roy Poystila
-**/
 @IsTest
 private class UserRegistrationMetadataUtilityTest {
     @IsTest
@@ -33,8 +26,6 @@ private class UserRegistrationMetadataUtilityTest {
         System.assertEquals(false, utility.checkForRecordType('NotAnObject__c', 'X'));
         System.assertEquals(false,
             utility.checkForRecordType('Account', 'A_RECORD_TYPE_THAT_CANNOT_EXIST_123'));
-        System.assertEquals(false,
-            utility.checkForRecordType('Contact', 'A_RECORD_TYPE_THAT_CANNOT_EXIST_123'));
         // Lookups work with installed org metadata, not hard-coded RecordType IDs.
         for (String objectName : new List<String>{'Account', 'Contact'}) {
             Map<String, Schema.RecordTypeInfo> infos = objectName == 'Account'

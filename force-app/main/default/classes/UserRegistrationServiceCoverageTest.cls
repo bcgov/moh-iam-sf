@@ -121,9 +121,22 @@ private class UserRegistrationServiceCoverageTest {
     static void testNewBceidBusinessAccountStatusFromRoleMapping() {
         Map<String, Schema.SObjectField> accountFields =
             Schema.SObjectType.Account.fields.getMap();
-        if (!accountFields.containsKey('isActive')) return;
-        Schema.DescribeFieldResult statusField = accountFields.get('isActive').getDescribe();
-        if (!statusField.isAccessible() || !statusField.isCreateable()) return;
+        Boolean useCanonicalStatus = accountFields.containsKey('Status__c');
+        String legacyActiveField;
+
+        if (useCanonicalStatus) {
+            Schema.DescribeFieldResult statusField =
+                accountFields.get('Status__c').getDescribe();
+            if (!statusField.isAccessible() || !statusField.isCreateable()) return;
+        } else if (accountFields.containsKey('isActive')) {
+            Schema.DescribeFieldResult activeField =
+                accountFields.get('isActive').getDescribe();
+            if (!activeField.isAccessible() || !activeField.isCreateable()) return;
+            legacyActiveField = 'isActive';
+        } else {
+            // Some subscriber orgs may not contain either optional active-status field.
+            return;
+        }
 
         String suffix = String.valueOf(DateTime.now().getTime());
         for (Boolean desiredStatus : new List<Boolean>{ true, false }) {
@@ -135,10 +148,19 @@ private class UserRegistrationServiceCoverageTest {
                 });
             Id accountId = (Id) UserRegistrationService.testManageBceidAccountWithActive(
                 source, businessRecordTypeName(), desiredStatus);
-            Account created = Database.query(
-                'SELECT Id, isActive FROM Account WHERE Id = :accountId');
-            System.assertEquals(desiredStatus, created.get('isActive'),
-                'New BCeID business Accounts must use the configured Active value.');
+
+            if (useCanonicalStatus) {
+                Account created = (Account) Database.query(
+                    'SELECT Id, Status__c FROM Account WHERE Id = :accountId');
+                String expectedStatus = desiredStatus ? 'Active' : 'Inactive';
+                System.assertEquals(expectedStatus, created.get('Status__c'),
+                    'New BCeID business Accounts must use the configured Status__c value.');
+            } else {
+                Account created = (Account) Database.query(
+                    'SELECT Id, ' + legacyActiveField + ' FROM Account WHERE Id = :accountId');
+                System.assertEquals(desiredStatus, created.get(legacyActiveField),
+                    'Legacy Account active field should reflect the role mapping.');
+            }
         }
     }
 

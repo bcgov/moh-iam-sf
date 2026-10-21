@@ -28,28 +28,20 @@ public without sharing class BceidLoginNameSyncJob implements Queueable, Databas
         if (users.isEmpty() || users[0].ContactId == null) return;
 
         Id contactId = users[0].ContactId;
-        Map<String, Schema.SObjectField> contactFields =
-            Schema.SObjectType.Contact.fields.getMap();
-        Schema.SObjectField guidField = contactFields.get('BCeIDGUID__c');
-        if (guidField == null || !guidField.getDescribe().isAccessible()) {
+        String bceidUserGuid = BceidIdentityService.resolveUserGuid(userId, contactId);
+        if (String.isBlank(bceidUserGuid)) {
             System.debug(LoggingLevel.WARN,
-                'BCeID name sync skipped: optional Contact.BCeIDGUID__c is unavailable or unreadable.');
+                'BCeID synchronization skipped: no readable GUID on Contact or User.');
             return;
         }
-
-        String bceidUserGuid;
-        try {
-            String guidQuery =
-                'SELECT Id, BCeIDGUID__c FROM Contact WHERE Id = :contactId LIMIT 1';
-            SObject sourceContact = Database.query(guidQuery);
-            Object guidValue = sourceContact.get('BCeIDGUID__c');
-            bceidUserGuid = guidValue == null ? null : String.valueOf(guidValue);
-        } catch (QueryException e) {
-            System.debug(LoggingLevel.WARN,
-                'BCeID name sync skipped: optional Contact GUID could not be queried. ' + e.getMessage());
+        if (String.isBlank(onlineServiceId)) {
+            onlineServiceId = System.Label.BCeID_Online_Service_Id;
+        }
+        if (String.isBlank(onlineServiceId)) {
+            System.debug(LoggingLevel.ERROR,
+                'BCeID synchronization skipped: Custom Label BCeID_Online_Service_Id is blank.');
             return;
         }
-        if (String.isBlank(bceidUserGuid)) return;
         String requesterType = String.isBlank(requesterAccountTypeCode)
             ? 'Business' : requesterAccountTypeCode;
         String targetType = String.isBlank(accountTypeCode)
@@ -71,7 +63,7 @@ public without sharing class BceidLoginNameSyncJob implements Queueable, Databas
         } catch (Exception e) {
             // Login-safe asynchronous boundary. A synchronization failure must not affect login.
             System.debug(LoggingLevel.ERROR,
-                'BCeID asynchronous name synchronization failed for User ' + userId +
+                'BCeID asynchronous record synchronization failed for User ' + userId +
                 ': ' + e.getMessage());
         }
     }

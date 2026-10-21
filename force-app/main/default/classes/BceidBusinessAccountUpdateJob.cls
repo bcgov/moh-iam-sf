@@ -36,6 +36,18 @@ public without sharing class BceidBusinessAccountUpdateJob implements Queueable 
     }
 
     /**
+     * Update Account details from a Contact synchronization transaction. Account
+     * and Contact are both non-setup objects, so they can safely be updated in the
+     * same Queueable. The method still verifies the persisted business GUID before
+     * changing any Account field. This avoids adding another Queueable to a chain
+     * that may already be affected by Account/Contact automation.
+     */
+    public static void syncLinkedAccountFromVerifiedContact(
+            Id accountId, BceidBusinessAccountMapper.BusinessData business) {
+        syncLinkedAccount(accountId, business, null);
+    }
+
+    /**
      * Separated from relationship resolution so the actual Account security,
      * identity, comparison and DML paths can be tested with standard Accounts.
      * Never call this with an unverified Account Id from an external identity:

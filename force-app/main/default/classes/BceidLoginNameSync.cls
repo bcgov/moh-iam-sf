@@ -53,13 +53,16 @@ public with sharing class BceidLoginNameSync {
         @InvocableVariable(label='User Update Job Id')
         public Id userUpdateJobId;
 
+        @InvocableVariable(label='Account Update Queued')
+        public Boolean accountUpdateQueued;
+
         @InvocableVariable(label='Error Message')
         public String errorMessage;
     }
 
     @InvocableMethod(
         label='BCeID Update User and Contact Name'
-        description='Calls BCeID getAccountDetail and synchronizes the returned first and last name to the specified Salesforce User and Contact. Only changed values are updated.'
+        description='Calls BCeID getAccountDetail and synchronizes authorized person fields to User and Contact, plus verified business fields to the linked Account. Only changed, permitted values are updated.'
         callout=true
     )
     public static List<Response> execute(List<Request> requests) {
@@ -75,6 +78,7 @@ public with sharing class BceidLoginNameSync {
             response.skipped = false;
             response.contactUpdated = false;
             response.userUpdateQueued = false;
+            response.accountUpdateQueued = false;
 
             try {
                 validateRequest(request);
@@ -91,20 +95,8 @@ public with sharing class BceidLoginNameSync {
 
                 String effectiveGuid = request.bceidUserGuid;
                 if (String.isBlank(effectiveGuid)) {
-                    Map<String, Schema.SObjectField> contactFields =
-                        Schema.SObjectType.Contact.fields.getMap();
-                    Schema.SObjectField guidField = contactFields.get('BCeIDGUID__c');
-
-                    // Contact.BCeIDGUID__c is org-specific and optional.
-                    // If it is absent/unreadable, the caller must provide the GUID.
-                    if (guidField != null && guidField.getDescribe().isAccessible()) {
-                        Id contactId = request.contactId;
-                        String guidQuery =
-                            'SELECT Id, BCeIDGUID__c FROM Contact WHERE Id = :contactId LIMIT 1';
-                        SObject sourceContact = Database.query(guidQuery);
-                        Object guidValue = sourceContact.get('BCeIDGUID__c');
-                        effectiveGuid = guidValue == null ? null : String.valueOf(guidValue);
-                    }
+                    effectiveGuid = BceidIdentityService.resolveUserGuid(
+                        request.userId, request.contactId);
                 }
                 if (String.isBlank(effectiveGuid)) {
                     response.skipped = true;
@@ -146,6 +138,7 @@ public with sharing class BceidLoginNameSync {
                 response.contactUpdated = syncResult.contactUpdated;
                 response.userUpdateQueued = syncResult.userUpdateQueued;
                 response.userUpdateJobId = syncResult.userUpdateJobId;
+                response.accountUpdateQueued = syncResult.accountUpdateQueued;
 
             } catch (Exception e) {
                 response.success = false;

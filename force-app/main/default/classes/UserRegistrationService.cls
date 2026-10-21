@@ -48,21 +48,22 @@ public with sharing class UserRegistrationService{
     }
 
     /**
-     * Applies the optional Salesforce CRM Content User flag. Not all target
-     * orgs/licences expose this standard User field, so avoid static references.
-     * Use the appropriate field access for a new or existing User record.
+     * Applies the optional Salesforce CRM Content User flag when the field is
+     * available and writable in this org. The public provisioning paths call
+     * this helper for both create and update operations.
      */
     @TestVisible
     private static void applyCrmContentUserSetting(
         User targetUser, Boolean enabled, Boolean isExistingUser
     ) {
         if (targetUser == null) return;
+
         Schema.SObjectField contentField =
             Schema.SObjectType.User.fields.getMap().get('UserPermissionsSFContentUser');
         if (contentField == null) return;
 
         Schema.DescribeFieldResult contentDescribe = contentField.getDescribe();
-        Boolean canWrite = isExistingUser
+        Boolean canWrite = isExistingUser == true
             ? contentDescribe.isUpdateable()
             : contentDescribe.isCreateable();
         if (canWrite) {
@@ -76,8 +77,7 @@ public with sharing class UserRegistrationService{
         String email;
         String mobile;
         BceidBusinessAccountMapper.BusinessData business;
-        BceidProvisioningName(String firstName, String lastName,
-                String email, String mobile,
+        BceidProvisioningName(String firstName, String lastName, String email, String mobile,
                 BceidBusinessAccountMapper.BusinessData business) {
             this.firstName = firstName;
             this.lastName = lastName;
@@ -108,14 +108,15 @@ public with sharing class UserRegistrationService{
         String nonRegulatedStaff = '';
         String accountType = '';
         String contactType = '';
-        // Role-mapping Account status is carried into the verified async BCeID sync.
-        Boolean configuredBceidBusinessActive = null;
         Boolean createUser = true;
         String existingBcscGuid = null;
         Boolean userBceidType = false;
         Boolean userTokenRole = false;
         Boolean isExistingUser = false;
-        userBceidType = data.attributeMap.containsKey('bceid_username') == true ? true:false;
+        // Route BCeID-specific Account/Contact provisioning using the authoritative
+        // identity-provider claim, not merely the presence of bceid_username.
+        userBceidType = data.attributeMap != null
+            && data.attributeMap.get(BCEID_IDP_KEY) == USER_PROVISIONING_ROLE_BCEID;
         userTokenRole = data.attributeMap.containsKey('roles') == true ? true:false;
 
         // Call BCeID before provisioning DML.
@@ -169,9 +170,6 @@ public with sharing class UserRegistrationService{
                     } else {
                         newUser.UserPermissionsKnowledgeUser = false;
                     }
-                    // Configure CRM Content independently of Knowledge User.
-                    applyCrmContentUserSetting(
-                        newUser, userRoleRec.CRM_Content_User__c, isExistingUser);
                     if (userRoleRec.Flow_User__c) {
                         newUser.UserPermissionsInteractionUser = true;
                     } else {
@@ -187,14 +185,12 @@ public with sharing class UserRegistrationService{
                     }
 
                     if (bceidProvisioningName != null) {
-                        newUser.FirstName = bceidProvisioningName.firstName;
-                        newUser.LastName = bceidProvisioningName.lastName;
-                        if (String.isNotBlank(bceidProvisioningName.email)) {
-                            newUser.Email = bceidProvisioningName.email;
+                        if (String.isNotBlank(bceidProvisioningName.firstName)) {
+                            newUser.FirstName = bceidProvisioningName.firstName;
                         }
-                        String soapMobile = BceidPersonData.normalizedMobile(
-                            bceidProvisioningName.mobile);
-                        if (soapMobile != null) newUser.MobilePhone = soapMobile;
+                        if (String.isNotBlank(bceidProvisioningName.lastName)) {
+                            newUser.LastName = bceidProvisioningName.lastName;
+                        }
                     } else {
                         if (data.attributeMap.containsKey('family_name')) newUser.LastName = data.attributeMap.get('family_name');
                         else if (data.lastName != null) newUser.LastName = data.lastName;
@@ -286,7 +282,11 @@ public with sharing class UserRegistrationService{
             /****************************************************************** */
             UserRegistrationCustomMetadataUtility checkAttributes = new UserRegistrationCustomMetadataUtility();
             Boolean isPersonAccountExist = checkAttributes.isPersonAccountsEnabled();
-            Boolean isIsActiveOnAccountExist = checkAttributes.isFieldExisting('isActive', 'Account');
+            Map<String, Schema.SObjectField> accountDescribeFields =
+                Schema.SObjectType.Account.fields.getMap();
+            Boolean hasStatusField = accountDescribeFields.containsKey('Status__c');
+            Boolean hasLegacyIsActiveField = accountDescribeFields.containsKey('isActive');
+            Boolean hasIsPersonAccountField = accountDescribeFields.containsKey('IsPersonAccount');
 
             for (IDP_User_Registration_User_Mapping__mdt matchingRole_rec : matchingRole_list)
             {
@@ -371,49 +371,73 @@ public with sharing class UserRegistrationService{
                         }
                     }
 
-                    // Create - 
-                    String searchValue = ''; 
+                    // Resolve the HDID lookup field from the schema. Tests should exercise
+                    // the same HDID path as production whenever the field is available.
+                    String searchValue = '';
                     Boolean fieldExisting = false;
+                    String hdidLookupField = null;
+                    Map<String, Schema.SObjectField> accountFieldMap =
+                        Schema.SObjectType.Account.fields.getMap();
 
-                    if (data.attributeMap.ContainsKey('hdid')) {
-                        if (!Test.isRunningTest()) {
-                            fieldExisting = fetchRoles.isFieldExisting('HDID__c','Account');
-                        } else {
-                            fieldExisting = fetchRoles.isFieldExisting('AccountNumber','Account');
-                        }
+                    if (data.attributeMap.containsKey('hdid')) {
                         searchValue = data.attributeMap.get('hdid');
-                    }                        
+                        if (accountFieldMap.containsKey('HDID__c')) {
+                            hdidLookupField = 'HDID__c';
+                        } else if (Test.isRunningTest() &&
+                                accountFieldMap.containsKey('SourceSystemIdentifier')) {
+                            // Test-only fallback for orgs where the optional HDID field is absent.
+                            hdidLookupField = 'SourceSystemIdentifier';
+                        }
+                        fieldExisting = String.isNotBlank(hdidLookupField);
+                    }
 
-
-                    
-                    if (data.attributeMap.containsKey(BCSC_IDP_KEY) && data.attributeMap.containsKey('hdid') 
-                            && fieldExisting) {
-                        qryString = '';
-                        qryString += 'SELECT Id ';
+                    if (data.attributeMap.containsKey(BCSC_IDP_KEY) &&
+                            data.attributeMap.containsKey('hdid') && fieldExisting) {
+                        qryString = 'SELECT Id';
                         if (isPersonAccountExist) {
                             qryString += ', PersonContactId';
+                            if (hasIsPersonAccountField) {
+                                qryString += ', IsPersonAccount';
+                            }
                         }
-                        if (isIsActiveOnAccountExist) {
+                        if (hasStatusField) {
+                            qryString += ', Status__c';
+                        } else if (hasLegacyIsActiveField) {
                             qryString += ', isActive';
                         }
-                        if (!Test.isRunningTest()) {
-                            qryString += ' FROM Account WHERE HDID__c = \'' + escapeSoql(searchValue) + '\'';
-                        } else {
-                            qryString += ' FROM Account WHERE AccountNumber = \'' + searchValue + '\'';
-                        }
-                        if (isExistingAccountRequiredActive == true && isIsActiveOnAccountExist) {
-                            qryString += ' AND isActive = true';
+                        qryString += ' FROM Account WHERE ' + hdidLookupField + ' = \'' +
+                            escapeSoql(searchValue) + '\'';
+                        if (isExistingAccountRequiredActive == true) {
+                            if (hasStatusField) {
+                                qryString += ' AND Status__c = \'Active\'';
+                            } else if (hasLegacyIsActiveField) {
+                                // Compatibility for orgs that have only the legacy active flag.
+                                qryString += ' AND isActive = true';
+                            }
                         }
                         System.debug('qryString:: ' + qryString);
 
                         List<Account> accountList = Database.query(qryString);
                         
                         if (accountList.size() > 0) {
-                            if (isPersonAccountExist
-                                    && String.isNotBlank(String.valueOf(accountList[0].get('PersonContactId')))) {
-                                contactId = String.valueOf(accountList[0].get('PersonContactId'));
-                            } else if (!isPersonAccountExist) {
+                            Boolean matchedRecordIsPersonAccount = false;
+                            if (isPersonAccountExist && hasIsPersonAccountField) {
+                                Object isPersonValue = accountList[0].get('IsPersonAccount');
+                                matchedRecordIsPersonAccount = isPersonValue == true;
+                            }
+
+                            if (matchedRecordIsPersonAccount) {
+                                Id personContactId = (Id)accountList[0].get('PersonContactId');
+                                contactId = personContactId == null ? null : String.valueOf(personContactId);
+                            } else {
+                                // Person Accounts may be enabled org-wide while this matched Account
+                                // is a business Account. Resolve a related Contact based on the record.
                                 contactId = resolveBusinessAccountContactId(accountList[0].Id, data);
+                                if (String.isBlank(contactId) && isPersonAccountExist &&
+                                        !hasIsPersonAccountField) {
+                                    Id personContactId = (Id)accountList[0].get('PersonContactId');
+                                    contactId = personContactId == null ? null : String.valueOf(personContactId);
+                                }
                             }
                             isHdidMatch = String.isNotBlank(contactId);
                         } else {
@@ -463,7 +487,6 @@ public with sharing class UserRegistrationService{
                         } 
                         if (userBceidType)
                         {
-                            configuredBceidBusinessActive = matchingRole_rec.isAccountSetActive__c;
                             accountId = manageAccountByBceid(data, accountType,
                                 matchingRole_rec.isAccountSetActive__c, bceidProvisioningName);
                             contactId = manageContactByBceid(data, contactType, matchingRole_rec.isAccountSetActive__c, accountId, bceidProvisioningName);
@@ -612,6 +635,17 @@ public with sharing class UserRegistrationService{
                 if (String.isNotBlank(bceidProvisioningName.lastName)) {
                     newUser.LastName = bceidProvisioningName.lastName;
                 }
+                // BCeID response values are authoritative only when the SOAP parser
+                // accepted the corresponding isAllowed="true" field. Blank values
+                // never clear token/user values.
+                if (String.isNotBlank(bceidProvisioningName.email)) {
+                    newUser.Email = bceidProvisioningName.email.trim();
+                }
+                String normalizedMobile = BceidPersonData.normalizedMobile(
+                    bceidProvisioningName.mobile);
+                if (String.isNotBlank(normalizedMobile)) {
+                    newUser.MobilePhone = normalizedMobile;
+                }
             }
 
             System.debug('newUser::' + newUser);       
@@ -622,17 +656,13 @@ public with sharing class UserRegistrationService{
             }
 
             if (bceidProvisioningName != null && newUser.ContactId != null) {
+                // One Queueable owns Contact DML and then chains the business Account
+                // update. The User fields above were already saved in this transaction.
                 System.enqueueJob(new BceidContactUpdateJob(
                     newUser.ContactId, newUser.Id,
                     bceidProvisioningName.firstName, bceidProvisioningName.lastName,
-                    bceidProvisioningName.email, bceidProvisioningName.mobile, true));
-                // Works for existing business Accounts and is a no-op if a newly
-                // created Account already contains the authoritative values.
-                if (bceidProvisioningName.business != null) {
-                    System.enqueueJob(new BceidBusinessAccountUpdateJob(
-                        newUser.Id, bceidProvisioningName.business,
-                        configuredBceidBusinessActive));
-                }
+                    bceidProvisioningName.email, bceidProvisioningName.mobile,
+                    false, bceidProvisioningName.business));
             }
 
             // add user to Public Group
@@ -720,24 +750,12 @@ public with sharing class UserRegistrationService{
         
         System.debug('existingUser: ' + existingUser);
 
-        String fallbackBceidGuid = null;
-        // BCeIDGUID__c is optional across target orgs. Do not include it in the
-        // User relationship query because a package can be installed where the
-        // field is not queryable even when it is visible in a describe map.
-        // ExternalId__c stores the same BCeID user GUID when available.
-        if (existingUser.ContactId != null && processFieldcheck.isFieldExisting('ExternalId__c', 'Contact')) {
-            try {
-                List<SObject> guidContacts = Database.query(
-                    'SELECT ExternalId__c FROM Contact WHERE Id = \'' +
-                    String.escapeSingleQuotes(String.valueOf(existingUser.ContactId)) + '\' LIMIT 1'
-                );
-                if (!guidContacts.isEmpty()) {
-                    fallbackBceidGuid = String.valueOf(guidContacts[0].get('ExternalId__c'));
-                }
-            } catch (Exception e) {
-                System.debug(LoggingLevel.WARN, 'Unable to read Contact.ExternalId__c: ' + e.getMessage());
-            }
-        }
+        // Resolve the BCeID user GUID from any configured optional identifier field.
+        // Contact.BCeIDGUID__c is not mandatory; ExternalId__c and the User fields
+        // populated during registration are fallback sources when available.
+        String fallbackBceidGuid = existingUser.ContactId == null
+            ? null
+            : BceidIdentityService.resolveUserGuid(userId, existingUser.ContactId);
         BceidProvisioningName bceidProvisioningName = fetchBceidProvisioningName(data, fallbackBceidGuid);
 
          //Verify user data - to be removed prior to completion
@@ -889,23 +907,14 @@ public with sharing class UserRegistrationService{
         // add/update user role
         List<IDP_User_Registration_User_Mapping__mdt>  matchingRole_list = new List<IDP_User_Registration_User_Mapping__mdt>();
         Boolean isAllowNameUpdates = true;
-        Boolean configuredBceidBusinessActive = null;
 
         matchingRole_list.addAll(manageUserRole(data));
         for (IDP_User_Registration_User_Mapping__mdt matchingRoleRec : matchingRole_list)
         {
-            if (bceidProvisioningName != null &&
-                    matchingRoleRec.Salesforce_User_License__c == SALESFORCE_USER_LICENSE_COMMUNITY) {
-                configuredBceidBusinessActive = matchingRoleRec.isAccountSetActive__c;
-            }
             String userName = UserRegistrationService.generateUserName(data, matchingRoleRec.Username_Type__c, matchingRoleRec.Default_Domain__c);
             
             String emailAddress = UserRegistrationService.generateEmailAddress(data, userName);  
             
-            // This must not depend on optional CPSID__c being installed.
-            applyCrmContentUserSetting(
-                existingUser, matchingRoleRec.CRM_Content_User__c, true);
-
             if (matchingRoleRec.Flow_User__c) {
                 existingUser.UserPermissionsInteractionUser = true;
             } else {
@@ -954,23 +963,33 @@ public with sharing class UserRegistrationService{
           
         // Successful BCeID response is authoritative over token/fallback names.
         if (bceidProvisioningName != null) {
-            existingUser.FirstName = bceidProvisioningName.firstName;
-            existingUser.LastName = bceidProvisioningName.lastName;
+            if (String.isNotBlank(bceidProvisioningName.firstName)) {
+                existingUser.FirstName = bceidProvisioningName.firstName;
+            }
+            if (String.isNotBlank(bceidProvisioningName.lastName)) {
+                existingUser.LastName = bceidProvisioningName.lastName;
+            }
+            if (String.isNotBlank(bceidProvisioningName.email)) {
+                existingUser.Email = bceidProvisioningName.email.trim();
+            }
+            String normalizedMobile = BceidPersonData.normalizedMobile(
+                bceidProvisioningName.mobile);
+            if (String.isNotBlank(normalizedMobile)) {
+                existingUser.MobilePhone = normalizedMobile;
+            }
         }
 
         try {
             update(existingUser);
 
             if (bceidProvisioningName != null && existingUser.ContactId != null) {
+                // Queue full authorized Contact data; the same job chains the Account
+                // update after Contact DML to avoid queueable-depth and mixed-DML issues.
                 System.enqueueJob(new BceidContactUpdateJob(
                     existingUser.ContactId, existingUser.Id,
                     bceidProvisioningName.firstName, bceidProvisioningName.lastName,
-                    bceidProvisioningName.email, bceidProvisioningName.mobile, true));
-                if (bceidProvisioningName.business != null) {
-                    System.enqueueJob(new BceidBusinessAccountUpdateJob(
-                        existingUser.Id, bceidProvisioningName.business,
-                        configuredBceidBusinessActive));
-                }
+                    bceidProvisioningName.email, bceidProvisioningName.mobile,
+                    false, bceidProvisioningName.business));
             }
 
         } 
@@ -984,6 +1003,7 @@ public with sharing class UserRegistrationService{
     }
 
     @TestVisible
+
     private static List<Account> fetchPersonAccount(List<String> keyLookup, Boolean isActiveRequired, Auth.UserData data, String sourceAttribute) 
     {
         UserRegistrationCustomMetadataUtility utilityTool = new UserRegistrationCustomMetadataUtility();
@@ -1068,29 +1088,62 @@ public with sharing class UserRegistrationService{
             BceidSoapClient.SoapResult result = BceidServiceFacade.getAccountDetail(
                 cfg, onlineServiceId, 'Business', '', userGuid, '', userGuid, 'Business');
             if (result == null || result.httpStatus == null || result.httpStatus < 200 || result.httpStatus >= 300 ||
-                result.hasSoapFault == true || result.responseCode != 'Success' ||
-                String.isBlank(result.firstName) || String.isBlank(result.lastName)) {
-                System.debug(LoggingLevel.ERROR, 'BCeID provisioning name sync returned a non-success result.');
+                result.hasSoapFault == true || result.responseCode != 'Success') {
+                System.debug(LoggingLevel.ERROR, 'BCeID provisioning sync returned a non-success result.');
                 return null;
             }
             BceidBusinessAccountMapper.BusinessData business =
                 BceidBusinessAccountMapper.fromSoapResult(result);
             String tokenBusinessGuid = data.attributeMap.get('bceid_business_id');
             if (business == null || String.isBlank(business.guid) ||
-                String.isBlank(tokenBusinessGuid) ||
-                !business.guid.equalsIgnoreCase(tokenBusinessGuid)) {
-                // Never apply business attributes to an Account whose token
-                // does not identify the same BCeID business. Name sync can proceed.
+                (String.isNotBlank(tokenBusinessGuid) &&
+                 !business.guid.equalsIgnoreCase(tokenBusinessGuid))) {
+                // If the token supplies a business GUID, it must match the SOAP
+                // response. If it is absent, the SOAP GUID can still be verified
+                // against the Account identifier by BceidBusinessAccountUpdateJob.
                 System.debug(LoggingLevel.WARN,
-                    'BCeID business sync skipped: response/token business GUID did not match.');
+                    'BCeID business sync skipped: response business GUID is blank or mismatches token.');
                 business = null;
             }
-            return new BceidProvisioningName(result.firstName, result.lastName,
-                result.contactEmail, result.contactTelephone, business);
+            Boolean hasPersonValues = String.isNotBlank(result.firstName) ||
+                String.isNotBlank(result.lastName) || String.isNotBlank(result.contactEmail) ||
+                String.isNotBlank(result.contactTelephone);
+            Boolean hasBusinessValues = business != null && String.isNotBlank(business.guid);
+            if (!hasPersonValues && !hasBusinessValues) {
+                System.debug(LoggingLevel.WARN,
+                    'BCeID provisioning sync returned no authorized fields to apply.');
+                return null;
+            }
+            return new BceidProvisioningName(
+                result.firstName, result.lastName, result.contactEmail,
+                result.contactTelephone, business);
         } catch (Exception e) {
             System.debug(LoggingLevel.ERROR, 'BCeID provisioning name sync failed: ' + e.getMessage());
             return null;
         }
+    }
+
+    // Test-only wrappers let companion test classes exercise BCeID mapping paths
+    // without invoking the external identity-provider flow or HTTP callout.
+    @TestVisible
+    private static String testManageBceidAccount(Auth.UserData data, String recordTypeName) {
+        return manageAccountByBceid(data, recordTypeName, false, null);
+    }
+
+    @TestVisible
+    private static String testManageBceidAccountWithActive(
+        Auth.UserData data, String recordTypeName, Boolean isAccountSetActive
+    ) {
+        return manageAccountByBceid(data, recordTypeName, isAccountSetActive, null);
+    }
+
+    @TestVisible
+    private static String testManageBceidContact(
+        Auth.UserData data, String recordTypeName, Id accountId
+    ) {
+        return manageContactByBceid(
+            data, recordTypeName, false, accountId == null ? null : String.valueOf(accountId), null
+        );
     }
 
     private static String manageContactByBceid(Auth.UserData data, String optionalRecordType,
@@ -1198,15 +1251,6 @@ public with sharing class UserRegistrationService{
             } else if (data.attributeMap.containsKey('email')) {
                 newContact.Email = data.attributeMap.get('email');
             }
-            // SOAP-authorized values supersede token values for a new Contact.
-            if (bceidProvisioningName != null) {
-                if (String.isNotBlank(bceidProvisioningName.email)) {
-                    newContact.Email = bceidProvisioningName.email;
-                }
-                String soapMobile = BceidPersonData.normalizedMobile(
-                    bceidProvisioningName.mobile);
-                if (soapMobile != null) newContact.MobilePhone = soapMobile;
-            }
 
             if (processRoles.isFieldExisting('RecordTypeId', 'Contact') && contactRecordTypeId != null) {
                 newContact.put('RecordTypeId', contactRecordTypeId);
@@ -1244,27 +1288,6 @@ public with sharing class UserRegistrationService{
         return newCommUser;
     }
 
-
-    // Test-only entry points exercise the same BCeID Account/Contact matching
-    // paths as registration, without invoking SSO or making HTTP callouts.
-    @TestVisible
-    private static String testManageBceidAccount(Auth.UserData data, String recordTypeName) {
-        return manageAccountByBceid(data, recordTypeName, false, null);
-    }
-
-    // Exercise the actual role-mapping status passed into new business Account DML.
-    @TestVisible
-    private static String testManageBceidAccountWithActive(Auth.UserData data,
-            String recordTypeName, Boolean isAccountSetActive) {
-        return manageAccountByBceid(data, recordTypeName, isAccountSetActive, null);
-    }
-
-    @TestVisible
-    private static String testManageBceidContact(Auth.UserData data,
-            String recordTypeName, Id accountId) {
-        return manageContactByBceid(data, recordTypeName, false,
-            String.valueOf(accountId), null);
-    }
 
     private static String manageAccountByBceid(Auth.UserData data, String optionalRecordType,
             Boolean isAccountSetActive, BceidProvisioningName bceidProvisioningName)
@@ -1308,12 +1331,28 @@ public with sharing class UserRegistrationService{
             );
         }
 
-        if (data.attributeMap.containsKey('bceid_business_id')) {
+        if (data.attributeMap != null && data.attributeMap.containsKey('bceid_business_id')) {
             searchBusinessId = data.attributeMap.get('bceid_business_id');
         }
-        if (data.attributeMap.containsKey('bceid_business_legalName')) {
+        if (String.isBlank(searchBusinessId) && bceidProvisioningName != null &&
+                bceidProvisioningName.business != null) {
+            searchBusinessId = bceidProvisioningName.business.guid;
+        }
+        if (data.attributeMap != null && data.attributeMap.containsKey('bceid_business_legalName')) {
             businessLegalName = data.attributeMap.get('bceid_business_legalName');
         }
+
+        String mappedBusinessLegalName =
+            bceidProvisioningName != null && bceidProvisioningName.business != null
+                ? bceidProvisioningName.business.legalName : null;
+        String fallbackAccountName = String.isNotBlank(businessLegalName)
+            ? businessLegalName
+            : (String.isNotBlank(mappedBusinessLegalName)
+                ? mappedBusinessLegalName
+                : (String.isNotBlank(searchBusinessId) ? searchBusinessId : 'BCeID Business'));
+        Boolean canMatchByName = String.isNotBlank(businessLegalName)
+            || String.isNotBlank(mappedBusinessLegalName)
+            || String.isNotBlank(searchBusinessId);
 
         List<Account> existingAccount = new List<Account>();
 
@@ -1354,16 +1393,10 @@ public with sharing class UserRegistrationService{
             }
         }
 
-        // Final cross-org fallback uses standard Account fields only. This keeps the
-        // package functional where neither optional BCeID identifier field is usable.
-        // A GUID-only token creates an Account named after that GUID. If
-        // optional identifier fields are unavailable, look up that same stable
-        // name rather than creating another Account on every registration.
-        String fallbackBusinessName = String.isNotBlank(businessLegalName)
-            ? businessLegalName : searchBusinessId;
-        if (existingAccount.isEmpty() && String.isNotBlank(fallbackBusinessName)) {
+        // Final cross-org fallback uses the same name chosen for creation.
+        if (existingAccount.isEmpty() && canMatchByName && String.isNotBlank(fallbackAccountName)) {
             String nameQuery = 'SELECT Id, RecordTypeId FROM Account WHERE Name = \'' +
-                escapeSoql(fallbackBusinessName) + '\'';
+                escapeSoql(fallbackAccountName) + '\'';
             if (String.isNotBlank(optionalRecordType)) {
                 nameQuery += ' AND RecordType.DeveloperName = \'' +
                     escapeSoql(optionalRecordType) + '\'';
@@ -1374,9 +1407,7 @@ public with sharing class UserRegistrationService{
 
         if (existingAccount.isEmpty()) {
             Account newAccount = new Account();
-            newAccount.Name = String.isNotBlank(businessLegalName)
-                ? businessLegalName
-                : (String.isNotBlank(searchBusinessId) ? searchBusinessId : 'BCeID Business');
+            newAccount.Name = fallbackAccountName;
 
             if (processRoles.isFieldExisting('BCeIDGUID__c', 'Account') &&
                     String.isNotBlank(searchBusinessId)) {
@@ -1389,14 +1420,19 @@ public with sharing class UserRegistrationService{
             if (accountRecordTypeId != null) {
                 newAccount.put('RecordTypeId', accountRecordTypeId);
             }
-            // Honour the User Registration Role Mapping on initial business creation.
-            // stripInaccessible(CREATABLE) below enforces the running user's FLS.
-            if (processRoles.isFieldExisting('isActive', 'Account')) {
-                newAccount.put('isActive', isAccountSetActive == true);
-            }
             if (bceidProvisioningName != null && bceidProvisioningName.business != null) {
                 BceidBusinessAccountMapper.apply(newAccount, bceidProvisioningName.business);
             }
+
+            // The role mapping controls the Account active status. Use the canonical
+            // Status__c field; retain the legacy boolean only when that field is absent.
+            if (processRoles.isFieldExisting('Status__c', 'Account')) {
+                newAccount.put('Status__c', isAccountSetActive == true ? 'Active' : 'Inactive');
+            } else if (processRoles.isFieldExisting('isActive', 'Account')) {
+                newAccount.put('isActive', isAccountSetActive == true);
+            }
+            // Keep the deterministic fallback name stable regardless of optional mapping.
+            newAccount.Name = fallbackAccountName;
 
             // Remove fields that exist in describe metadata but aren't creatable for
             // this org/user before DML. Standard required Account data is preserved.
@@ -1600,6 +1636,7 @@ public with sharing class UserRegistrationService{
     }
 
     @TestVisible
+
     private static Id resolveBusinessAccountContactId(Id accountId, Auth.UserData data) {
         if (accountId == null) return null;
         String searchEmail = data == null ? null : data.email;
@@ -1671,6 +1708,7 @@ public with sharing class UserRegistrationService{
     }
     
     @TestVisible
+    
     private static List<IDP_User_Registration_User_Mapping__mdt> manageUserRole(Auth.UserData data)
     {
          /*

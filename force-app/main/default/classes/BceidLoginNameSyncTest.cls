@@ -24,6 +24,24 @@ private class BceidLoginNameSyncTest {
             TimeZoneSidKey = 'America/Vancouver',
             Username = 'bceid.flow.' + uniqueValue + '@example.com'
         );
+
+        // Experience Cloud Contacts require their Account owner to have a role.
+        UserRole roleForPortalAccount = new UserRole(
+            Name = 'BCeID Login Sync Test Role'
+        );
+        insert roleForPortalAccount;
+        insert new User(
+            Alias = 'bcowner',
+            Email = 'bceid.owner.' + uniqueValue + '@example.com',
+            EmailEncodingKey = 'UTF-8',
+            LastName = 'BCeID Test Account Owner',
+            LanguageLocaleKey = 'en_US',
+            LocaleSidKey = 'en_US',
+            ProfileId = p.Id,
+            TimeZoneSidKey = 'America/Vancouver',
+            Username = 'bceid.owner.' + uniqueValue + '@example.com',
+            UserRoleId = roleForPortalAccount.Id
+        );
     }
 
     private static User getTestUser() {
@@ -31,6 +49,15 @@ private class BceidLoginNameSyncTest {
             SELECT Id, FirstName, LastName
             FROM User
             WHERE Alias = 'bceifl'
+            LIMIT 1
+        ];
+    }
+
+    private static User getRoleOwner() {
+        return [
+            SELECT Id, UserRoleId
+            FROM User
+            WHERE Alias = 'bcowner' AND UserRoleId != null
             LIMIT 1
         ];
     }
@@ -180,7 +207,23 @@ private class BceidLoginNameSyncTest {
 
     @IsTest
     static void testCalloutUsesGuidFromContactAndSyncsNames() {
-        Account accountRecord = new Account(Name = 'BCeID Login Sync Test Account');
+        Account accountRecord = new Account(
+            Name = 'BCeID Login Sync Test Account',
+            OwnerId = getRoleOwner().Id
+        );
+        Map<String, Schema.SObjectField> accountFields = Schema.SObjectType.Account.fields.getMap();
+        Boolean canVerifyBusinessAccountUpdate = false;
+        if (accountFields.containsKey('BCeIDGUID__c') &&
+                accountFields.get('BCeIDGUID__c').getDescribe().isCreateable()) {
+            accountRecord.put('BCeIDGUID__c', 'LOGIN-SYNC-BUSINESS-GUID');
+            canVerifyBusinessAccountUpdate = accountFields.get('BCeIDGUID__c').getDescribe().isAccessible();
+        }
+        if (accountFields.containsKey('ExternalId__c') &&
+                accountFields.get('ExternalId__c').getDescribe().isCreateable()) {
+            accountRecord.put('ExternalId__c', 'LOGIN-SYNC-BUSINESS-GUID');
+            canVerifyBusinessAccountUpdate = canVerifyBusinessAccountUpdate ||
+                accountFields.get('ExternalId__c').getDescribe().isAccessible();
+        }
         insert accountRecord;
         Contact c = createContact(
             'Original',
@@ -215,18 +258,42 @@ private class BceidLoginNameSyncTest {
         // whether this specific sync transaction performed Contact DML.
         System.assertNotEquals(null, results[0].contactUpdated);
         System.assertEquals(true, results[0].userUpdateQueued);
+        System.assertEquals(true, results[0].accountUpdateQueued,
+            'The authorized business section should queue Account synchronization.');
 
+        // Deliver the separate User-update platform event after Contact DML.
+        Test.getEventBus().deliver();
         c = [
-            SELECT FirstName, LastName
+            SELECT FirstName, LastName, Email, MobilePhone
             FROM Contact
             WHERE Id = :c.Id
         ];
 
         System.assertEquals('Deepak', c.FirstName);
         System.assertEquals('Test Operator 1', c.LastName);
-        // The User update is chained after Contact DML in a separate Queueable
-        // transaction. Assert that it was queued here; BceidUserUpdateJobTest
-        // verifies the separate User-update transaction.
+        System.assertEquals('deepak.updated@example.com', c.Email);
+        System.assertEquals('6045550123', c.MobilePhone);
+        if (canVerifyBusinessAccountUpdate) {
+            Account synchronizedAccount = [
+                SELECT Name, Phone, BillingStreet, ShippingStreet, BillingCity, ShippingCity
+                FROM Account WHERE Id = :accountRecord.Id LIMIT 1
+            ];
+            System.assertEquals('BCeID Updated Business', synchronizedAccount.Name);
+            System.assertEquals('6045550123', synchronizedAccount.Phone);
+            System.assertEquals('123 Updated Road\nSuite 2', synchronizedAccount.BillingStreet);
+            System.assertEquals(synchronizedAccount.BillingStreet, synchronizedAccount.ShippingStreet);
+            System.assertEquals('Vancouver', synchronizedAccount.BillingCity);
+            System.assertEquals(synchronizedAccount.BillingCity, synchronizedAccount.ShippingCity);
+        }
+        // The User update is published as a platform event to avoid mixed DML.
+        User synchronizedUser = [
+            SELECT FirstName, LastName, Email, MobilePhone
+            FROM User WHERE Id = :u.Id LIMIT 1
+        ];
+        System.assertEquals('Deepak', synchronizedUser.FirstName);
+        System.assertEquals('Test Operator 1', synchronizedUser.LastName);
+        System.assertEquals('deepak.updated@example.com', synchronizedUser.Email);
+        System.assertEquals('6045550123', synchronizedUser.MobilePhone);
         System.assertEquals(true, results[0].userUpdateQueued);
     }
 
@@ -243,7 +310,7 @@ private class BceidLoginNameSyncTest {
             '64510436D6CF4EE68B1DFE39111FFE74'
         );
 
-        Test.setMock(HttpCalloutMock.class, new SuccessMock());
+        Test.setMock(HttpCalloutMock.class, new SuccessMock(false));
 
         Test.startTest();
         List<BceidLoginNameSync.Response> results =
@@ -258,6 +325,7 @@ private class BceidLoginNameSyncTest {
         System.assertEquals(false, results[0].skipped);
         System.assertEquals(false, results[0].contactUpdated);
         System.assertEquals(false, results[0].userUpdateQueued);
+        System.assertEquals(false, results[0].accountUpdateQueued);
         System.assertEquals(null, results[0].userUpdateJobId);
     }
 
@@ -281,6 +349,12 @@ private class BceidLoginNameSyncTest {
     }
 
     private class SuccessMock implements HttpCalloutMock {
+        private Boolean includeContactAndBusiness;
+        SuccessMock() { this(true); }
+        SuccessMock(Boolean includeContactAndBusiness) {
+            this.includeContactAndBusiness = includeContactAndBusiness;
+        }
+
         public HTTPResponse respond(HTTPRequest req) {
             System.assertEquals('POST', req.getMethod());
             System.assertEquals(
@@ -300,6 +374,26 @@ private class BceidLoginNameSyncTest {
                 'Content-Type',
                 'text/xml; charset=utf-8'
             );
+            String contactAndBusinessXml = includeContactAndBusiness
+                ? '<contact>' +
+                    '<email isAllowed="true"><value>deepak.updated@example.com</value></email>' +
+                    '<telephone isAllowed="true"><value>+1 (604) 555-0123</value></telephone>' +
+                  '</contact>' +
+                  '<business>' +
+                    '<guid isAllowed="true"><value>LOGIN-SYNC-BUSINESS-GUID</value></guid>' +
+                    '<legalName isAllowed="true"><value>BCeID Updated Business</value></legalName>' +
+                    '<businessNumber isAllowed="true"><value>123456789</value></businessNumber>' +
+                    '<doingBusinessAs isAllowed="true"><value>Updated DBA</value></doingBusinessAs>' +
+                    '<address>' +
+                      '<addressLine1 isAllowed="true"><value>123 Updated Road</value></addressLine1>' +
+                      '<addressLine2 isAllowed="true"><value>Suite 2</value></addressLine2>' +
+                      '<city isAllowed="true"><value>Vancouver</value></city>' +
+                      '<postal isAllowed="true"><value>V5Z 4C2</value></postal>' +
+                      '<province isAllowed="true"><value>BC</value></province>' +
+                      '<country isAllowed="true"><value>CA</value></country>' +
+                    '</address>' +
+                  '</business>'
+                : '';
             res.setBody(
                 '<?xml version="1.0" encoding="utf-8"?>' +
                 '<soap:Envelope ' +
@@ -312,6 +406,7 @@ private class BceidLoginNameSyncTest {
                 '<failureCode>Void</failureCode>' +
                 '<message />' +
                 '<account>' +
+                contactAndBusinessXml +
                 '<individualIdentity>' +
                 '<name>' +
                 '<firstname isAllowed="true">' +

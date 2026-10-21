@@ -52,6 +52,8 @@ private class BceidIdentityServiceTest {
         r.failureCode = 'Void';
         r.firstName = 'Deepak';
         r.lastName = 'Test Operator 1';
+        r.contactEmail = 'deepak.updated@example.com';
+        r.contactTelephone = '6045550123';
         return r;
     }
 
@@ -80,9 +82,12 @@ private class BceidIdentityServiceTest {
         User u = [SELECT Id, FirstName, LastName FROM User WHERE Alias='bceidm' LIMIT 1];
         Contact c = createContact('Deepak', 'Test Operator 1');
 
+        BceidSoapClient.SoapResult namesOnly = successfulResult();
+        namesOnly.contactEmail = null;
+        namesOnly.contactTelephone = null;
         Test.startTest();
         BceidIdentityService.SyncResult sr =
-            BceidIdentityService.sync(successfulResult(), u.Id, c.Id);
+            BceidIdentityService.sync(namesOnly, u.Id, c.Id);
         Test.stopTest();
 
         System.assertEquals(false, sr.contactUpdated);
@@ -97,9 +102,12 @@ private class BceidIdentityServiceTest {
         User u = getTestUser();
         Contact c = createContact('Deepak', 'Test Operator 1');
 
+        BceidSoapClient.SoapResult namesOnly = successfulResult();
+        namesOnly.contactEmail = null;
+        namesOnly.contactTelephone = null;
         Test.startTest();
         BceidIdentityService.SyncResult sr =
-            BceidIdentityService.sync(successfulResult(), u.Id, c.Id);
+            BceidIdentityService.sync(namesOnly, u.Id, c.Id);
         System.assertEquals(false, sr.contactUpdated);
         System.assertEquals(false, sr.contactUpdateQueued);
         System.assertEquals(true, sr.userUpdateQueued);
@@ -112,18 +120,20 @@ private class BceidIdentityServiceTest {
     }
 
     @IsTest
-    static void testRejectsMissingNames() {
+    static void testAcceptsPartialNamesWhenAuthorizedContactDataExists() {
         User u = getTestUser();
         Contact c = createContact('Original', 'Contact');
         BceidSoapClient.SoapResult r = successfulResult();
         r.firstName = null;
+        r.lastName = null;
+        r.contactEmail = 'allowed@example.com';
+        r.contactTelephone = '6045550123';
 
-        try {
-            BceidIdentityService.sync(r, u.Id, c.Id);
-            System.assert(false, 'Expected BceidIdentityException.');
-        } catch (BceidIdentityService.BceidIdentityException e) {
-            System.assert(e.getMessage().contains('first and last name'));
-        }
+        Test.startTest();
+        BceidIdentityService.SyncResult sr = BceidIdentityService.sync(r, u.Id, c.Id);
+        Test.stopTest();
+        System.assertNotEquals(null, sr.contactUpdateJobId,
+            'Authorized email/telephone should be synchronized even when names are not authorized.');
     }
     private static void expectInvalid(BceidSoapClient.SoapResult result, String marker) {
         try {
@@ -154,11 +164,22 @@ private class BceidIdentityServiceTest {
         expectInvalid(response, 'not successful');
         response.responseCode = 'Success';
         response.firstName = '';
-        expectInvalid(response, 'first and last name');
-        response.firstName = 'Deepak';
-        response.lastName = '  ';
-        expectInvalid(response, 'first and last name');
+        response.lastName = '';
+        response.contactEmail = null;
+        response.contactTelephone = null;
+        response.businessGuid = null;
+        response.businessLegalName = null;
+        response.businessNumber = null;
+        response.businessDoingBusinessAs = null;
+        response.businessAddressLine1 = null;
+        response.businessAddressLine2 = null;
+        response.businessCity = null;
+        response.businessPostal = null;
+        response.businessProvince = null;
+        response.businessCountry = null;
+        expectInvalid(response, 'authorized person or business fields');
     }
+
 
     @IsTest
     static void testRequiredArgumentsAndCurrentUserWithoutContact() {

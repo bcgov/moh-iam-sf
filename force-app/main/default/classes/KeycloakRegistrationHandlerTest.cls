@@ -90,11 +90,14 @@ public class KeycloakRegistrationHandlerTest {
     if (psg.Status != 'Updated') {
       Test.calculatePermissionSetGroup(psg.Id);
     }
+    // Use Schema directly so test fixture population uses the same API-name
+    // existence check as UserRegistrationService. This avoids relying on the
+    // utility's normalization behavior when deciding whether to populate HDID.
+    Map<String, Schema.SObjectField> accountFields =
+        Schema.SObjectType.Account.fields.getMap();
+    ACCOUNT_HDID_EXISTS = accountFields.containsKey('HDID__c');
+
     UserRegistrationCustomMetadataUtility utilityChecks = new UserRegistrationCustomMetadataUtility();
-    if (utilityChecks.isFieldExisting('HDID__c', 'Account'))
-    {
-        ACCOUNT_HDID_EXISTS = true;
-    } 
     if (utilityChecks.isFieldExisting('HealthCloudGA__SourceSystemId__c', 'Account'))
     {
         HC_SOURCESYSTEMID_PC_EXISTS = true;
@@ -303,7 +306,41 @@ public class KeycloakRegistrationHandlerTest {
 
         newPersonAccounts.Add(newPersonAccount5);      
 
+        // The HDID lookup requires active Accounts when the role mapping requests it.
+        // Populate the configured Status__c field on every fixture, not only Person Accounts.
+        Map<String, Schema.SObjectField> accountFieldsForTest =
+            Schema.SObjectType.Account.fields.getMap();
+        for (Account testAccount : newPersonAccounts) {
+            if (accountFieldsForTest.containsKey('Status__c')) {
+                testAccount.put('Status__c', 'Active');
+            }
+            // Preserve compatibility with orgs that use a legacy active flag.
+            if (accountFieldsForTest.containsKey('isActive')) {
+                testAccount.put('isActive', true);
+            }
+        }
         insert newPersonAccounts;
+
+        // The non-BCeID HDID tests resolve an existing business Account and then
+        // require an associated Contact. Person Accounts already have a
+        // PersonContactId, so only create these fixture Contacts when this org
+        // does not support Person Accounts.
+        if (!isPersonAccountsAvailable) {
+            insert new List<Contact>{
+                new Contact(
+                    AccountId = newPersonAccount4.Id,
+                    FirstName = 'BCSC Test',
+                    LastName = 'Account Four Contact',
+                    Email = 'testuserComm@example.org'
+                ),
+                new Contact(
+                    AccountId = newPersonAccount5.Id,
+                    FirstName = 'BCSC Test',
+                    LastName = 'Account Five Contact',
+                    Email = 'testuser@example.org'
+                )
+            };
+        }
         
         Group testGroup = new Group();
         testGroup.Name = 'Test_Group';
@@ -800,9 +837,17 @@ public class KeycloakRegistrationHandlerTest {
         User runtimeUser = [
             SELECT Id FROM User WHERE Email = 'systemuser@testorg.com' LIMIT 1
         ];
-        Account businessAccount = [
-            SELECT Id FROM Account WHERE AccountNumber = 'newPersonAccount' LIMIT 1
-        ];
+        // Create a business Account explicitly. The shared fixture's
+        // AccountNumber='newPersonAccount' can identify a Person Account when
+        // Person Accounts are enabled, and Contacts cannot use that AccountId.
+        Account businessAccount = new Account(
+            Name = 'BCeID Authoritative Name Test Business',
+            AccountNumber = 'BCeIDTest' + String.valueOf(DateTime.now().getTime()),
+            OwnerId = runtimeUser.Id
+        );
+        System.runAs(runtimeUser) {
+            insert businessAccount;
+        }
 
         Contact c = new Contact(
             AccountId = businessAccount.Id,
@@ -816,7 +861,9 @@ public class KeycloakRegistrationHandlerTest {
         if (contactGuidField != null && contactGuidField.getDescribe().isCreateable()) {
             c.put('BCeIDGUID__c', '64510436D6CF4EE68B1DFE39111FFE74');
         }
-        insert c;
+        System.runAs(runtimeUser) {
+            insert c;
+        }
 
         Profile communityProfile = [
             SELECT Id FROM Profile

@@ -168,6 +168,8 @@ private class BceidContactUpdateJobTest {
             true
         ).execute(null);
         Test.stopTest();
+        // Deliver the User update event in its separate asynchronous transaction.
+        Test.getEventBus().deliver();
 
         Contact afterContact = getContact();
         User afterUser = getUser();
